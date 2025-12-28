@@ -1,0 +1,127 @@
+ Create Home Page
+Purpose of the Home Page
+
+The Home Page is the main entry point of ScrollPet.
+Its purpose is to introduce the platform, help users understand what ScrollPet is, and guide them to chat rooms or login with minimal friction.
+
+Header (Top Navigation Bar)
+
+The header is visible on all pages and stays consistent.
+
+Header Menu Items
+
+From left to right:
+
+Home – Returns the user to the homepage
+
+Chat Rooms – Takes users to pet-based chat rooms
+
+About Us – Explains what ScrollPet is and its mission
+
+FAQ – Answers common user questions
+
+Contact Us – Allows users to reach the ScrollPet team
+
+Authentication Button (Right Side)
+
+Before login:
+
+Show Login button
+
+After login:
+
+Show Logout button
+
+(Optional later: show user profile icon)
+
+This makes login status clear at all times.
+
+Main Home Page Content
+1. Hero Section (Top Section)
+
+A friendly headline, for example:
+“A Community for Pet Lovers, Built Around Trust and Care”
+
+Short supporting text explaining ScrollPet in simple words
+
+Primary call-to-action button:
+
+“Join the Community” (leads to Login / Signup)
+
+If already logged in → “Go to Chat Rooms”
+
+2. What Is ScrollPet? (Intro Section)
+
+A short explanation of the platform:
+
+ScrollPet is a chat-first community platform for pet lovers
+
+Users connect based on:
+
+Pet type
+
+Breed
+
+Location
+
+Focused on respectful discussion and trusted information
+
+This section builds understanding and trust.
+
+3. How It Works (Simple Steps)
+
+Displayed as 3–4 simple steps:
+
+Sign up or log in
+
+Choose your pet category
+
+Join local or global chat rooms
+
+Learn and connect with other pet lovers
+
+Very simple, visual, and easy to understand.
+
+4. Community & Safety Section
+
+Brief explanation that highlights trust:
+
+Moderated chat rooms
+
+Clear community rules
+
+Reporting and blocking features
+
+Admin-controlled news posts
+
+Purpose: reassure new users that the platform is safe and serious.
+
+5. Footer (Bottom Section)
+
+The footer repeats important links:
+
+Home
+
+Chat Rooms
+
+About Us
+
+FAQ
+
+Contact Us
+
+Optional footer text:
+
+“© ScrollPet – Built for pet lovers”
+
+Home Page Behavior Summary
+
+Anyone can view the Home Page
+
+Login button changes to Logout after authentication
+
+Home Page stays simple, clean, and informative
+
+Designed to guide users toward joining the community
+
+use only Black & White and #007699 #FF6600 colours
