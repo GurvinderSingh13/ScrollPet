@@ -1,8 +1,7 @@
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { 
   Menu,
   X,
@@ -11,7 +10,6 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import logoImage from "@assets/Scrollpet_logo_1766997907297.png";
-import bgPattern from "@assets/generated_images/minimalist_abstract_pattern_for_login_page_background.png";
 
 export default function Login() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -29,16 +27,7 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-white font-sans text-foreground overflow-x-hidden selection:bg-primary/20 flex flex-col relative">
-      {/* Background Pattern */}
-      <div 
-        className="absolute inset-0 z-0 opacity-40 pointer-events-none"
-        style={{ 
-          backgroundImage: `url(${bgPattern})`,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center'
-        }}
-      ></div>
+    <div className="min-h-screen bg-white font-sans text-foreground overflow-x-hidden flex flex-col relative">
 
       {/* Header */}
       <header className="sticky top-0 z-50 w-full bg-background/80 backdrop-blur-md border-b border-border/40">
@@ -100,74 +89,66 @@ export default function Login() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
-          className="w-full max-w-md bg-white/90 backdrop-blur-sm p-8 md:p-10 rounded-3xl shadow-2xl border border-white/50"
+          className="w-full max-w-lg"
         >
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-extrabold text-foreground mb-2">Log In</h1>
-            <p className="text-muted-foreground text-sm">Welcome back to ScrollPet</p>
+          <div className="text-center mb-10">
+            <h1 className="text-4xl font-bold text-foreground mb-2">Log In</h1>
           </div>
 
           <form onSubmit={handleLogin} className="space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="username" className="text-sm font-bold text-gray-700">Email or User Name*</Label>
+            <div className="space-y-5">
               <Input 
                 id="username" 
-                placeholder="Email or User Name" 
+                placeholder="Email or User Name*" 
                 required 
-                className="rounded-xl border-gray-200 bg-gray-50/50 py-6 px-4 focus:ring-2 focus:ring-primary/20 transition-all"
+                className="rounded-full border border-gray-200 bg-white py-6 px-6 text-base placeholder:text-gray-400 focus:border-primary/50 focus:ring-0 transition-all shadow-sm"
               />
-            </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="password" className="text-sm font-bold text-gray-700">Password</Label>
-              <Input 
-                id="password" 
-                type="password" 
-                placeholder="Enter Password" 
-                required 
-                className="rounded-xl border-gray-200 bg-gray-50/50 py-6 px-4 focus:ring-2 focus:ring-primary/20 transition-all"
-              />
-              <div className="flex justify-end">
-                <Link href="/forgot-password">
-                  <span className="text-xs font-semibold text-primary hover:underline cursor-pointer">Forget Password?</span>
-                </Link>
+              <div className="space-y-2">
+                <Input 
+                  id="password" 
+                  type="password" 
+                  placeholder="Enter Password" 
+                  required 
+                  className="rounded-full border border-gray-200 bg-white py-6 px-6 text-base placeholder:text-gray-400 focus:border-primary/50 focus:ring-0 transition-all shadow-sm"
+                />
+                <div className="px-2">
+                  <Link href="/forgot-password">
+                    <span className="text-sm font-medium text-blue-500 hover:text-blue-600 cursor-pointer underline decoration-blue-500/30 underline-offset-4">Forgot Password?</span>
+                  </Link>
+                </div>
               </div>
             </div>
 
-            <Button 
-              type="submit" 
-              className="w-full py-6 rounded-full text-lg font-bold bg-[#FF6600] hover:bg-[#FF6600]/90 text-white shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all"
-              disabled={isLoading}
-            >
-              {isLoading ? "Logging in..." : "Log In"}
-            </Button>
+            <div className="pt-2 flex justify-center">
+              <Button 
+                type="submit" 
+                className="w-48 py-6 rounded-full text-lg font-bold bg-[#FF6600] hover:bg-[#FF6600]/90 text-white shadow-md hover:shadow-lg transition-all"
+                disabled={isLoading}
+              >
+                {isLoading ? "Logging in..." : "Log In"}
+              </Button>
+            </div>
           </form>
 
-          <div className="relative my-8">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t border-gray-200" />
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-white px-2 text-muted-foreground">Or continue with</span>
-            </div>
-          </div>
-
-          <div className="flex flex-col sm:flex-row gap-4 mb-8">
-            <Button variant="outline" className="w-full py-6 rounded-full border-2 hover:bg-blue-50 hover:text-blue-600 transition-colors gap-2 font-bold group">
-              <Facebook size={20} className="text-blue-600 group-hover:scale-110 transition-transform" />
-              <span className="text-sm">Facebook</span>
+          <div className="flex flex-col sm:flex-row gap-4 mt-8 justify-center">
+            <Button className="flex-1 max-w-[240px] py-6 rounded-full bg-[#3b5998] hover:bg-[#3b5998]/90 text-white font-medium shadow-sm transition-all gap-3">
+              <Facebook size={20} fill="white" className="text-white" />
+              <span className="text-sm">Log In with Facebook</span>
             </Button>
-            <Button variant="outline" className="w-full py-6 rounded-full border-2 hover:bg-red-50 hover:text-red-600 transition-colors gap-2 font-bold group">
+            <Button variant="outline" className="flex-1 max-w-[240px] py-6 rounded-full border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 font-medium shadow-sm transition-all gap-3">
                {/* Using Chrome icon as Google placeholder since Lucide doesn't have Google */}
-              <Chrome size={20} className="text-red-500 group-hover:scale-110 transition-transform" />
-              <span className="text-sm">Google</span>
+               <div className="relative flex items-center justify-center w-5 h-5">
+                 <span className="text-lg font-bold">G</span>
+               </div>
+              <span className="text-sm">Log In with Google</span>
             </Button>
           </div>
 
-          <div className="text-center text-sm font-medium">
-            <span className="text-gray-500">Don't have account? </span>
+          <div className="text-center text-sm font-medium mt-10 text-gray-500">
+            <span>Don't have account? </span>
             <Link href="/signup">
-              <span className="text-primary hover:underline cursor-pointer font-bold">Create one</span>
+              <span className="text-blue-500 hover:underline cursor-pointer underline-offset-4 decoration-blue-500/30">Create one</span>
             </Link>
           </div>
         </motion.div>
