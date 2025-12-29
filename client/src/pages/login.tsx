@@ -21,8 +21,9 @@ export default function Login() {
     setIsLoading(true);
     // Simulate login
     setTimeout(() => {
+      localStorage.setItem('isLoggedIn', 'true');
       setIsLoading(false);
-      setLocation('/');
+      setLocation('/chat-interface');
     }, 1500);
   };
 

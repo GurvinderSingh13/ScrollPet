@@ -43,13 +43,15 @@ const CHAT_ROOMS = [
 
 export default function ChatRooms() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [isLoggedIn, setIsLoggedIn] = useState(false); // Should be checked from global state/context in real app
+  const [isLoggedIn, setIsLoggedIn] = useState(() => localStorage.getItem('isLoggedIn') === 'true');
   const [, setLocation] = useLocation();
 
   const handleRoomClick = (roomId: string) => {
-    // Always redirect to login if not logged in
-    // In a real app we'd check auth state
-    setLocation('/login');
+    if (isLoggedIn) {
+      setLocation('/chat-interface');
+    } else {
+      setLocation('/login');
+    }
   };
 
   const containerVariants = {

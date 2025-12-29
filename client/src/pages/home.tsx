@@ -18,7 +18,12 @@ import logoImage from "@assets/Scrollpet_logo_1766997907297.png";
 
 export default function Home() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(() => localStorage.getItem('isLoggedIn') === 'true');
+
+  const handleLogout = () => {
+    localStorage.removeItem('isLoggedIn');
+    setIsLoggedIn(false);
+  };
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -63,14 +68,24 @@ export default function Home() {
           </nav>
 
           <div className="hidden md:flex items-center gap-4">
-            <Link href="/login">
+            {isLoggedIn ? (
               <Button 
-                variant={isLoggedIn ? "ghost" : "default"}
+                variant="ghost"
+                onClick={handleLogout}
                 className="font-bold cursor-pointer rounded-full px-6"
               >
-                {isLoggedIn ? "Logout" : "Login"}
+                Logout
               </Button>
-            </Link>
+            ) : (
+              <Link href="/login">
+                <Button 
+                  variant="default"
+                  className="font-bold cursor-pointer rounded-full px-6"
+                >
+                  Login
+                </Button>
+              </Link>
+            )}
           </div>
 
           {/* Mobile Menu Toggle */}
