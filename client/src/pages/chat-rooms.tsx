@@ -18,8 +18,8 @@ import logoImage from "@assets/Scrollpet_logo_1766997907297.png";
 
 // Import stock images
 import dogImg from "@assets/stock_images/happy_dog_portrait_o_6e5075a4.jpg";
-import catImg from "@assets/stock_images/cute_cat_portrait_on_e6412b16.jpg";
-import fishImg from "@assets/stock_images/goldfish_on_black_or_3ae35218.jpg";
+import catImg from "@assets/stock_images/ginger_cat_sitting_f_07d19cb3.jpg";
+import fishImg from "@assets/stock_images/goldfish_in_a_bowl_o_1769c4d6.jpg";
 import birdImg from "@assets/stock_images/colorful_parrot_bird_78491bbe.jpg";
 import rabbitImg from "@assets/stock_images/cute_white_rabbit_po_8b3eec97.jpg";
 import hamsterImg from "@assets/stock_images/cute_hamster_portrai_97a17a6a.jpg";
