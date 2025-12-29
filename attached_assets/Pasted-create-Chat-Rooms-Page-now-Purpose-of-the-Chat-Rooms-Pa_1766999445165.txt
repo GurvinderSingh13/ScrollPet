@@ -1,0 +1,138 @@
+create Chat Rooms Page now
+Purpose of the Chat Rooms Page
+
+The Chat Rooms page shows all available chat room categories in ScrollPet and helps users understand what conversations exist.
+
+Users can see all chat room icons, but cannot enter any chat room unless they are logged in.
+
+This page encourages sign-up while keeping the platform open and transparent.
+
+Page Access Rules
+
+Public access:
+
+Anyone can view the Chat Rooms page
+
+Anyone can see available chat room icons
+
+Restricted access:
+
+Entering a chat room requires login
+
+Sending messages requires login
+
+Header (Same as Home Page)
+
+The header stays consistent across the site:
+
+Home
+
+Chat Rooms
+
+About Us
+
+FAQ
+
+Contact Us
+
+Auth Button
+
+Before login → Login
+
+After login → Logout
+
+Main Chat Rooms Page Layout
+1. Page Title
+
+Simple and clear title at the top:
+
+“Chat Rooms”
+Short subtitle:
+“Choose a pet category to explore conversations.”
+
+2. Chat Room Icons Grid (Main Section)
+
+Display a grid of large, visual icons
+
+Each icon represents a pet category
+
+Example Categories:
+
+🐶 Dog
+
+🐱 Cat
+
+🐠 Fish
+
+🐦 Bird
+
+🐰 Rabbit
+
+🐹 Hamster
+
+🐢 Turtle
+
+🐹 Guinea Pig
+
+🐴 Horse
+
+🐾 Other
+
+Each icon includes:
+
+Pet icon
+
+Category name
+
+Icons are clickable but protected.
+
+3. Login Restriction Behavior
+If User is NOT Logged In:
+
+Clicking any chat room icon:
+
+Shows a message or popup:
+
+“Please log in to enter chat rooms.”
+
+Displays Login / Sign Up button
+
+User is not allowed inside chat rooms
+
+
+4. Visual Cues for Locked Access
+
+To clearly communicate restrictions:
+
+Chat room icons may:
+
+Show a small 🔒 lock icon when user is not logged in
+
+Or show “Login Required” text on hover/tap
+
+This avoids confusion and improves user experience.
+
+User Experience Goals
+
+Let users explore what exists without signing up
+
+Encourage login naturally, not forcefully
+
+Make access rules obvious and friendly
+
+Keep navigation fast and simple
+
+What This Page Does NOT Do
+
+No chat preview
+
+No message reading without login
+
+No posting without login
+
+No private messaging
+
+Simple Summary
+
+The Chat Rooms page shows all pet chat room categories using icons.
+Users can see everything, but must log in to enter or participate in any chat room.
