@@ -43,56 +43,49 @@
   --color-chart-4: hsl(var(--chart-4));
   --color-chart-5: hsl(var(--chart-5));
 
-  --font-sans: 'Nunito Sans', sans-serif;
-  --font-heading: 'Quicksand', sans-serif;
+  --font-sans: 'Montserrat', sans-serif;
+  --font-heading: 'Montserrat', sans-serif;
   
   --radius: 0.75rem;
 }
 
 :root {
-  /* Base Colors: Black & White */
+  /* Base Colors: Clean White & Black */
   --background: 0 0% 100%;
-  --foreground: 0 0% 0%;
+  --foreground: 0 0% 10%;
 
   /* Primary: #007699 (Teal/Blue) */
   --primary: 194 100% 30%; 
   --primary-foreground: 0 0% 100%;
 
-  /* Accent: #FF6600 (Orange) -> Used for secondary actions or highlights */
+  /* Accent: #FF6600 (Orange) */
   --secondary: 24 100% 50%;
   --secondary-foreground: 0 0% 100%;
 
   /* Muted / Cards */
-  --card: 0 0% 98%;
-  --card-foreground: 0 0% 0%;
+  --card: 0 0% 100%;
+  --card-foreground: 0 0% 10%;
   
   --popover: 0 0% 100%;
-  --popover-foreground: 0 0% 0%;
+  --popover-foreground: 0 0% 10%;
 
-  --muted: 194 20% 96%;
-  --muted-foreground: 194 20% 40%;
+  --muted: 194 20% 97%;
+  --muted-foreground: 194 10% 40%;
 
-  --accent: 194 30% 94%;
+  --accent: 194 25% 96%;
   --accent-foreground: 194 100% 30%;
 
   --destructive: 0 84.2% 60.2%;
   --destructive-foreground: 0 0% 98%;
 
-  --border: 194 20% 90%;
-  --input: 194 20% 90%;
+  --border: 194 10% 90%;
+  --input: 194 10% 90%;
   --ring: 194 100% 30%;
 
-  --radius: 0.75rem;
-
-  --chart-1: 194 100% 30%;
-  --chart-2: 24 100% 50%;
-  --chart-3: 194 50% 50%;
-  --chart-4: 24 80% 60%;
-  --chart-5: 194 30% 70%;
+  --radius: 1rem; /* slightly softer radius */
 }
 
 .dark {
-  /* Dark mode is not requested but good to have rudimentary support mapped to safe values or inverted */
   --background: 194 50% 5%;
   --foreground: 0 0% 98%;
 
@@ -120,12 +113,6 @@
   --border: 194 30% 15%;
   --input: 194 30% 15%;
   --ring: 194 100% 30%;
-  
-  --chart-1: 194 100% 30%;
-  --chart-2: 24 100% 50%;
-  --chart-3: 194 50% 50%;
-  --chart-4: 24 80% 60%;
-  --chart-5: 194 30% 70%;
 }
 
 @layer base {
@@ -136,6 +123,6 @@
     @apply font-sans antialiased bg-background text-foreground;
   }
   h1, h2, h3, h4, h5, h6 {
-    @apply font-heading font-bold;
+    @apply font-heading font-bold tracking-tight;
   }
 }
