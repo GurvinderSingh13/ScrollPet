@@ -63,13 +63,14 @@ export default function Home() {
           </nav>
 
           <div className="hidden md:flex items-center gap-4">
-            <Button 
-              variant={isLoggedIn ? "ghost" : "default"}
-              onClick={() => setIsLoggedIn(!isLoggedIn)}
-              className="font-bold cursor-pointer rounded-full px-6"
-            >
-              {isLoggedIn ? "Logout" : "Login"}
-            </Button>
+            <Link href="/login">
+              <Button 
+                variant={isLoggedIn ? "ghost" : "default"}
+                className="font-bold cursor-pointer rounded-full px-6"
+              >
+                {isLoggedIn ? "Logout" : "Login"}
+              </Button>
+            </Link>
           </div>
 
           {/* Mobile Menu Toggle */}
@@ -86,9 +87,11 @@ export default function Home() {
             <Link href="/about" className="block text-base font-semibold py-3 px-4 rounded-lg hover:bg-muted cursor-pointer">About Us</Link>
             <Link href="/faq" className="block text-base font-semibold py-3 px-4 rounded-lg hover:bg-muted cursor-pointer">FAQ</Link>
             <Link href="/contact" className="block text-base font-semibold py-3 px-4 rounded-lg hover:bg-muted cursor-pointer">Contact Us</Link>
-            <Button className="w-full mt-4 cursor-pointer rounded-full py-6 text-lg" onClick={() => setIsLoggedIn(!isLoggedIn)}>
-              {isLoggedIn ? "Logout" : "Login"}
-            </Button>
+            <Link href="/login">
+              <Button className="w-full mt-4 cursor-pointer rounded-full py-6 text-lg">
+                {isLoggedIn ? "Logout" : "Login"}
+              </Button>
+            </Link>
           </div>
         )}
       </header>
@@ -124,10 +127,12 @@ export default function Home() {
                        <ArrowRight className="ml-2 h-5 w-5" />
                      </Button>
                   ) : (
-                    <Button size="lg" className="text-lg px-8 py-7 rounded-full shadow-xl shadow-primary/20 hover:shadow-2xl hover:shadow-primary/30 transition-all cursor-pointer">
-                      Join the Community
-                      <ArrowRight className="ml-2 h-5 w-5" />
-                    </Button>
+                    <Link href="/login">
+                      <Button size="lg" className="text-lg px-8 py-7 rounded-full shadow-xl shadow-primary/20 hover:shadow-2xl hover:shadow-primary/30 transition-all cursor-pointer">
+                        Join the Community
+                        <ArrowRight className="ml-2 h-5 w-5" />
+                      </Button>
+                    </Link>
                   )}
                   <Button variant="outline" size="lg" className="text-lg px-8 py-7 rounded-full border-2 hover:bg-muted transition-all cursor-pointer">
                     Learn More
