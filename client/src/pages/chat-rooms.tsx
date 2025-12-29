@@ -43,16 +43,13 @@ const CHAT_ROOMS = [
 
 export default function ChatRooms() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [showLoginDialog, setShowLoginDialog] = useState(false);
-  const [location, setLocation] = useLocation();
+  const [isLoggedIn, setIsLoggedIn] = useState(false); // Should be checked from global state/context in real app
+  const [, setLocation] = useLocation();
 
   const handleRoomClick = (roomId: string) => {
-    if (!isLoggedIn) {
-      setShowLoginDialog(true);
-    } else {
-      console.log(`Entering ${roomId} room`);
-    }
+    // Always redirect to login if not logged in
+    // In a real app we'd check auth state
+    setLocation('/login');
   };
 
   const containerVariants = {
@@ -239,43 +236,7 @@ export default function ChatRooms() {
         </div>
       </footer>
 
-      {/* Login Requirement Dialog */}
-      <Dialog open={showLoginDialog} onOpenChange={setShowLoginDialog}>
-        <DialogContent className="sm:max-w-md rounded-3xl border-0 shadow-2xl p-0 overflow-hidden">
-          <div className="bg-[#007699] p-8 text-center text-white relative overflow-hidden">
-             {/* Decorative circles */}
-            <div className="absolute -top-10 -right-10 w-32 h-32 bg-white/10 rounded-full blur-2xl"></div>
-            <div className="absolute -bottom-10 -left-10 w-32 h-32 bg-white/10 rounded-full blur-2xl"></div>
-            
-            <div className="bg-white/20 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 backdrop-blur-md shadow-inner border border-white/20">
-              <Lock size={32} />
-            </div>
-            <DialogTitle className="text-2xl font-bold mb-2">Login Required</DialogTitle>
-            <DialogDescription className="text-white/80 text-base">
-              Please log in to enter the {CHAT_ROOMS.find(r => r.id === location)?.name} chat room.
-            </DialogDescription>
-          </div>
-          
-          <div className="p-8 space-y-4 bg-white">
-            <Button 
-              className="w-full text-lg py-6 rounded-full font-bold shadow-lg bg-[#FF6600] hover:bg-[#FF6600]/90 text-white" 
-              onClick={() => {
-                setIsLoggedIn(true);
-                setShowLoginDialog(false);
-              }}
-            >
-              Log In
-            </Button>
-            <Button 
-              variant="ghost" 
-              className="w-full text-base font-semibold text-gray-500 hover:text-gray-800"
-              onClick={() => setShowLoginDialog(false)}
-            >
-              Maybe Later
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* Login Requirement Dialog - REMOVED since we redirect to /login now */}
     </div>
   );
 }
