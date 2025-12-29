@@ -124,14 +124,10 @@ export async function registerRoutes(
     }
   });
 
-  // Get current user info
-  app.get("/api/users/me", async (req, res) => {
-    if (!req.session.userId) {
-      return res.status(401).json({ error: "Not authenticated" });
-    }
-
+  // Get current user info (simplified for demo - would use session in production)
+  app.get("/api/users/:id", async (req, res) => {
     try {
-      const user = await storage.getUser(req.session.userId);
+      const user = await storage.getUser(req.params.id);
       if (!user) {
         return res.status(404).json({ error: "User not found" });
       }

@@ -25,11 +25,12 @@ import {
   ArrowLeft,
   ChevronDown
 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { cn } from "@/lib/utils";
 import logoImage from "@assets/Scrollpet_logo_1766997907297.png";
+import { useWebSocket } from "@/hooks/useWebSocket";
+import { useQuery } from "@tanstack/react-query";
 
-// Mock Data
 import dogImg from "@assets/stock_images/happy_dog_portrait_o_6e5075a4.jpg";
 import catImg from "@assets/stock_images/ginger_cat_sitting_f_07d19cb3.jpg";
 import fishImg from "@assets/stock_images/goldfish_in_a_bowl_o_1769c4d6.jpg";
@@ -66,13 +67,19 @@ const LOCATIONS = [
   { id: 'delhi', name: 'Delhi', type: 'state' },
 ];
 
-const MESSAGES = [
-  { id: 1, user: 'Raj', location: 'Bihar', text: 'Hi', isMe: false },
-  { id: 2, user: 'Sonu', location: 'Bihar', text: 'Hello Raj', isMe: false },
-  { id: 3, user: 'Me', location: '', text: 'I just adopt a GSD', isMe: true },
-  { id: 4, user: 'Raj', location: 'Bihar', text: 'Cool ! can you show us?', isMe: false },
-  { id: 5, user: 'Me', location: '', text: 'Sure', isMe: true },
-];
+interface Message {
+  id: string;
+  userId: string;
+  petType: string;
+  location: string;
+  content: string;
+  createdAt: string;
+  user: {
+    id: string;
+    username: string;
+    displayName: string;
+  };
+}
 
 export default function ChatInterface() {
   const [activePet, setActivePet] = useState('dog');
@@ -80,16 +87,69 @@ export default function ChatInterface() {
   const [message, setMessage] = useState('');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(() => localStorage.getItem('isLoggedIn') === 'true');
+  const [userId, setUserId] = useState(() => localStorage.getItem('userId') || '');
+  const [displayName, setDisplayName] = useState(() => localStorage.getItem('displayName') || 'Anonymous');
   const [, setLocation] = useLocation();
+  const [messages, setMessages] = useState<Message[]>([]);
 
   // Mobile View State: 'list' (locations) or 'chat' (messages)
   const [mobileView, setMobileView] = useState<'list' | 'chat'>('list');
+
+  // Create demo user if needed
+  useEffect(() => {
+    if (!userId && isLoggedIn) {
+      fetch('/api/users/create-demo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ displayName: 'User_' + Math.floor(Math.random() * 1000) }),
+      })
+        .then(res => res.json())
+        .then(user => {
+          setUserId(user.id);
+          setDisplayName(user.displayName);
+          localStorage.setItem('userId', user.id);
+          localStorage.setItem('displayName', user.displayName);
+        })
+        .catch(console.error);
+    }
+  }, [userId, isLoggedIn]);
+
+  // Fetch messages for current room
+  const { data: historicalMessages } = useQuery({
+    queryKey: ['messages', activePet, activeLocation],
+    queryFn: async () => {
+      const res = await fetch(`/api/messages?petType=${activePet}&location=${activeLocation}`);
+      if (!res.ok) throw new Error('Failed to fetch messages');
+      return res.json() as Promise<Message[]>;
+    },
+    enabled: !!userId,
+  });
+
+  // Update messages when historical messages load
+  useEffect(() => {
+    if (historicalMessages) {
+      setMessages(historicalMessages.reverse());
+    }
+  }, [historicalMessages]);
+
+  // Handle new WebSocket messages
+  const handleNewMessage = useCallback((newMessage: Message) => {
+    setMessages(prev => [...prev, newMessage]);
+  }, []);
+
+  // WebSocket connection
+  const { isConnected, sendMessage: sendWsMessage } = useWebSocket({
+    userId,
+    petType: activePet,
+    location: activeLocation,
+    onMessage: handleNewMessage,
+  });
 
   // Handle window resize to reset view on desktop
   useEffect(() => {
     const handleResize = () => {
       if (window.innerWidth >= 768) {
-        setMobileView('chat'); // Always show chat on desktop
+        setMobileView('chat');
       }
     };
     window.addEventListener('resize', handleResize);
@@ -101,6 +161,8 @@ export default function ChatInterface() {
 
   const handleLogout = () => {
     localStorage.removeItem('isLoggedIn');
+    localStorage.removeItem('userId');
+    localStorage.removeItem('displayName');
     setIsLoggedIn(false);
     setLocation('/');
   };
@@ -108,6 +170,15 @@ export default function ChatInterface() {
   const handleLocationClick = (locId: string) => {
     setActiveLocation(locId);
     setMobileView('chat');
+  };
+
+  const handleSendMessage = () => {
+    if (!message.trim() || !isConnected) return;
+    
+    const success = sendWsMessage(message.trim());
+    if (success) {
+      setMessage('');
+    }
   };
 
   return (
@@ -124,7 +195,6 @@ export default function ChatInterface() {
             />
           </Link>
 
-          {/* Desktop Nav */}
           <nav className="hidden md:flex items-center gap-8 bg-muted/50 px-6 py-2 rounded-full border border-border/50">
             <Link href="/" className="text-sm font-semibold hover:text-primary transition-colors cursor-pointer">Home</Link>
             <Link href="/chat" className="text-sm font-semibold hover:text-primary transition-colors cursor-pointer">Chat Rooms</Link>
@@ -154,13 +224,11 @@ export default function ChatInterface() {
             )}
           </div>
 
-          {/* Mobile Menu Toggle */}
           <button className="md:hidden cursor-pointer p-2 hover:bg-muted rounded-full transition-colors" onClick={() => setIsMenuOpen(!isMenuOpen)}>
             {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
           </button>
         </div>
 
-        {/* Mobile Nav */}
         {isMenuOpen && (
           <div className="md:hidden border-t p-4 space-y-4 bg-background animate-in slide-in-from-top-5 shadow-2xl absolute w-full z-50">
             <Link href="/" className="block text-base font-semibold py-3 px-4 rounded-lg hover:bg-muted cursor-pointer">Home</Link>
@@ -183,7 +251,7 @@ export default function ChatInterface() {
         )}
       </header>
 
-      {/* 2. Common Pet Icons Row (Always visible) */}
+      {/* 2. Common Pet Icons Row */}
       <div className="flex-none bg-white border-b z-20 shadow-sm">
         <div className="flex items-center justify-start md:justify-center gap-3 md:gap-4 p-2 md:p-4 overflow-x-auto no-scrollbar bg-white">
           {PETS.map((pet) => (
@@ -212,13 +280,11 @@ export default function ChatInterface() {
       {/* 3. Main Split Content Area */}
       <div className="flex-1 flex overflow-hidden relative">
         
-        {/* === LEFT COLUMN: Selection (Locations) === */}
+        {/* LEFT COLUMN: Selection (Locations) */}
         <aside className={cn(
           "bg-[#F5F7F9] border-r overflow-hidden flex flex-col w-full md:w-80 absolute md:relative z-10 h-full transition-transform duration-300",
-          // Mobile visibility logic
           mobileView === 'list' ? "translate-x-0" : "-translate-x-full md:translate-x-0"
         )}>
-          {/* Left Column Header (Blue) */}
           <div className="bg-[#007699] text-white px-4 py-3 flex items-center justify-between shadow-md flex-none h-16">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-white/50 bg-white">
@@ -241,7 +307,6 @@ export default function ChatInterface() {
             </button>
           </div>
 
-          {/* Left Column List */}
           <div className="flex-1 overflow-y-auto p-2 space-y-1">
             {LOCATIONS.map((loc) => (
               <button
@@ -255,7 +320,7 @@ export default function ChatInterface() {
                 )}
               >
                 <div className="flex items-center gap-3">
-                  {loc.type === 'global' && <loc.icon className={cn("w-5 h-5", activeLocation === loc.id ? "text-white" : "text-blue-500")} />}
+                  {loc.type === 'global' && loc.icon && <loc.icon className={cn("w-5 h-5", activeLocation === loc.id ? "text-white" : "text-blue-500")} />}
                   {loc.type === 'country' && <span className="text-xl">{loc.flag}</span>}
                   <span className="text-base">{loc.name}</span>
                 </div>
@@ -275,16 +340,14 @@ export default function ChatInterface() {
         </aside>
 
 
-        {/* === RIGHT COLUMN: Chat Area === */}
+        {/* RIGHT COLUMN: Chat Area */}
         <main className={cn(
           "flex-1 flex flex-col bg-white relative w-full h-full absolute md:relative transition-transform duration-300",
            mobileView === 'chat' ? "translate-x-0" : "translate-x-full md:translate-x-0"
         )}>
           
-          {/* Right Column Header (Blue) */}
           <div className="bg-[#007699] text-white px-4 py-3 flex items-center justify-between shadow-md flex-none h-16">
             <div className="flex items-center gap-3 flex-1 min-w-0">
-               {/* Back Button for Mobile */}
                <div className="md:hidden">
                   <button 
                     onClick={() => setMobileView('list')}
@@ -318,12 +381,15 @@ export default function ChatInterface() {
                 <button className="p-2 hover:bg-white/10 rounded-full transition-colors" title="News">
                   <Megaphone className="w-5 h-5 -rotate-12" />
                 </button>
+                {!isConnected && (
+                  <div className="ml-2 px-2 py-1 bg-yellow-500/20 text-yellow-200 text-xs rounded-full">
+                    Connecting...
+                  </div>
+                )}
             </div>
           </div>
 
-          {/* Messages Area */}
           <div className="flex-1 overflow-y-auto p-4 space-y-6 pt-6 scroll-smooth">
-             {/* Mobile District Selector (if space is tight in header) */}
              <div className="sm:hidden mb-4">
                   <Select>
                     <SelectTrigger className="w-full h-9 bg-gray-50 text-gray-900 border-gray-200 rounded-lg text-sm focus:ring-0">
@@ -336,34 +402,40 @@ export default function ChatInterface() {
                   </Select>
              </div>
 
-            {MESSAGES.map((msg) => (
-              <div key={msg.id} className={cn("flex flex-col max-w-[85%] md:max-w-[70%]", msg.isMe ? "ml-auto items-end" : "mr-auto items-start")}>
-                {!msg.isMe && (
+            {messages.length === 0 && (
+              <div className="text-center text-gray-400 py-10">
+                <p className="text-lg font-medium">No messages yet</p>
+                <p className="text-sm">Be the first to start the conversation!</p>
+              </div>
+            )}
+
+            {messages.map((msg) => (
+              <div key={msg.id} className={cn("flex flex-col max-w-[85%] md:max-w-[70%]", msg.userId === userId ? "ml-auto items-end" : "mr-auto items-start")}>
+                {msg.userId !== userId && (
                   <div className="text-xs text-gray-400 mb-1 ml-1 flex gap-1 items-center">
-                    <span className="font-bold text-gray-600">@{msg.user}</span>
+                    <span className="font-bold text-gray-600">@{msg.user.displayName}</span>
                     <span className="bg-gray-100 px-1.5 py-0.5 rounded text-[10px] text-gray-500">[{msg.location}]</span>
                   </div>
                 )}
                 
                 <div className={cn(
                   "px-5 py-3.5 text-[15px] shadow-sm leading-relaxed",
-                  msg.isMe 
+                  msg.userId === userId
                     ? "bg-[#007699] text-white rounded-2xl rounded-tr-sm" 
                     : "bg-[#F3F4F6] text-gray-800 rounded-2xl rounded-tl-sm"
                 )}>
-                  {msg.text}
+                  {msg.content}
                 </div>
                 
-                {msg.isMe && (
+                {msg.userId === userId && (
                   <div className="text-xs text-gray-400 mt-1 mr-1">
-                    @{msg.user}
+                    @{displayName}
                   </div>
                 )}
               </div>
             ))}
           </div>
 
-          {/* Chat Input */}
           <div className="p-4 bg-white border-t">
             <div className="flex items-center gap-2 max-w-4xl mx-auto bg-white border rounded-full px-2 py-2 shadow-sm focus-within:ring-2 focus-within:ring-[#007699]/20 transition-all hover:border-gray-300">
               <button className="p-2.5 hover:bg-gray-100 rounded-full text-gray-500 transition-colors">
@@ -381,7 +453,7 @@ export default function ChatInterface() {
                 onChange={(e) => setMessage(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && message.trim()) {
-                    setMessage('');
+                    handleSendMessage();
                   }
                 }}
               />
@@ -391,7 +463,8 @@ export default function ChatInterface() {
                   "p-2.5 rounded-full transition-all duration-200 shadow-sm",
                   message.trim() ? "bg-[#007699] text-white hover:bg-[#007699]/90 scale-100" : "bg-gray-100 text-gray-500 hover:bg-gray-200"
                 )}
-                onClick={() => setMessage('')}
+                onClick={handleSendMessage}
+                disabled={!isConnected}
               >
                 {message.trim() ? <Send className="w-5 h-5 ml-0.5" /> : <Mic className="w-5 h-5" />}
               </button>
@@ -401,7 +474,6 @@ export default function ChatInterface() {
         </main>
       </div>
       
-      {/* 5. Standard Footer */}
       <footer className="hidden md:block flex-none bg-gray-950 text-gray-300 py-12 border-t border-gray-900">
         <div className="container px-6 mx-auto">
           <div className="flex flex-col md:flex-row items-center justify-between text-sm text-gray-500 gap-4">

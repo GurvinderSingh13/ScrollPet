@@ -6,7 +6,7 @@ import {
   users,
   messages 
 } from "@shared/schema";
-import { db } from "../db";
+import { db } from "../db/index";
 import { eq, and, desc } from "drizzle-orm";
 
 export interface IStorage {
@@ -53,7 +53,7 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(messages.createdAt))
       .limit(limit);
 
-    return result.map(r => ({
+    return result.map((r: { message: Message; user: User }) => ({
       ...r.message,
       user: r.user,
     }));
