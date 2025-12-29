@@ -1,0 +1,200 @@
+Correct Chat Room Layout Explanation
+
+(Based on Provided Screenshots)
+
+IMPORTANT CONCEPT (READ FIRST)
+
+The chat room screen has TWO HORIZONTAL BARS, but they belong to DIFFERENT AREAS:
+
+LEFT SIDE = Chat Room Selection (Pet & Breed)
+
+RIGHT SIDE = Active Chat Area (Location & Tools)
+
+These are NOT one combined header.
+
+OVERALL PAGE STRUCTURE
+
+The page is split into two vertical columns:
+
+| LEFT COLUMN (Selection) | RIGHT COLUMN (Chat) |
+
+
+Each column has its own top section.
+
+LEFT COLUMN – CHAT ROOM SELECTION SIDE
+LEFT COLUMN – TOP SECTION (Section 1)
+
+📍 Purpose: Select pet type and breed
+
+This section appears only on the LEFT SIDE, above the location list.
+
+Elements (from left to right):
+
+Selected Pet Icon
+
+Example: Dog icon
+
+Circular image
+
+Breed Dropdown
+
+Text: All Dogs or All Breeds
+
+Dropdown opens list of breeds for selected pet type
+
+Chat Icon
+
+Small chat bubble icon
+
+Visual indicator only
+
+📌 This section DOES NOT control location
+📌 This section DOES NOT affect the right chat header
+
+LEFT COLUMN – LOCATION LIST (Below)
+
+📍 Purpose: Select chat room by location
+
+This section appears below the breed selector.
+
+Order of items:
+
+Global
+
+Globe icon
+
+Lock icon (as shown)
+
+Country
+
+Example: India
+
+Country flag icon
+
+States List
+
+Scrollable list of states
+
+Example:
+
+Punjab
+
+Andaman & Nicobar Islands
+
+Andhra Pradesh
+
+Assam
+
+Bihar (Active)
+
+Chandigarh
+
+Chhattisgarh
+
+Delhi
+
+Active State Behavior:
+
+Highlighted (orange background)
+
+Three-dot menu appears
+
+Option shown:
+
+Pin to Top
+
+📌 This entire section scrolls independently
+📌 This section controls which chat room loads on the right
+
+RIGHT COLUMN – CHAT AREA
+RIGHT COLUMN – TOP SECTION (Section 2)
+
+📍 Purpose: Control active chat location and tools
+📍 This is NOT related to pet or breed selection
+
+Elements (from left to right):
+
+Selected Location Name
+
+Example: Bihar
+
+Large and clear
+
+District Dropdown
+
+Placeholder: Select District
+
+Filters chat by district
+
+Community Guidelines Icon
+
+Icon button
+
+Opens community rules
+
+News Room Icon
+
+Icon button
+
+Opens read-only news posts
+
+📌 This section belongs ONLY to the chat area
+📌 This section changes when location changes
+
+RIGHT COLUMN – CHAT CONTENT
+Chat Messages Area
+
+Scrollable chat messages
+
+Each message shows:
+
+Username
+
+Location (e.g., Bihar)
+
+Message text
+
+Incoming messages → left
+Outgoing messages → right (blue bubble)
+
+Chat Input Bar (Bottom)
+
+📍 Always fixed at bottom of right column
+
+Left Icons:
+
+Emoji icon
+
+Media upload icon
+
+Input Field:
+
+Placeholder: Type a message...
+
+Right Action Button:
+
+If input is empty: Microphone icon (audio message)
+
+If text is typed: Send icon
+
+KEY RULES (VERY IMPORTANT FOR REPLIT)
+
+❌ Do NOT merge left and right top sections
+
+❌ Do NOT place breed dropdown in chat header
+
+❌ Do NOT place location dropdown on left side
+
+✅ LEFT top = Pet & Breed selection
+
+✅ RIGHT top = Location & Chat tools
+
+FINAL INSTRUCTION TO REPLIT AGENT
+
+Build the chat room screen with two independent top sections, one for each column:
+
+Left column top: Pet icon + breed dropdown + chat icon
+
+Right column top: Location name + district dropdown + guidelines + news icon
+
+Follow the screenshots exactly in layout hierarchy.

@@ -22,7 +22,8 @@ import {
   Megaphone,
   Menu,
   X,
-  ArrowLeft
+  ArrowLeft,
+  ChevronDown
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
@@ -112,7 +113,7 @@ export default function ChatInterface() {
   return (
     <div className="h-[100dvh] flex flex-col bg-background font-sans overflow-hidden">
       
-      {/* 1. Standard Header */}
+      {/* 1. Global App Header */}
       <header className="flex-none bg-background/80 backdrop-blur-md border-b border-border/40 z-30 transition-all">
         <div className="container mx-auto px-4 md:px-6 h-16 md:h-20 flex items-center justify-between">
           <Link href="/" className="cursor-pointer">
@@ -182,10 +183,8 @@ export default function ChatInterface() {
         )}
       </header>
 
-      {/* Chat Interface specific top bar */}
+      {/* 2. Common Pet Icons Row (Always visible) */}
       <div className="flex-none bg-white border-b z-20 shadow-sm">
-        
-        {/* 1.1 Pet Icons Row - Center Aligned */}
         <div className="flex items-center justify-start md:justify-center gap-3 md:gap-4 p-2 md:p-4 overflow-x-auto no-scrollbar bg-white">
           {PETS.map((pet) => (
             <button
@@ -208,108 +207,42 @@ export default function ChatInterface() {
             </button>
           ))}
         </div>
+      </div>
 
-        {/* 1.2 Controls Bar */}
-        <div className="bg-[#007699] text-white px-3 md:px-4 py-2 md:py-3 flex items-center justify-between gap-3 md:gap-4 min-h-[50px]">
-          
-          {/* Mobile Back Button (Only visible in chat view on mobile) */}
-          <div className="md:hidden flex items-center">
-             {mobileView === 'chat' ? (
-                <button 
-                  onClick={() => setMobileView('list')}
-                  className="p-1 mr-1 hover:bg-white/10 rounded-full transition-colors"
-                >
-                  <ArrowLeft className="w-6 h-6" />
+      {/* 3. Main Split Content Area */}
+      <div className="flex-1 flex overflow-hidden relative">
+        
+        {/* === LEFT COLUMN: Selection (Locations) === */}
+        <aside className={cn(
+          "bg-[#F5F7F9] border-r overflow-hidden flex flex-col w-full md:w-80 absolute md:relative z-10 h-full transition-transform duration-300",
+          // Mobile visibility logic
+          mobileView === 'list' ? "translate-x-0" : "-translate-x-full md:translate-x-0"
+        )}>
+          {/* Left Column Header (Blue) */}
+          <div className="bg-[#007699] text-white px-4 py-3 flex items-center justify-between shadow-md flex-none h-16">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-white/50 bg-white">
+                 {activePetData?.isIcon ? (
+                    <div className="w-full h-full flex items-center justify-center bg-white text-[#007699] font-bold text-xs">Other</div>
+                  ) : (
+                    <img src={activePetData?.image} alt={activePetData?.name} className="w-full h-full object-cover" />
+                  )}
+              </div>
+              
+              <div className="relative">
+                <button className="flex items-center gap-1 font-bold text-lg hover:opacity-90 transition-opacity">
+                   All {activePetData?.name}s <ChevronDown className="w-4 h-4 opacity-80" />
                 </button>
-             ) : (
-               <div className="flex items-center gap-2">
-                 <Globe className="w-5 h-5 text-white/90" />
-                 <span className="font-bold text-lg">Locations</span>
-               </div>
-             )}
-          </div>
-
-          {/* Left Controls / Title */}
-          <div className="flex items-center gap-3 min-w-0 flex-1 md:flex-none">
-            {/* Show Pet Image only if we have space or on desktop */}
-            <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-white/50 flex-shrink-0 bg-white hidden sm:block">
-               {activePetData?.isIcon ? (
-                  <div className="w-full h-full flex items-center justify-center bg-white text-[#007699] font-bold text-xs">Other</div>
-                ) : (
-                  <img src={activePetData?.image} alt={activePetData?.name} className="w-full h-full object-cover" />
-                )}
-            </div>
-            
-            {/* On Mobile: Show current location name in header if in chat view */}
-            <div className="md:hidden font-bold text-lg truncate flex-1 text-center pr-8">
-              {mobileView === 'chat' ? activeLocationData?.name : ''}
+              </div>
             </div>
 
-            <div className="relative hidden sm:block">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 z-10" />
-              <Select defaultValue="all">
-                <SelectTrigger className="w-[180px] pl-9 h-10 bg-white text-gray-900 border-none rounded-full focus:ring-0">
-                  <SelectValue placeholder="All Breeds" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Breeds</SelectItem>
-                  <SelectItem value="gsd">German Shepherd</SelectItem>
-                  <SelectItem value="lab">Labrador</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <button className="p-2 hover:bg-white/10 rounded-full transition-colors hidden sm:block">
+             <button className="p-2 hover:bg-white/10 rounded-full transition-colors">
               <MessageCircle className="w-6 h-6" />
             </button>
           </div>
 
-          {/* Center Controls - Desktop Only */}
-          <div className="hidden md:flex items-center gap-4 flex-1 justify-center min-w-0">
-            <h2 className="font-bold text-lg truncate">
-              {activeLocationData?.name}
-            </h2>
-            <Select>
-              <SelectTrigger className="w-[160px] h-9 bg-white text-gray-900 border-none rounded-full text-sm focus:ring-0">
-                <SelectValue placeholder="Select District" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="patna">Patna</SelectItem>
-                <SelectItem value="gaya">Gaya</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Right Icons */}
-          <div className="flex items-center gap-1 md:gap-2 flex-shrink-0 md:ml-auto">
-            {mobileView === 'chat' && (
-              <>
-                <button className="p-2 hover:bg-white/10 rounded-full transition-colors" title="Clear Chat">
-                  <BookOpen className="w-5 h-5 rotate-12" />
-                </button>
-                <button className="p-2 hover:bg-white/10 rounded-full transition-colors" title="Announcements">
-                  <Megaphone className="w-5 h-5 -rotate-12" />
-                </button>
-              </>
-            )}
-             {mobileView === 'list' && (
-                <div className="text-xs md:text-sm font-medium opacity-80 md:hidden">
-                  {PETS.length} Categories
-                </div>
-             )}
-          </div>
-        </div>
-      </div>
-
-      <div className="flex-1 flex overflow-hidden relative">
-        
-        {/* 2. Location List (Sidebar on Desktop, Main View on Mobile) */}
-        <aside className={cn(
-          "bg-[#F5F7F9] border-r overflow-y-auto transition-all duration-300 w-full md:w-80 absolute md:relative z-10 h-full",
-          // Mobile visibility logic
-          mobileView === 'list' ? "translate-x-0" : "-translate-x-full md:translate-x-0"
-        )}>
-          <div className="p-2 space-y-1">
+          {/* Left Column List */}
+          <div className="flex-1 overflow-y-auto p-2 space-y-1">
             {LOCATIONS.map((loc) => (
               <button
                 key={loc.id}
@@ -341,21 +274,68 @@ export default function ChatInterface() {
           </div>
         </aside>
 
-        {/* 3. Main Chat Area (Hidden on mobile if in list view) */}
+
+        {/* === RIGHT COLUMN: Chat Area === */}
         <main className={cn(
           "flex-1 flex flex-col bg-white relative w-full h-full absolute md:relative transition-transform duration-300",
            mobileView === 'chat' ? "translate-x-0" : "translate-x-full md:translate-x-0"
         )}>
           
-          {/* 3.1 Chat Header Badge - Only show if in chat view */}
-          <div className="flex justify-center pt-4 pb-2 absolute w-full top-0 z-10 pointer-events-none">
-            <div className="bg-[#FF6600] text-white px-6 py-1.5 rounded-md text-sm font-bold shadow-md animate-in slide-in-from-top-2">
-              {activePetData?.name}s Chat Room
+          {/* Right Column Header (Blue) */}
+          <div className="bg-[#007699] text-white px-4 py-3 flex items-center justify-between shadow-md flex-none h-16">
+            <div className="flex items-center gap-3 flex-1 min-w-0">
+               {/* Back Button for Mobile */}
+               <div className="md:hidden">
+                  <button 
+                    onClick={() => setMobileView('list')}
+                    className="p-1 mr-1 hover:bg-white/10 rounded-full transition-colors"
+                  >
+                    <ArrowLeft className="w-6 h-6" />
+                  </button>
+               </div>
+
+               <h2 className="font-bold text-xl truncate">
+                 {activeLocationData?.name}
+               </h2>
+
+               <div className="hidden sm:block">
+                  <Select>
+                    <SelectTrigger className="w-[140px] h-8 bg-white/10 text-white border-white/20 rounded-full text-xs focus:ring-0 hover:bg-white/20">
+                      <SelectValue placeholder="Select District" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="patna">Patna</SelectItem>
+                      <SelectItem value="gaya">Gaya</SelectItem>
+                    </SelectContent>
+                  </Select>
+               </div>
+            </div>
+
+            <div className="flex items-center gap-1">
+                <button className="p-2 hover:bg-white/10 rounded-full transition-colors" title="Guidelines">
+                  <BookOpen className="w-5 h-5 rotate-12" />
+                </button>
+                <button className="p-2 hover:bg-white/10 rounded-full transition-colors" title="News">
+                  <Megaphone className="w-5 h-5 -rotate-12" />
+                </button>
             </div>
           </div>
 
-          {/* 3.2 Messages Area */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-6 pt-16 scroll-smooth">
+          {/* Messages Area */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-6 pt-6 scroll-smooth">
+             {/* Mobile District Selector (if space is tight in header) */}
+             <div className="sm:hidden mb-4">
+                  <Select>
+                    <SelectTrigger className="w-full h-9 bg-gray-50 text-gray-900 border-gray-200 rounded-lg text-sm focus:ring-0">
+                      <SelectValue placeholder="Select District" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="patna">Patna</SelectItem>
+                      <SelectItem value="gaya">Gaya</SelectItem>
+                    </SelectContent>
+                  </Select>
+             </div>
+
             {MESSAGES.map((msg) => (
               <div key={msg.id} className={cn("flex flex-col max-w-[85%] md:max-w-[70%]", msg.isMe ? "ml-auto items-end" : "mr-auto items-start")}>
                 {!msg.isMe && (
@@ -383,7 +363,7 @@ export default function ChatInterface() {
             ))}
           </div>
 
-          {/* 3.3 Chat Input */}
+          {/* Chat Input */}
           <div className="p-4 bg-white border-t">
             <div className="flex items-center gap-2 max-w-4xl mx-auto bg-white border rounded-full px-2 py-2 shadow-sm focus-within:ring-2 focus-within:ring-[#007699]/20 transition-all hover:border-gray-300">
               <button className="p-2.5 hover:bg-gray-100 rounded-full text-gray-500 transition-colors">
