@@ -1,0 +1,199 @@
+Build the main chat room interface where users can:
+
+Select pet type
+
+Filter by breed
+
+Select location (global / country / state / district)
+
+View chat room list
+
+Chat with other users in real time
+
+The layout must visually match the provided reference image.
+
+Overall Page Layout
+
+The page is divided into three main vertical sections:
+
+Top Navigation Bar (Pet & Filters)
+
+Left Sidebar (Location-Based Chat Rooms List)
+
+Main Chat Area (Messages & Input)
+
+1. Top Navigation Bar (Pet Type & Filters)
+1.1 Pet Type Icons Row (Top Most)
+
+Display a horizontal row of circular pet icons
+
+Each icon represents a pet type:
+
+Dog, Cat, Fish, Bird, Rabbit, Hamster, Turtle, Guinea Pig, Horse, Other
+
+Icons are scrollable horizontally on smaller screens
+
+One icon is highlighted as active/selected
+
+Purpose:
+Allow users to switch between pet chat rooms easily.
+
+1.2 Selected Chat Room Controls Bar (Second Row)
+
+Below pet icons, create a full-width control bar containing:
+
+Left Side Controls
+
+Small circular icon of the selected pet type (e.g., Dog)
+
+Breed dropdown
+
+Label: All Breeds
+
+Dropdown opens list of breeds related to selected pet type
+
+Chat icon next to breed dropdown (visual only)
+
+Center Controls
+
+Selected State name displayed (example: Bihar)
+
+District dropdown
+
+Placeholder: Select District
+
+Right Side Icons
+
+Two clickable icons:
+
+Community Guidelines icon
+
+News Room icon
+
+These icons are always visible.
+
+2. Left Sidebar – Location-Based Chat Rooms List
+
+Positioned on the left side of the page.
+
+Chat Room List Structure (Top to Bottom)
+
+Global
+
+Appears at the top
+
+Has a globe icon
+
+Country
+
+Second item
+
+Example: India
+
+Country flag icon
+
+States List
+
+List all states of the selected country
+
+Example:
+
+Punjab
+
+Andaman & Nicobar Islands
+
+Andhra Pradesh
+
+Assam
+
+Bihar
+
+Chandigarh
+
+Chhattisgarh
+
+Delhi
+
+Scrollable list
+
+Sidebar Behavior
+
+One state is highlighted as active (example: Bihar)
+
+Active state has a different background color
+
+Three-dot menu icon appears on active item (visual only)
+
+Purpose:
+Let users switch chat rooms based on location.
+
+3. Main Chat Area (Right Side)
+3.1 Chat Room Header
+
+At the top of the chat area:
+
+Label showing active chat room:
+
+Example: “Dogs Chat Room”
+
+Styled as a small highlighted badge or button
+
+3.2 Chat Messages Area
+
+Scrollable vertical message area
+
+Messages displayed as chat bubbles
+
+Each message includes:
+
+Username
+
+Location (example: (Bihar))
+
+Message text
+
+Incoming messages on the left
+Outgoing messages on the right (different color)
+
+3.3 Chat Input Area (Bottom)
+
+Fixed at the bottom of chat area.
+
+Left Side Icons
+
+Emoji icon
+
+Media sharing icon (image/video)
+
+Message Input Field
+
+Text input field with placeholder:
+
+Type a message...
+
+Right Side Action Button
+
+If no text typed:
+
+Show Microphone icon (for audio message)
+
+If text is typed:
+
+Replace microphone with Send button
+
+Purpose:
+Enable text, emoji, media, and audio chat.
+
+UI / UX Rules
+
+Clean, modern, flat design
+
+Rounded corners
+
+Mobile-responsive layout
+
+Sidebar scrolls independently
+
+Chat messages scroll independently
+
+Consistent spacing and colors

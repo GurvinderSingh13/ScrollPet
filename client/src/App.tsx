@@ -8,12 +8,14 @@ import Home from "@/pages/home";
 import ChatRooms from "@/pages/chat-rooms";
 import Login from "@/pages/login";
 import Signup from "@/pages/signup";
+import ChatInterface from "@/pages/chat-interface";
 
 function Router() {
   return (
     <Switch>
       <Route path="/" component={Home} />
       <Route path="/chat" component={ChatRooms} />
+      <Route path="/chat-interface" component={ChatInterface} />
       <Route path="/login" component={Login} />
       <Route path="/signup" component={Signup} />
       <Route component={NotFound} />
