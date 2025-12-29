@@ -110,16 +110,16 @@ export default function ChatInterface() {
   };
 
   return (
-    <div className="h-screen flex flex-col bg-background font-sans overflow-hidden">
+    <div className="h-[100dvh] flex flex-col bg-background font-sans overflow-hidden">
       
       {/* 1. Standard Header */}
-      <header className="flex-none bg-background/80 backdrop-blur-md border-b border-border/40 z-30">
-        <div className="container mx-auto px-6 h-20 flex items-center justify-between">
+      <header className="flex-none bg-background/80 backdrop-blur-md border-b border-border/40 z-30 transition-all">
+        <div className="container mx-auto px-4 md:px-6 h-16 md:h-20 flex items-center justify-between">
           <Link href="/" className="cursor-pointer">
             <img 
               src={logoImage} 
               alt="ScrollPet Logo" 
-              className="h-10 md:h-12 w-auto object-contain hover:opacity-90 transition-opacity"
+              className="h-8 md:h-12 w-auto object-contain hover:opacity-90 transition-opacity"
             />
           </Link>
 
@@ -155,7 +155,7 @@ export default function ChatInterface() {
 
           {/* Mobile Menu Toggle */}
           <button className="md:hidden cursor-pointer p-2 hover:bg-muted rounded-full transition-colors" onClick={() => setIsMenuOpen(!isMenuOpen)}>
-            {isMenuOpen ? <X /> : <Menu />}
+            {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
           </button>
         </div>
 
@@ -186,20 +186,20 @@ export default function ChatInterface() {
       <div className="flex-none bg-white border-b z-20 shadow-sm">
         
         {/* 1.1 Pet Icons Row - Center Aligned */}
-        <div className="flex items-center justify-center gap-4 p-4 overflow-x-auto no-scrollbar border-b bg-white">
+        <div className="flex items-center justify-start md:justify-center gap-3 md:gap-4 p-2 md:p-4 overflow-x-auto no-scrollbar bg-white">
           {PETS.map((pet) => (
             <button
               key={pet.id}
               onClick={() => setActivePet(pet.id)}
               className={cn(
-                "flex-none relative rounded-full p-1 transition-all duration-200",
-                activePet === pet.id ? "ring-2 ring-primary ring-offset-2 scale-110" : "opacity-70 hover:opacity-100 hover:scale-105"
+                "flex-none relative rounded-full p-0.5 md:p-1 transition-all duration-200",
+                activePet === pet.id ? "ring-2 ring-primary ring-offset-2 scale-105 md:scale-110" : "opacity-70 hover:opacity-100 hover:scale-105"
               )}
             >
-              <div className="w-12 h-12 rounded-full overflow-hidden bg-gray-100 shadow-sm">
+              <div className="w-10 h-10 md:w-12 md:h-12 rounded-full overflow-hidden bg-gray-100 shadow-sm">
                 {pet.isIcon ? (
                   <div className="w-full h-full flex items-center justify-center bg-white border-2 border-[#007699]">
-                    <div className="text-[#007699] font-bold text-xs">Other</div>
+                    <div className="text-[#007699] font-bold text-[10px] md:text-xs">Other</div>
                   </div>
                 ) : (
                   <img src={pet.image} alt={pet.name} className="w-full h-full object-cover" />
@@ -210,22 +210,27 @@ export default function ChatInterface() {
         </div>
 
         {/* 1.2 Controls Bar */}
-        <div className="bg-[#007699] text-white px-4 py-3 flex items-center justify-between gap-4">
+        <div className="bg-[#007699] text-white px-3 md:px-4 py-2 md:py-3 flex items-center justify-between gap-3 md:gap-4 min-h-[50px]">
           
           {/* Mobile Back Button (Only visible in chat view on mobile) */}
-          <div className="md:hidden">
-             {mobileView === 'chat' && (
+          <div className="md:hidden flex items-center">
+             {mobileView === 'chat' ? (
                 <button 
                   onClick={() => setMobileView('list')}
-                  className="p-1 mr-2 hover:bg-white/10 rounded-full transition-colors"
+                  className="p-1 mr-1 hover:bg-white/10 rounded-full transition-colors"
                 >
                   <ArrowLeft className="w-6 h-6" />
                 </button>
+             ) : (
+               <div className="flex items-center gap-2">
+                 <Globe className="w-5 h-5 text-white/90" />
+                 <span className="font-bold text-lg">Locations</span>
+               </div>
              )}
           </div>
 
           {/* Left Controls / Title */}
-          <div className="flex items-center gap-3 min-w-0">
+          <div className="flex items-center gap-3 min-w-0 flex-1 md:flex-none">
             {/* Show Pet Image only if we have space or on desktop */}
             <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-white/50 flex-shrink-0 bg-white hidden sm:block">
                {activePetData?.isIcon ? (
@@ -236,8 +241,8 @@ export default function ChatInterface() {
             </div>
             
             {/* On Mobile: Show current location name in header if in chat view */}
-            <div className="md:hidden font-bold text-lg truncate">
-              {mobileView === 'chat' ? activeLocationData?.name : 'Select Location'}
+            <div className="md:hidden font-bold text-lg truncate flex-1 text-center pr-8">
+              {mobileView === 'chat' ? activeLocationData?.name : ''}
             </div>
 
             <div className="relative hidden sm:block">
@@ -276,7 +281,7 @@ export default function ChatInterface() {
           </div>
 
           {/* Right Icons */}
-          <div className="flex items-center gap-2 flex-shrink-0 ml-auto">
+          <div className="flex items-center gap-1 md:gap-2 flex-shrink-0 md:ml-auto">
             {mobileView === 'chat' && (
               <>
                 <button className="p-2 hover:bg-white/10 rounded-full transition-colors" title="Clear Chat">
@@ -288,7 +293,7 @@ export default function ChatInterface() {
               </>
             )}
              {mobileView === 'list' && (
-                <div className="text-sm font-medium opacity-80 mr-2 md:hidden">
+                <div className="text-xs md:text-sm font-medium opacity-80 md:hidden">
                   {PETS.length} Categories
                 </div>
              )}
