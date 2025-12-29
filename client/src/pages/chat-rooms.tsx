@@ -77,7 +77,7 @@ export default function ChatRooms() {
   return (
     <div className="min-h-screen bg-white font-sans text-foreground overflow-x-hidden selection:bg-primary/20 flex flex-col">
       {/* Header */}
-      <header className="sticky top-0 z-50 w-full bg-white border-b border-gray-100 shadow-sm">
+      <header className="sticky top-0 z-50 w-full bg-background/80 backdrop-blur-md border-b border-border/40">
         <div className="container mx-auto px-6 h-20 flex items-center justify-between">
           <Link href="/" className="cursor-pointer">
             <img 
@@ -88,52 +88,43 @@ export default function ChatRooms() {
           </Link>
 
           {/* Desktop Nav */}
-          <nav className="hidden md:flex items-center gap-10">
-            <Link href="/" className="text-base font-medium text-gray-700 hover:text-primary transition-colors cursor-pointer">Home</Link>
-            <Link href="/chat" className="text-base font-medium text-primary transition-colors cursor-pointer">Chat Rooms</Link>
-            <Link href="/about" className="text-base font-medium text-gray-700 hover:text-primary transition-colors cursor-pointer">About Us</Link>
-            <Link href="/faq" className="text-base font-medium text-gray-700 hover:text-primary transition-colors cursor-pointer">FAQ</Link>
-            <Link href="/contact" className="text-base font-medium text-gray-700 hover:text-primary transition-colors cursor-pointer">Contact Us</Link>
+          <nav className="hidden md:flex items-center gap-8 bg-muted/50 px-6 py-2 rounded-full border border-border/50">
+            <Link href="/" className="text-sm font-semibold hover:text-primary transition-colors cursor-pointer">Home</Link>
+            <Link href="/chat" className="text-sm font-semibold hover:text-primary transition-colors cursor-pointer">Chat Rooms</Link>
+            <Link href="/about" className="text-sm font-semibold hover:text-primary transition-colors cursor-pointer">About Us</Link>
+            <Link href="/faq" className="text-sm font-semibold hover:text-primary transition-colors cursor-pointer">FAQ</Link>
+            <Link href="/contact" className="text-sm font-semibold hover:text-primary transition-colors cursor-pointer">Contact Us</Link>
           </nav>
 
           <div className="hidden md:flex items-center gap-4">
             <Button 
               variant={isLoggedIn ? "ghost" : "default"}
               onClick={() => setIsLoggedIn(!isLoggedIn)}
-              className="font-bold cursor-pointer rounded-full px-8 py-5 bg-[#FF6600] hover:bg-[#FF6600]/90 text-white shadow-md hover:shadow-lg transition-all"
+              className="font-bold cursor-pointer rounded-full px-6"
             >
-              {isLoggedIn ? "Logout" : "Log in"}
+              {isLoggedIn ? "Logout" : "Login"}
             </Button>
           </div>
 
           {/* Mobile Menu Toggle */}
-          <button className="md:hidden cursor-pointer p-2 hover:bg-gray-100 rounded-full transition-colors" onClick={() => setIsMenuOpen(!isMenuOpen)}>
-            {isMenuOpen ? <X className="text-gray-700" /> : <Menu className="text-gray-700" />}
+          <button className="md:hidden cursor-pointer p-2 hover:bg-muted rounded-full transition-colors" onClick={() => setIsMenuOpen(!isMenuOpen)}>
+            {isMenuOpen ? <X /> : <Menu />}
           </button>
         </div>
 
         {/* Mobile Nav */}
-        <AnimatePresence>
-          {isMenuOpen && (
-            <motion.div 
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: "auto", opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              className="md:hidden border-t bg-white overflow-hidden"
-            >
-              <div className="p-4 space-y-4 shadow-xl">
-                <Link href="/" className="block text-base font-semibold py-3 px-4 rounded-lg hover:bg-gray-50 text-gray-700 cursor-pointer">Home</Link>
-                <Link href="/chat" className="block text-base font-semibold py-3 px-4 rounded-lg bg-primary/5 text-primary cursor-pointer">Chat Rooms</Link>
-                <Link href="/about" className="block text-base font-semibold py-3 px-4 rounded-lg hover:bg-gray-50 text-gray-700 cursor-pointer">About Us</Link>
-                <Link href="/faq" className="block text-base font-semibold py-3 px-4 rounded-lg hover:bg-gray-50 text-gray-700 cursor-pointer">FAQ</Link>
-                <Link href="/contact" className="block text-base font-semibold py-3 px-4 rounded-lg hover:bg-gray-50 text-gray-700 cursor-pointer">Contact Us</Link>
-                <Button className="w-full mt-4 cursor-pointer rounded-full py-6 text-lg bg-[#FF6600] hover:bg-[#FF6600]/90" onClick={() => setIsLoggedIn(!isLoggedIn)}>
-                  {isLoggedIn ? "Logout" : "Log in"}
-                </Button>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        {isMenuOpen && (
+          <div className="md:hidden border-t p-4 space-y-4 bg-background animate-in slide-in-from-top-5 shadow-2xl">
+            <Link href="/" className="block text-base font-semibold py-3 px-4 rounded-lg hover:bg-muted cursor-pointer">Home</Link>
+            <Link href="/chat" className="block text-base font-semibold py-3 px-4 rounded-lg hover:bg-muted cursor-pointer">Chat Rooms</Link>
+            <Link href="/about" className="block text-base font-semibold py-3 px-4 rounded-lg hover:bg-muted cursor-pointer">About Us</Link>
+            <Link href="/faq" className="block text-base font-semibold py-3 px-4 rounded-lg hover:bg-muted cursor-pointer">FAQ</Link>
+            <Link href="/contact" className="block text-base font-semibold py-3 px-4 rounded-lg hover:bg-muted cursor-pointer">Contact Us</Link>
+            <Button className="w-full mt-4 cursor-pointer rounded-full py-6 text-lg" onClick={() => setIsLoggedIn(!isLoggedIn)}>
+              {isLoggedIn ? "Logout" : "Login"}
+            </Button>
+          </div>
+        )}
       </header>
 
       <main className="flex-grow flex items-center justify-center py-20">
@@ -183,9 +174,69 @@ export default function ChatRooms() {
         </section>
       </main>
       
-      {/* Footer - Minimal Black */}
-      <footer className="bg-black text-white/50 text-center py-6 text-sm">
-        <p>© ScrollPet. All Rights Reserved.</p>
+      {/* Footer */}
+      <footer className="bg-gray-950 text-gray-300 py-20 border-t border-gray-900">
+        <div className="container px-6 mx-auto">
+          <div className="grid md:grid-cols-12 gap-12 mb-16">
+            <div className="col-span-12 md:col-span-4">
+              <Link href="/" className="inline-block mb-6 opacity-90 hover:opacity-100 transition-opacity">
+                 <img 
+                  src={logoImage} 
+                  alt="ScrollPet Logo" 
+                  className="h-10 w-auto object-contain brightness-0 invert opacity-90"
+                />
+              </Link>
+              <p className="text-gray-400 mb-6 leading-relaxed">
+                Connecting pet lovers worldwide in a safe, trusted environment. Join us in building the most positive pet community on the internet.
+              </p>
+              <div className="flex gap-4">
+                {/* Social placeholders */}
+                {[1,2,3].map(i => (
+                  <div key={i} className="h-10 w-10 rounded-full bg-gray-900 flex items-center justify-center hover:bg-primary hover:text-white transition-colors cursor-pointer">
+                    <div className="w-5 h-5 bg-current rounded-sm opacity-50"></div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            
+            <div className="col-span-6 md:col-span-2 md:col-start-6">
+              <h4 className="font-bold text-white mb-6 text-lg">Platform</h4>
+              <ul className="space-y-3">
+                <li><Link href="/" className="hover:text-primary transition-colors cursor-pointer">Home</Link></li>
+                <li><Link href="/chat" className="hover:text-primary transition-colors cursor-pointer">Chat Rooms</Link></li>
+                <li><Link href="/login" className="hover:text-primary transition-colors cursor-pointer">Login</Link></li>
+                <li><Link href="/signup" className="hover:text-primary transition-colors cursor-pointer">Sign Up</Link></li>
+              </ul>
+            </div>
+
+            <div className="col-span-6 md:col-span-2">
+              <h4 className="font-bold text-white mb-6 text-lg">Company</h4>
+              <ul className="space-y-3">
+                <li><Link href="/about" className="hover:text-primary transition-colors cursor-pointer">About Us</Link></li>
+                <li><Link href="/contact" className="hover:text-primary transition-colors cursor-pointer">Contact Us</Link></li>
+                <li><Link href="/careers" className="hover:text-primary transition-colors cursor-pointer">Careers</Link></li>
+                <li><Link href="/press" className="hover:text-primary transition-colors cursor-pointer">Press</Link></li>
+              </ul>
+            </div>
+
+            <div className="col-span-6 md:col-span-2">
+              <h4 className="font-bold text-white mb-6 text-lg">Legal</h4>
+              <ul className="space-y-3">
+                <li><Link href="/privacy" className="hover:text-primary transition-colors cursor-pointer">Privacy Policy</Link></li>
+                <li><Link href="/terms" className="hover:text-primary transition-colors cursor-pointer">Terms of Service</Link></li>
+                <li><Link href="/cookies" className="hover:text-primary transition-colors cursor-pointer">Cookie Policy</Link></li>
+                <li><Link href="/rules" className="hover:text-primary transition-colors cursor-pointer">Community Guidelines</Link></li>
+              </ul>
+            </div>
+          </div>
+          
+          <div className="pt-8 border-t border-gray-900 flex flex-col md:flex-row items-center justify-between text-sm text-gray-500 gap-4">
+            <div>© {new Date().getFullYear()} ScrollPet. All rights reserved.</div>
+            <div className="flex gap-8">
+              <span>Built for pet lovers 🐾</span>
+            </div>
+          </div>
+        </div>
       </footer>
 
       {/* Login Requirement Dialog */}
