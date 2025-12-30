@@ -6,6 +6,9 @@ interface Message {
   petType: string;
   location: string;
   content: string;
+  messageType: string;
+  mediaUrl?: string | null;
+  mediaDuration?: number | null;
   createdAt: string;
   user: {
     id: string;
@@ -17,16 +20,17 @@ interface Message {
 interface UseWebSocketOptions {
   userId: string;
   petType: string;
+  breed?: string | null;
   location: string;
   onMessage?: (message: Message) => void;
 }
 
-export function useWebSocket({ userId, petType, location, onMessage }: UseWebSocketOptions) {
+export function useWebSocket({ userId, petType, breed, location, onMessage }: UseWebSocketOptions) {
   const wsRef = useRef<WebSocket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onMessageRef = useRef(onMessage);
-  const roomRef = useRef({ userId, petType, location });
+  const roomRef = useRef({ userId, petType, breed, location });
 
   // Keep refs updated
   useEffect(() => {
@@ -34,8 +38,8 @@ export function useWebSocket({ userId, petType, location, onMessage }: UseWebSoc
   }, [onMessage]);
 
   useEffect(() => {
-    roomRef.current = { userId, petType, location };
-  }, [userId, petType, location]);
+    roomRef.current = { userId, petType, breed, location };
+  }, [userId, petType, breed, location]);
 
   // Main connection effect
   useEffect(() => {
@@ -60,6 +64,7 @@ export function useWebSocket({ userId, petType, location, onMessage }: UseWebSoc
           type: 'join',
           userId: room.userId,
           petType: room.petType,
+          breed: room.breed,
           location: room.location,
         }));
       };
@@ -114,10 +119,11 @@ export function useWebSocket({ userId, petType, location, onMessage }: UseWebSoc
         type: 'join',
         userId,
         petType,
+        breed,
         location,
       }));
     }
-  }, [petType, location, userId, isConnected]);
+  }, [petType, breed, location, userId, isConnected]);
 
   const sendMessage = useCallback((content: string) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {

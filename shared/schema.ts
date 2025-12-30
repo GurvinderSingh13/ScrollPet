@@ -24,6 +24,7 @@ export const messages = pgTable("messages", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull().references(() => users.id),
   petType: text("pet_type").notNull(),
+  breed: text("breed"),
   location: text("location").notNull(),
   content: text("content").notNull(),
   messageType: text("message_type").notNull().default('text'),
