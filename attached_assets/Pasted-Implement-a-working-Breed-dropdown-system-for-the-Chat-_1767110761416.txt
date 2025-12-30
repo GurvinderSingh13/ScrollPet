@@ -1,0 +1,138 @@
+Implement a working Breed dropdown system for the Chat Room selection area in ScrollPet.
+________________________________________
+Breed Dropdown – General Rules
+•	The breed dropdown appears in the LEFT COLUMN top section (pet & breed selector).
+•	Dropdown label:
+o	Default: All Breeds
+o	After selection: selected breed name
+•	Breed options must change based on selected pet type.
+•	Selecting a breed filters the chat room to:
+•	Pet Type → Selected Breed → Location
+•	Selecting All Breeds resets breed filtering.
+•	Breed selection must NOT affect Global or Country logic, only chat grouping.
+________________________________________
+Breed Lists by Pet Type (Use Exactly These)
+DOG BREEDS
+•	Labrador Retriever
+•	French Bulldog
+•	Golden Retriever
+•	German Shepherd Dog
+•	Poodle
+•	Bulldog
+•	Rottweiler
+•	Beagle
+•	Dachshund
+•	Yorkshire Terrier
+________________________________________
+CAT BREEDS
+•	Ragdoll
+•	Maine Coon
+•	Exotic Shorthair
+•	Persian
+•	Devon Rex
+•	British Shorthair
+•	Abyssinian
+•	American Shorthair
+•	Scottish Fold
+•	Sphynx
+________________________________________
+PET FISH
+•	Goldfish
+•	Betta (Siamese fighting fish)
+•	Guppy
+•	Koi
+•	Tetra (Neon Tetra)
+•	Molly
+•	Platy
+•	Angelfish
+•	Gourami
+•	Zebra Danio
+________________________________________
+PET BIRDS
+•	Parrot (General)
+•	Budgerigar (Budgie)
+•	Lovebird
+•	Cockatiel
+•	Canary
+•	Finch
+•	African Grey Parrot
+•	Macaw
+•	Cockatoo
+•	Parakeet
+________________________________________
+RABBIT BREEDS
+•	Holland Lop
+•	Mini Lop
+•	Netherland Dwarf
+•	Flemish Giant
+•	Lionhead
+•	Rex Rabbit
+•	Mini Rex
+•	English Angora
+•	French Lop
+•	Dutch Rabbit
+________________________________________
+HAMSTER BREEDS
+•	Syrian Hamster
+•	Dwarf Campbell Russian Hamster
+•	Winter White Dwarf Hamster
+•	Roborovski Dwarf Hamster
+•	Chinese Hamster
+•	Teddy Bear Hamster
+•	Long-haired Syrian Hamster
+•	Black Bear Hamster
+•	Panda Hamster
+•	Golden Hamster
+________________________________________
+GUINEA PIG BREEDS
+•	American Guinea Pig
+•	Abyssinian Guinea Pig
+•	Peruvian Guinea Pig
+•	Silkie (Sheltie) Guinea Pig
+•	Teddy Guinea Pig
+•	Texel Guinea Pig
+•	Coronet Guinea Pig
+•	Crested Guinea Pig
+•	Skinny Pig
+•	Himalayan Guinea Pig
+________________________________________
+TURTLE BREEDS
+•	Red-Eared Slider
+•	Painted Turtle
+•	Map Turtle
+•	Musk Turtle
+•	Mud Turtle
+•	Yellow-Bellied Slider
+•	Diamondback Terrapin
+•	Reeves’ Turtle
+•	African Sideneck Turtle
+•	Box Turtle
+________________________________________
+HORSE BREEDS
+•	Arabian
+•	Thoroughbred
+•	Quarter Horse
+•	Hanoverian
+•	Andalusian
+•	Friesian
+•	Appaloosa
+•	Paint Horse
+•	Shetland Pony
+•	Clydesdale
+________________________________________
+UI / UX Rules
+•	Dropdown must be scrollable.
+•	Show breed list alphabetically inside each pet type (optional but preferred).
+•	Breed dropdown must update instantly when pet type icon changes.
+•	Keep design consistent with existing UI.
+•	Mobile-friendly dropdown behavior required.
+________________________________________
+What NOT to Build
+•	No custom breed creation
+•	No breed images
+•	No breed descriptions
+•	No multi-select
+________________________________________
+Implement this exactly as described so breed-based chat rooms work correctly.
+________________________________________
+
