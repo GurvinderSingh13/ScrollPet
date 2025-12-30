@@ -19,12 +19,16 @@ export const insertUserSchema = createInsertSchema(users).omit({
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 
+// Message types: text, image, video, audio
 export const messages = pgTable("messages", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull().references(() => users.id),
   petType: text("pet_type").notNull(),
   location: text("location").notNull(),
   content: text("content").notNull(),
+  messageType: text("message_type").notNull().default('text'),
+  mediaUrl: text("media_url"),
+  mediaDuration: integer("media_duration"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
