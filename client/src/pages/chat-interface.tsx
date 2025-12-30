@@ -534,14 +534,14 @@ export default function ChatInterface() {
                {currentLocationData?.type === 'state' && currentDistricts.length > 0 && (
                   <div className="hidden sm:block">
                     <Select 
-                      value={activeDistrict || ''} 
-                      onValueChange={(value) => setActiveDistrict(value || null)}
+                      value={activeDistrict || '__all__'} 
+                      onValueChange={(value) => setActiveDistrict(value === '__all__' ? null : value)}
                     >
                       <SelectTrigger className="w-[160px] h-8 bg-white/10 text-white border-white/20 rounded-full text-xs focus:ring-0 hover:bg-white/20">
                         <SelectValue placeholder="Select District" />
                       </SelectTrigger>
                       <SelectContent className="max-h-60">
-                        <SelectItem value="">All {currentLocationData.name}</SelectItem>
+                        <SelectItem value="__all__">All {currentLocationData.name}</SelectItem>
                         {currentDistricts.map(district => (
                           <SelectItem key={district.id} value={district.id}>
                             {district.name}
@@ -573,14 +573,14 @@ export default function ChatInterface() {
              {currentLocationData?.type === 'state' && currentDistricts.length > 0 && (
                <div className="sm:hidden mb-4">
                   <Select 
-                    value={activeDistrict || ''} 
-                    onValueChange={(value) => setActiveDistrict(value || null)}
+                    value={activeDistrict || '__all__'} 
+                    onValueChange={(value) => setActiveDistrict(value === '__all__' ? null : value)}
                   >
                     <SelectTrigger className="w-full h-9 bg-gray-50 text-gray-900 border-gray-200 rounded-lg text-sm focus:ring-0">
                       <SelectValue placeholder="Select District" />
                     </SelectTrigger>
                     <SelectContent className="max-h-60">
-                      <SelectItem value="">All {currentLocationData.name}</SelectItem>
+                      <SelectItem value="__all__">All {currentLocationData.name}</SelectItem>
                       {currentDistricts.map(district => (
                         <SelectItem key={district.id} value={district.id}>
                           {district.name}
