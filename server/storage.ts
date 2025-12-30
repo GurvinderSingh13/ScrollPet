@@ -16,7 +16,7 @@ export interface IStorage {
   createUser(user: InsertUser): Promise<User>;
   
   // Message operations
-  getMessages(petType: string, location: string, limit?: number): Promise<(Message & { user: User })[]>;
+  getMessages(petType: string, location: string, limit?: number, breed?: string): Promise<(Message & { user: User })[]>;
   createMessage(message: InsertMessage): Promise<Message>;
 }
 
@@ -38,7 +38,16 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Message operations
-  async getMessages(petType: string, location: string, limit: number = 100): Promise<(Message & { user: User })[]> {
+  async getMessages(petType: string, location: string, limit: number = 100, breed?: string): Promise<(Message & { user: User })[]> {
+    const conditions = [
+      eq(messages.petType, petType),
+      eq(messages.location, location),
+    ];
+    
+    if (breed) {
+      conditions.push(eq(messages.breed, breed));
+    }
+    
     const result = await db
       .select({
         message: messages,
@@ -46,10 +55,7 @@ export class DatabaseStorage implements IStorage {
       })
       .from(messages)
       .innerJoin(users, eq(messages.userId, users.id))
-      .where(and(
-        eq(messages.petType, petType),
-        eq(messages.location, location)
-      ))
+      .where(and(...conditions))
       .orderBy(desc(messages.createdAt))
       .limit(limit);
 

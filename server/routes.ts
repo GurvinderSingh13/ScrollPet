@@ -47,6 +47,7 @@ const upload = multer({
 interface AuthenticatedWebSocket extends WebSocket {
   userId?: string;
   petType?: string;
+  breed?: string;
   location?: string;
 }
 
@@ -79,8 +80,9 @@ export async function registerRoutes(
         if (payload.type === "join") {
           ws.userId = payload.userId;
           ws.petType = payload.petType;
+          ws.breed = payload.breed || null;
           ws.location = payload.location;
-          console.log(`User ${payload.userId} joined ${payload.petType} - ${payload.location}`);
+          console.log(`User ${payload.userId} joined ${payload.petType}${payload.breed ? ` (${payload.breed})` : ''} - ${payload.location}`);
           return;
         }
 
@@ -89,6 +91,7 @@ export async function registerRoutes(
           const validatedMessage = insertMessageSchema.parse({
             userId: ws.userId,
             petType: ws.petType,
+            breed: ws.breed || null,
             location: ws.location,
             content: payload.content || '',
             messageType: payload.messageType || 'text',
@@ -116,10 +119,13 @@ export async function registerRoutes(
 
           wss.clients.forEach((client: WebSocket) => {
             const authClient = client as AuthenticatedWebSocket;
+            // Match by petType, location, and breed (null breed matches "All Breeds")
+            const breedMatches = !ws.breed || !authClient.breed || ws.breed === authClient.breed;
             if (
               authClient.readyState === WebSocket.OPEN &&
               authClient.petType === ws.petType &&
-              authClient.location === ws.location
+              authClient.location === ws.location &&
+              breedMatches
             ) {
               authClient.send(JSON.stringify(messageWithUser));
             }
@@ -156,7 +162,7 @@ export async function registerRoutes(
   // Send message with media (via HTTP, then broadcast via WebSocket)
   app.post("/api/messages", upload.single('file'), async (req, res) => {
     try {
-      const { userId, petType, location, content, messageType, mediaDuration } = req.body;
+      const { userId, petType, breed, location, content, messageType, mediaDuration } = req.body;
       
       if (!userId || !petType || !location) {
         return res.status(400).json({ error: "userId, petType, and location are required" });
@@ -170,6 +176,7 @@ export async function registerRoutes(
       const validatedMessage = insertMessageSchema.parse({
         userId,
         petType,
+        breed: breed || null,
         location,
         content: content || '',
         messageType: messageType || 'text',
@@ -200,10 +207,13 @@ export async function registerRoutes(
 
         wssRef.clients.forEach((client: WebSocket) => {
           const authClient = client as AuthenticatedWebSocket;
+          // Match by petType, location, and breed (null breed matches "All Breeds")
+          const breedMatches = !breed || !authClient.breed || breed === authClient.breed;
           if (
             authClient.readyState === WebSocket.OPEN &&
             authClient.petType === petType &&
-            authClient.location === location
+            authClient.location === location &&
+            breedMatches
           ) {
             authClient.send(JSON.stringify(messageWithUser));
           }
@@ -227,7 +237,7 @@ export async function registerRoutes(
   // Get messages for a specific room
   app.get("/api/messages", async (req, res) => {
     try {
-      const { petType, location, limit } = req.query;
+      const { petType, location, breed, limit } = req.query;
       
       if (!petType || !location) {
         return res.status(400).json({ error: "petType and location are required" });
@@ -236,7 +246,8 @@ export async function registerRoutes(
       const messages = await storage.getMessages(
         petType as string,
         location as string,
-        limit ? parseInt(limit as string) : 100
+        limit ? parseInt(limit as string) : 100,
+        breed as string | undefined
       );
 
       res.json(messages);

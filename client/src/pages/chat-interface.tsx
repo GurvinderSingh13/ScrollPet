@@ -31,6 +31,7 @@ import logoImage from "@assets/Scrollpet_logo_1766997907297.png";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { useQuery } from "@tanstack/react-query";
 import { INDIA_LOCATIONS, getDistricts, type StateOrUT } from "@/data/indiaLocations";
+import { PET_BREEDS, getBreeds } from "@/data/petBreeds";
 import { ChatInput } from "@/components/ChatInput";
 import { MessageBubble } from "@/components/MessageBubble";
 
@@ -122,6 +123,7 @@ function usePinnedStates() {
 
 export default function ChatInterface() {
   const [activePet, setActivePet] = useState('dog');
+  const [activeBreed, setActiveBreed] = useState<string | null>(null);
   const [activeLocation, setActiveLocation] = useState('global');
   const [activeDistrict, setActiveDistrict] = useState<string | null>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -134,10 +136,18 @@ export default function ChatInterface() {
 
   const { pinnedIds, togglePin, isPinned } = usePinnedStates();
 
+  // Get available breeds for current pet type
+  const currentBreeds = getBreeds(activePet);
+
   // Scroll to bottom when new messages arrive
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  // Reset breed when pet type changes
+  useEffect(() => {
+    setActiveBreed(null);
+  }, [activePet]);
 
   // Mobile View State: 'list' (locations) or 'chat' (messages)
   const [mobileView, setMobileView] = useState<'list' | 'chat'>('list');
@@ -156,9 +166,15 @@ export default function ChatInterface() {
 
   // Determine chat room location key (for API/WebSocket)
   // For districts, use format "state:district" so server knows the context
+  // Breed is included in the room key to filter by breed
   const chatRoomLocation = activeDistrict 
     ? `${activeLocation}:${activeDistrict}` 
     : activeLocation;
+  
+  // Get the breed name for display
+  const activeBreedData = activeBreed 
+    ? currentBreeds.find(b => b.id === activeBreed) 
+    : null;
 
   // Create demo user if needed
   useEffect(() => {
@@ -181,9 +197,10 @@ export default function ChatInterface() {
 
   // Fetch messages for current room
   const { data: historicalMessages } = useQuery({
-    queryKey: ['messages', activePet, chatRoomLocation],
+    queryKey: ['messages', activePet, activeBreed, chatRoomLocation],
     queryFn: async () => {
-      const res = await fetch(`/api/messages?petType=${activePet}&location=${chatRoomLocation}`);
+      const breedParam = activeBreed ? `&breed=${activeBreed}` : '';
+      const res = await fetch(`/api/messages?petType=${activePet}&location=${chatRoomLocation}${breedParam}`);
       if (!res.ok) throw new Error('Failed to fetch messages');
       return res.json() as Promise<Message[]>;
     },
@@ -206,6 +223,7 @@ export default function ChatInterface() {
   const { isConnected, sendMessage: sendWsMessage } = useWebSocket({
     userId,
     petType: activePet,
+    breed: activeBreed,
     location: chatRoomLocation,
     onMessage: handleNewMessage,
   });
@@ -257,6 +275,9 @@ export default function ChatInterface() {
         formData.append('file', mediaFile, mediaFile instanceof File ? mediaFile.name : 'audio.webm');
         formData.append('userId', userId);
         formData.append('petType', activePet);
+        if (activeBreed) {
+          formData.append('breed', activeBreed);
+        }
         formData.append('location', chatRoomLocation);
         formData.append('content', content);
         formData.append('messageType', messageType);
@@ -402,26 +423,47 @@ export default function ChatInterface() {
           "bg-[#F5F7F9] border-r overflow-hidden flex flex-col w-full md:w-80 absolute md:relative z-10 h-full transition-transform duration-300",
           mobileView === 'list' ? "translate-x-0" : "-translate-x-full md:translate-x-0"
         )}>
-          <div className="bg-[#007699] text-white px-4 py-3 flex items-center justify-between shadow-md flex-none h-16">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-white/50 bg-white">
-                 {activePetData?.isIcon ? (
-                    <div className="w-full h-full flex items-center justify-center bg-white text-[#007699] font-bold text-xs">Other</div>
-                  ) : (
-                    <img src={activePetData?.image} alt={activePetData?.name} className="w-full h-full object-cover" />
-                  )}
+          <div className="bg-[#007699] text-white px-4 py-3 shadow-md flex-none">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-white/50 bg-white">
+                   {activePetData?.isIcon ? (
+                      <div className="w-full h-full flex items-center justify-center bg-white text-[#007699] font-bold text-xs">Other</div>
+                    ) : (
+                      <img src={activePetData?.image} alt={activePetData?.name} className="w-full h-full object-cover" />
+                    )}
+                </div>
+                
+                <span className="font-bold text-lg">{activePetData?.name}s</span>
               </div>
-              
-              <div className="relative">
-                <button className="flex items-center gap-1 font-bold text-lg hover:opacity-90 transition-opacity">
-                   All {activePetData?.name}s <ChevronDown className="w-4 h-4 opacity-80" />
-                </button>
-              </div>
-            </div>
 
-             <button className="p-2 hover:bg-white/10 rounded-full transition-colors">
-              <MessageCircle className="w-6 h-6" />
-            </button>
+               <button className="p-2 hover:bg-white/10 rounded-full transition-colors">
+                <MessageCircle className="w-6 h-6" />
+              </button>
+            </div>
+            
+            {/* Breed Dropdown */}
+            {currentBreeds.length > 0 && (
+              <Select 
+                value={activeBreed || '__all__'} 
+                onValueChange={(value) => setActiveBreed(value === '__all__' ? null : value)}
+              >
+                <SelectTrigger 
+                  className="w-full h-9 bg-white/10 border-white/20 text-white rounded-lg text-sm hover:bg-white/20 transition-colors"
+                  data-testid="select-breed"
+                >
+                  <SelectValue placeholder="All Breeds" />
+                </SelectTrigger>
+                <SelectContent className="max-h-60">
+                  <SelectItem value="__all__">All Breeds</SelectItem>
+                  {currentBreeds.map(breed => (
+                    <SelectItem key={breed.id} value={breed.id}>
+                      {breed.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
           </div>
 
           <div className="flex-1 overflow-y-auto p-2 space-y-1">
