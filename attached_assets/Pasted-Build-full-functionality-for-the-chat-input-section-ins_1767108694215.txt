@@ -1,0 +1,135 @@
+Build full functionality for the chat input section inside the ScrollPet chat room.
+
+Chat Input Icons to Implement
+
+There are three icons in the chat input bar:
+
+Emoji icon
+
+Attachment icon
+
+Microphone (mic) icon
+
+All three must work.
+
+1. Emoji Functionality
+
+Clicking the emoji icon opens an emoji picker.
+
+Emoji picker shows common emojis (smileys, animals, food, activities).
+
+When a user clicks an emoji:
+
+Insert the emoji into the text input at the cursor position.
+
+Do NOT send the message automatically.
+
+Emojis must behave like normal text.
+
+Emoji-only messages are allowed.
+
+Emoji + text messages are allowed.
+
+2. Attachment Functionality (Image & Video)
+
+Clicking the attachment icon opens a file picker.
+
+Supported file types:
+
+Images: JPG, PNG, GIF, WEBP
+
+Videos: MP4, WEBM, MOV
+
+After selecting a file:
+
+Show a preview above the input field.
+
+Allow user to remove the preview before sending.
+
+Allow optional text caption.
+
+On send:
+
+Upload the file.
+
+Send it to the chat room.
+
+Chat display rules:
+
+Images display inline inside the chat bubble.
+
+Videos display with an inline video player.
+
+Clicking image opens full view.
+
+Videos have play/pause controls.
+
+3. Microphone (Voice Message) Functionality
+
+Mic icon is shown only when the text input is empty.
+
+When the user starts typing:
+
+Replace mic icon with send button.
+
+When mic icon is tapped:
+
+Start recording audio using browser recording.
+
+Show recording indicator (timer or animation).
+
+Tapping again stops recording.
+
+Show audio preview with:
+
+Play button
+
+Delete option
+
+On send:
+
+Upload and send voice message to chat room.
+
+Audio rules:
+
+Audio format: WebM (opus) or MP3
+
+Max duration: 60 seconds
+
+Voice message displays with play button and duration.
+
+4. Send Button Logic
+
+Input empty → show microphone icon
+
+Text typed → show send button
+
+Attachment selected → show send button
+
+Voice recorded → show send button
+
+5. UX & Safety Rules
+
+Show loading indicator during upload.
+
+Disable send button while uploading.
+
+Validate file size before upload.
+
+Show error if upload fails.
+
+Keep UI mobile-friendly and responsive.
+
+What NOT to Build
+
+No audio-to-text
+
+No stickers (only emojis)
+
+No document uploads
+
+No multiple attachments per message
+
+No message editing
+
+Implement this exactly for the chat input section of the chat room.

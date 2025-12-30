@@ -15,10 +15,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { 
   MessageCircle, 
-  Smile, 
-  Image as ImageIcon, 
-  Mic, 
-  Send, 
   MoreVertical, 
   Globe, 
   Pin,
@@ -29,12 +25,14 @@ import {
   ArrowLeft,
   ChevronDown
 } from "lucide-react";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { cn } from "@/lib/utils";
 import logoImage from "@assets/Scrollpet_logo_1766997907297.png";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { useQuery } from "@tanstack/react-query";
-import { INDIA_LOCATIONS, getDistricts, type StateOrUT, type District } from "@/data/indiaLocations";
+import { INDIA_LOCATIONS, getDistricts, type StateOrUT } from "@/data/indiaLocations";
+import { ChatInput } from "@/components/ChatInput";
+import { MessageBubble } from "@/components/MessageBubble";
 
 import dogImg from "@assets/stock_images/happy_dog_portrait_o_6e5075a4.jpg";
 import catImg from "@assets/stock_images/ginger_cat_sitting_f_07d19cb3.jpg";
@@ -89,6 +87,9 @@ interface Message {
   petType: string;
   location: string;
   content: string;
+  messageType: string;
+  mediaUrl?: string | null;
+  mediaDuration?: number | null;
   createdAt: string;
   user: {
     id: string;
@@ -123,15 +124,20 @@ export default function ChatInterface() {
   const [activePet, setActivePet] = useState('dog');
   const [activeLocation, setActiveLocation] = useState('global');
   const [activeDistrict, setActiveDistrict] = useState<string | null>(null);
-  const [message, setMessage] = useState('');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(() => localStorage.getItem('isLoggedIn') === 'true');
   const [userId, setUserId] = useState(() => localStorage.getItem('userId') || '');
   const [displayName, setDisplayName] = useState(() => localStorage.getItem('displayName') || 'Anonymous');
   const [, setLocation] = useLocation();
   const [messages, setMessages] = useState<Message[]>([]);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const { pinnedIds, togglePin, isPinned } = usePinnedStates();
+
+  // Scroll to bottom when new messages arrive
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
 
   // Mobile View State: 'list' (locations) or 'chat' (messages)
   const [mobileView, setMobileView] = useState<'list' | 'chat'>('list');
@@ -236,12 +242,45 @@ export default function ChatInterface() {
     setMobileView('chat');
   };
 
-  const handleSendMessage = () => {
-    if (!message.trim() || !isConnected) return;
-    
-    const success = sendWsMessage(message.trim());
-    if (success) {
-      setMessage('');
+  const handleSendMessage = async (
+    content: string, 
+    messageType: string = 'text', 
+    mediaFile?: File | Blob,
+    mediaDuration?: number
+  ): Promise<boolean> => {
+    if (!isConnected) return false;
+
+    try {
+      // If there's a media file, use HTTP POST to upload
+      if (mediaFile) {
+        const formData = new FormData();
+        formData.append('file', mediaFile, mediaFile instanceof File ? mediaFile.name : 'audio.webm');
+        formData.append('userId', userId);
+        formData.append('petType', activePet);
+        formData.append('location', chatRoomLocation);
+        formData.append('content', content);
+        formData.append('messageType', messageType);
+        if (mediaDuration) {
+          formData.append('mediaDuration', mediaDuration.toString());
+        }
+
+        const response = await fetch('/api/messages', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to send message');
+        }
+
+        return true;
+      } else {
+        // Text-only message via WebSocket
+        return sendWsMessage(content);
+      }
+    } catch (error) {
+      console.error('Error sending message:', error);
+      return false;
     }
   };
 
@@ -599,68 +638,20 @@ export default function ChatInterface() {
             )}
 
             {messages.map((msg) => (
-              <div key={msg.id} className={cn("flex flex-col max-w-[85%] md:max-w-[70%]", msg.userId === userId ? "ml-auto items-end" : "mr-auto items-start")}>
-                {msg.userId !== userId && (
-                  <div className="text-xs text-gray-400 mb-1 ml-1 flex gap-1 items-center">
-                    <span className="font-bold text-gray-600">@{msg.user.displayName}</span>
-                    <span className="bg-gray-100 px-1.5 py-0.5 rounded text-[10px] text-gray-500">[{msg.location}]</span>
-                  </div>
-                )}
-                
-                <div className={cn(
-                  "px-5 py-3.5 text-[15px] shadow-sm leading-relaxed",
-                  msg.userId === userId
-                    ? "bg-[#007699] text-white rounded-2xl rounded-tr-sm" 
-                    : "bg-[#F3F4F6] text-gray-800 rounded-2xl rounded-tl-sm"
-                )}>
-                  {msg.content}
-                </div>
-                
-                {msg.userId === userId && (
-                  <div className="text-xs text-gray-400 mt-1 mr-1">
-                    @{displayName}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-
-          <div className="p-4 bg-white border-t">
-            <div className="flex items-center gap-2 max-w-4xl mx-auto bg-white border rounded-full px-2 py-2 shadow-sm focus-within:ring-2 focus-within:ring-[#007699]/20 transition-all hover:border-gray-300">
-              <button className="p-2.5 hover:bg-gray-100 rounded-full text-gray-500 transition-colors">
-                <Smile className="w-6 h-6" />
-              </button>
-              <button className="p-2.5 hover:bg-gray-100 rounded-full text-gray-500 transition-colors">
-                <ImageIcon className="w-6 h-6" />
-              </button>
-              
-              <input 
-                type="text"
-                placeholder="Type a message..."
-                className="flex-1 bg-transparent border-none focus:outline-none text-gray-700 placeholder:text-gray-400 h-10 px-2 text-base"
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && message.trim()) {
-                    handleSendMessage();
-                  }
-                }}
-                data-testid="input-message"
+              <MessageBubble
+                key={msg.id}
+                message={msg}
+                isOwnMessage={msg.userId === userId}
+                displayName={displayName}
               />
-
-              <button 
-                className={cn(
-                  "p-2.5 rounded-full transition-all duration-200 shadow-sm",
-                  message.trim() ? "bg-[#007699] text-white hover:bg-[#007699]/90 scale-100" : "bg-gray-100 text-gray-500 hover:bg-gray-200"
-                )}
-                onClick={handleSendMessage}
-                disabled={!isConnected}
-                data-testid="button-send"
-              >
-                {message.trim() ? <Send className="w-5 h-5 ml-0.5" /> : <Mic className="w-5 h-5" />}
-              </button>
-            </div>
+            ))}
+            <div ref={messagesEndRef} />
           </div>
+
+          <ChatInput 
+            onSendMessage={handleSendMessage}
+            isConnected={isConnected}
+          />
 
         </main>
       </div>
