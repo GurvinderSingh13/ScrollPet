@@ -7,6 +7,12 @@ import {
   SelectTrigger, 
   SelectValue 
 } from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { 
   MessageCircle, 
   Smile, 
@@ -14,10 +20,8 @@ import {
   Mic, 
   Send, 
   MoreVertical, 
-  Search, 
   Globe, 
-  Pin, 
-  Lock,
+  Pin,
   BookOpen,
   Megaphone,
   Menu,
@@ -30,6 +34,7 @@ import { cn } from "@/lib/utils";
 import logoImage from "@assets/Scrollpet_logo_1766997907297.png";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { useQuery } from "@tanstack/react-query";
+import { INDIA_LOCATIONS, getDistricts, type StateOrUT, type District } from "@/data/indiaLocations";
 
 import dogImg from "@assets/stock_images/happy_dog_portrait_o_6e5075a4.jpg";
 import catImg from "@assets/stock_images/ginger_cat_sitting_f_07d19cb3.jpg";
@@ -54,18 +59,29 @@ const PETS = [
   { id: 'other', name: 'Other', isIcon: true },
 ];
 
-const LOCATIONS = [
-  { id: 'global', name: 'Global', type: 'global', icon: Globe },
-  { id: 'india', name: 'India', type: 'country', flag: '🇮🇳' },
-  { id: 'punjab', name: 'Punjab', type: 'state', pinned: true },
-  { id: 'andaman', name: 'Andaman & Nicobar Islands', type: 'state' },
-  { id: 'andhra', name: 'Andhra Pradesh', type: 'state' },
-  { id: 'assam', name: 'Assam', type: 'state' },
-  { id: 'bihar', name: 'Bihar', type: 'state' },
-  { id: 'chandigarh', name: 'Chandigarh', type: 'state' },
-  { id: 'chattisgarh', name: 'Chattisgarh', type: 'state' },
-  { id: 'delhi', name: 'Delhi', type: 'state' },
+// Location types for the hierarchy
+type LocationType = 'global' | 'country' | 'state';
+
+interface LocationItem {
+  id: string;
+  name: string;
+  type: LocationType;
+  stateData?: StateOrUT;
+}
+
+// Build location list
+const FIXED_LOCATIONS: LocationItem[] = [
+  { id: 'global', name: 'Global', type: 'global' },
+  { id: 'india', name: 'India', type: 'country' },
 ];
+
+// Convert INDIA_LOCATIONS to LocationItem format
+const STATE_LOCATIONS: LocationItem[] = INDIA_LOCATIONS.map(state => ({
+  id: state.id,
+  name: state.name,
+  type: 'state' as LocationType,
+  stateData: state,
+}));
 
 interface Message {
   id: string;
@@ -81,9 +97,32 @@ interface Message {
   };
 }
 
+// Hook to manage pinned states with localStorage
+function usePinnedStates() {
+  const [pinnedIds, setPinnedIds] = useState<string[]>(() => {
+    const saved = localStorage.getItem('pinnedStates');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  const togglePin = useCallback((stateId: string) => {
+    setPinnedIds(prev => {
+      const newPinned = prev.includes(stateId) 
+        ? prev.filter(id => id !== stateId)
+        : [...prev, stateId];
+      localStorage.setItem('pinnedStates', JSON.stringify(newPinned));
+      return newPinned;
+    });
+  }, []);
+
+  const isPinned = useCallback((stateId: string) => pinnedIds.includes(stateId), [pinnedIds]);
+
+  return { pinnedIds, togglePin, isPinned };
+}
+
 export default function ChatInterface() {
   const [activePet, setActivePet] = useState('dog');
-  const [activeLocation, setActiveLocation] = useState('bihar');
+  const [activeLocation, setActiveLocation] = useState('global');
+  const [activeDistrict, setActiveDistrict] = useState<string | null>(null);
   const [message, setMessage] = useState('');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(() => localStorage.getItem('isLoggedIn') === 'true');
@@ -92,8 +131,28 @@ export default function ChatInterface() {
   const [, setLocation] = useLocation();
   const [messages, setMessages] = useState<Message[]>([]);
 
+  const { pinnedIds, togglePin, isPinned } = usePinnedStates();
+
   // Mobile View State: 'list' (locations) or 'chat' (messages)
   const [mobileView, setMobileView] = useState<'list' | 'chat'>('list');
+
+  // Get current location data
+  const currentLocationData = activeLocation === 'global' 
+    ? FIXED_LOCATIONS[0]
+    : activeLocation === 'india'
+    ? FIXED_LOCATIONS[1]
+    : STATE_LOCATIONS.find(s => s.id === activeLocation);
+
+  // Get districts for current state (if applicable)
+  const currentDistricts = currentLocationData?.type === 'state' 
+    ? getDistricts(activeLocation)
+    : [];
+
+  // Determine chat room location key (for API/WebSocket)
+  // For districts, use format "state:district" so server knows the context
+  const chatRoomLocation = activeDistrict 
+    ? `${activeLocation}:${activeDistrict}` 
+    : activeLocation;
 
   // Create demo user if needed
   useEffect(() => {
@@ -116,9 +175,9 @@ export default function ChatInterface() {
 
   // Fetch messages for current room
   const { data: historicalMessages } = useQuery({
-    queryKey: ['messages', activePet, activeLocation],
+    queryKey: ['messages', activePet, chatRoomLocation],
     queryFn: async () => {
-      const res = await fetch(`/api/messages?petType=${activePet}&location=${activeLocation}`);
+      const res = await fetch(`/api/messages?petType=${activePet}&location=${chatRoomLocation}`);
       if (!res.ok) throw new Error('Failed to fetch messages');
       return res.json() as Promise<Message[]>;
     },
@@ -141,7 +200,7 @@ export default function ChatInterface() {
   const { isConnected, sendMessage: sendWsMessage } = useWebSocket({
     userId,
     petType: activePet,
-    location: activeLocation,
+    location: chatRoomLocation,
     onMessage: handleNewMessage,
   });
 
@@ -156,8 +215,12 @@ export default function ChatInterface() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  // Reset district when location changes
+  useEffect(() => {
+    setActiveDistrict(null);
+  }, [activeLocation]);
+
   const activePetData = PETS.find(p => p.id === activePet);
-  const activeLocationData = LOCATIONS.find(l => l.id === activeLocation);
 
   const handleLogout = () => {
     localStorage.removeItem('isLoggedIn');
@@ -169,6 +232,7 @@ export default function ChatInterface() {
 
   const handleLocationClick = (locId: string) => {
     setActiveLocation(locId);
+    setActiveDistrict(null);
     setMobileView('chat');
   };
 
@@ -179,6 +243,19 @@ export default function ChatInterface() {
     if (success) {
       setMessage('');
     }
+  };
+
+  // Separate pinned states from unpinned
+  const pinnedStates = STATE_LOCATIONS.filter(s => isPinned(s.id));
+  const unpinnedStates = STATE_LOCATIONS.filter(s => !isPinned(s.id));
+
+  // Get display name for current location
+  const getLocationDisplayName = () => {
+    if (activeDistrict) {
+      const district = currentDistricts.find(d => d.id === activeDistrict);
+      return `${currentLocationData?.name} - ${district?.name}`;
+    }
+    return currentLocationData?.name || 'Select Location';
   };
 
   return (
@@ -258,6 +335,7 @@ export default function ChatInterface() {
             <button
               key={pet.id}
               onClick={() => setActivePet(pet.id)}
+              data-testid={`pet-icon-${pet.id}`}
               className={cn(
                 "flex-none relative rounded-full p-0.5 md:p-1 transition-all duration-200",
                 activePet === pet.id ? "ring-2 ring-primary ring-offset-2 scale-105 md:scale-110" : "opacity-70 hover:opacity-100 hover:scale-105"
@@ -280,7 +358,7 @@ export default function ChatInterface() {
       {/* 3. Main Split Content Area */}
       <div className="flex-1 flex overflow-hidden relative">
         
-        {/* LEFT COLUMN: Selection (Locations) */}
+        {/* LEFT COLUMN: Location Selection */}
         <aside className={cn(
           "bg-[#F5F7F9] border-r overflow-hidden flex flex-col w-full md:w-80 absolute md:relative z-10 h-full transition-transform duration-300",
           mobileView === 'list' ? "translate-x-0" : "-translate-x-full md:translate-x-0"
@@ -308,33 +386,124 @@ export default function ChatInterface() {
           </div>
 
           <div className="flex-1 overflow-y-auto p-2 space-y-1">
-            {LOCATIONS.map((loc) => (
-              <button
-                key={loc.id}
-                onClick={() => handleLocationClick(loc.id)}
-                className={cn(
-                  "w-full flex items-center justify-between px-4 py-3.5 rounded-lg text-sm font-medium transition-all duration-200 text-left group border mb-2",
-                  activeLocation === loc.id 
-                    ? "bg-[#FF6600] text-white shadow-md border-[#FF6600]" 
-                    : "bg-white hover:bg-gray-50 text-gray-700 border-gray-100 hover:border-gray-200 shadow-sm"
-                )}
-              >
-                <div className="flex items-center gap-3">
-                  {loc.type === 'global' && loc.icon && <loc.icon className={cn("w-5 h-5", activeLocation === loc.id ? "text-white" : "text-blue-500")} />}
-                  {loc.type === 'country' && <span className="text-xl">{loc.flag}</span>}
-                  <span className="text-base">{loc.name}</span>
+            {/* Global */}
+            <button
+              onClick={() => handleLocationClick('global')}
+              data-testid="location-global"
+              className={cn(
+                "w-full flex items-center justify-between px-4 py-3.5 rounded-lg text-sm font-medium transition-all duration-200 text-left group border mb-2",
+                activeLocation === 'global' 
+                  ? "bg-[#FF6600] text-white shadow-md border-[#FF6600]" 
+                  : "bg-white hover:bg-gray-50 text-gray-700 border-gray-100 hover:border-gray-200 shadow-sm"
+              )}
+            >
+              <div className="flex items-center gap-3">
+                <Globe className={cn("w-5 h-5", activeLocation === 'global' ? "text-white" : "text-blue-500")} />
+                <span className="text-base">Global</span>
+              </div>
+            </button>
+
+            {/* India (Country) */}
+            <button
+              onClick={() => handleLocationClick('india')}
+              data-testid="location-india"
+              className={cn(
+                "w-full flex items-center justify-between px-4 py-3.5 rounded-lg text-sm font-medium transition-all duration-200 text-left group border mb-2",
+                activeLocation === 'india' 
+                  ? "bg-[#FF6600] text-white shadow-md border-[#FF6600]" 
+                  : "bg-white hover:bg-gray-50 text-gray-700 border-gray-100 hover:border-gray-200 shadow-sm"
+              )}
+            >
+              <div className="flex items-center gap-3">
+                <span className="text-xl">🇮🇳</span>
+                <span className="text-base">India</span>
+              </div>
+            </button>
+
+            {/* Pinned States Section */}
+            {pinnedStates.length > 0 && (
+              <>
+                <div className="px-2 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  Pinned
                 </div>
-                
-                <div className="flex items-center gap-2">
-                  {loc.pinned && activeLocation !== loc.id && (
-                    <Pin className="w-3 h-3 text-gray-400 rotate-45" />
+                {pinnedStates.map((loc) => (
+                  <div key={`pinned-${loc.id}`} className="flex items-center gap-1 mb-2">
+                    <button
+                      onClick={() => handleLocationClick(loc.id)}
+                      data-testid={`location-pinned-${loc.id}`}
+                      className={cn(
+                        "flex-1 flex items-center justify-between px-4 py-3.5 rounded-lg text-sm font-medium transition-all duration-200 text-left group border",
+                        activeLocation === loc.id 
+                          ? "bg-[#FF6600] text-white shadow-md border-[#FF6600]" 
+                          : "bg-white hover:bg-gray-50 text-gray-700 border-gray-100 hover:border-gray-200 shadow-sm"
+                      )}
+                    >
+                      <div className="flex items-center gap-3">
+                        <Pin className={cn("w-4 h-4 rotate-45", activeLocation === loc.id ? "text-white" : "text-orange-500")} />
+                        <span className="text-base">{loc.name}</span>
+                        {loc.stateData?.type === 'ut' && (
+                          <span className="text-xs bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded">UT</span>
+                        )}
+                      </div>
+                    </button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+                          <MoreVertical className="w-4 h-4 text-gray-500" />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => togglePin(loc.id)}>
+                          <Pin className="w-4 h-4 mr-2" />
+                          Unpin
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                ))}
+              </>
+            )}
+
+            {/* All States & UTs */}
+            <div className="px-2 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+              All States & Union Territories
+            </div>
+            {unpinnedStates.map((loc) => (
+              <div key={loc.id} className="flex items-center gap-1 mb-2">
+                <button
+                  onClick={() => handleLocationClick(loc.id)}
+                  data-testid={`location-${loc.id}`}
+                  className={cn(
+                    "flex-1 flex items-center justify-between px-4 py-3.5 rounded-lg text-sm font-medium transition-all duration-200 text-left group border",
+                    activeLocation === loc.id 
+                      ? "bg-[#FF6600] text-white shadow-md border-[#FF6600]" 
+                      : "bg-white hover:bg-gray-50 text-gray-700 border-gray-100 hover:border-gray-200 shadow-sm"
                   )}
-                  {loc.type === 'global' && <Lock className={cn("w-3 h-3", activeLocation === loc.id ? "text-white/70" : "text-gray-400")} />}
-                  {activeLocation === loc.id && (
-                    <MoreVertical className="w-4 h-4 text-white/80" />
-                  )}
-                </div>
-              </button>
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="text-base">{loc.name}</span>
+                    {loc.stateData?.type === 'ut' && (
+                      <span className={cn(
+                        "text-xs px-1.5 py-0.5 rounded",
+                        activeLocation === loc.id ? "bg-white/20 text-white" : "bg-gray-100 text-gray-600"
+                      )}>UT</span>
+                    )}
+                  </div>
+                </button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+                      <MoreVertical className="w-4 h-4 text-gray-500" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => togglePin(loc.id)}>
+                      <Pin className="w-4 h-4 mr-2" />
+                      Pin to Top
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
             ))}
           </div>
         </aside>
@@ -358,20 +527,30 @@ export default function ChatInterface() {
                </div>
 
                <h2 className="font-bold text-xl truncate">
-                 {activeLocationData?.name}
+                 {getLocationDisplayName()}
                </h2>
 
-               <div className="hidden sm:block">
-                  <Select>
-                    <SelectTrigger className="w-[140px] h-8 bg-white/10 text-white border-white/20 rounded-full text-xs focus:ring-0 hover:bg-white/20">
-                      <SelectValue placeholder="Select District" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="patna">Patna</SelectItem>
-                      <SelectItem value="gaya">Gaya</SelectItem>
-                    </SelectContent>
-                  </Select>
-               </div>
+               {/* District Dropdown - Only show for state-level rooms */}
+               {currentLocationData?.type === 'state' && currentDistricts.length > 0 && (
+                  <div className="hidden sm:block">
+                    <Select 
+                      value={activeDistrict || ''} 
+                      onValueChange={(value) => setActiveDistrict(value || null)}
+                    >
+                      <SelectTrigger className="w-[160px] h-8 bg-white/10 text-white border-white/20 rounded-full text-xs focus:ring-0 hover:bg-white/20">
+                        <SelectValue placeholder="Select District" />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-60">
+                        <SelectItem value="">All {currentLocationData.name}</SelectItem>
+                        {currentDistricts.map(district => (
+                          <SelectItem key={district.id} value={district.id}>
+                            {district.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+               )}
             </div>
 
             <div className="flex items-center gap-1">
@@ -390,17 +569,27 @@ export default function ChatInterface() {
           </div>
 
           <div className="flex-1 overflow-y-auto p-4 space-y-6 pt-6 scroll-smooth">
-             <div className="sm:hidden mb-4">
-                  <Select>
+             {/* Mobile District Dropdown */}
+             {currentLocationData?.type === 'state' && currentDistricts.length > 0 && (
+               <div className="sm:hidden mb-4">
+                  <Select 
+                    value={activeDistrict || ''} 
+                    onValueChange={(value) => setActiveDistrict(value || null)}
+                  >
                     <SelectTrigger className="w-full h-9 bg-gray-50 text-gray-900 border-gray-200 rounded-lg text-sm focus:ring-0">
                       <SelectValue placeholder="Select District" />
                     </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="patna">Patna</SelectItem>
-                      <SelectItem value="gaya">Gaya</SelectItem>
+                    <SelectContent className="max-h-60">
+                      <SelectItem value="">All {currentLocationData.name}</SelectItem>
+                      {currentDistricts.map(district => (
+                        <SelectItem key={district.id} value={district.id}>
+                          {district.name}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
-             </div>
+               </div>
+             )}
 
             {messages.length === 0 && (
               <div className="text-center text-gray-400 py-10">
@@ -456,6 +645,7 @@ export default function ChatInterface() {
                     handleSendMessage();
                   }
                 }}
+                data-testid="input-message"
               />
 
               <button 
@@ -465,6 +655,7 @@ export default function ChatInterface() {
                 )}
                 onClick={handleSendMessage}
                 disabled={!isConnected}
+                data-testid="button-send"
               >
                 {message.trim() ? <Send className="w-5 h-5 ml-0.5" /> : <Mic className="w-5 h-5" />}
               </button>

@@ -1,0 +1,219 @@
+Chat Room Location Logic (Updated & Final)
+Core Rule (Very Important)
+
+All Indian States AND Union Territories must be available as chat rooms.
+No partial list. No limited states.
+
+1. Location Chat Room List (LEFT COLUMN)
+Structure (Top to Bottom)
+
+Global
+
+Appears first
+
+Globe icon
+
+No district dropdown
+
+No pin option
+
+Country
+
+Example: India
+
+Country flag icon
+
+No district dropdown
+
+No pin option
+
+Pinned States Section
+
+Appears below Country
+
+Shows only states pinned by the user
+
+Each pinned item:
+
+State name
+
+Pin icon indicator
+
+Max pinned states can be limited later (optional)
+
+All States & Union Territories (Scrollable)
+
+Full list of ALL Indian States + ALL UTs
+
+Example includes (not limited to):
+
+Andhra Pradesh
+
+Arunachal Pradesh
+
+Assam
+
+Bihar
+
+Chhattisgarh
+
+Delhi (UT)
+
+Goa
+
+Gujarat
+
+Haryana
+
+Himachal Pradesh
+
+Jammu & Kashmir (UT)
+
+Karnataka
+
+Kerala
+
+Ladakh (UT)
+
+Madhya Pradesh
+
+Maharashtra
+
+Odisha
+
+Punjab
+
+Rajasthan
+
+Tamil Nadu
+
+Telangana
+
+Uttar Pradesh
+
+Uttarakhand
+
+West Bengal
+
+And all other UTs
+
+Pin to Top Functionality
+
+Each State / UT item has a three-dot (⋮) menu
+
+Clicking three-dot shows:
+
+Pin to Top
+
+When pinned:
+
+State moves to Pinned States Section
+
+Appears below Country and above scroll list
+
+User can still scroll to find unpinned states
+
+📌 Purpose:
+Allow users to quickly access their preferred location without losing full list access.
+
+2. Right Column – Location Header Behavior
+Location Header Elements
+
+Displayed at top of RIGHT (Chat) COLUMN:
+
+Selected Location Name
+
+Shows:
+
+Global OR
+
+India OR
+
+State name (e.g., Bihar)
+
+District Dropdown (Conditional – IMPORTANT)
+
+District Dropdown Rules:
+
+❌ DO NOT show district dropdown for:
+
+Global chat
+
+Country (India) chat
+
+✅ SHOW district dropdown ONLY when:
+
+A State or UT is selected
+
+3. District-Level Chat Rooms (State Only)
+District Dropdown Behavior
+
+When a State/UT chat room is selected:
+
+Show a dropdown labeled:
+Select District
+
+Dropdown contains:
+
+ALL districts of that specific state
+
+Selecting a district:
+
+Switches chat room to:
+
+Pet Type → Breed → State → District
+
+
+📌 Every state must have its full official district list
+📌 District chat rooms are children of state chat rooms
+
+4. Chat Room Hierarchy (Simple View)
+Global
+ └─ Chat (no district)
+
+India
+ └─ Chat (no district)
+
+State (e.g., Bihar)
+ ├─ All State Chat
+ ├─ Patna
+ ├─ Gaya
+ ├─ Muzaffarpur
+ ├─ Bhagalpur
+ └─ All other districts
+
+5. UX Rules Summary (For Replit Agent)
+
+Always show Global and Country
+
+Always list ALL states + UTs
+
+Allow pinning states only
+
+Pinned states appear below country
+
+District dropdown:
+
+Only for state chat
+
+Never for global or country
+
+District list must be complete per state
+
+Scrolling must allow access to all locations
+
+Final Instruction to Replit Agent
+
+Implement a complete India-wide location chat system with:
+
+Full state + UT coverage
+
+User-controlled pinning
+
+Conditional district filtering
+
+Clean hierarchy
+
+No shortcuts or partial lists
+
+This logic is mandatory, not optional.
