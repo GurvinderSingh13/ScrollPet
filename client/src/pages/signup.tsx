@@ -241,7 +241,7 @@ export default function Signup() {
                 <li><Link href="/privacy" className="hover:text-primary transition-colors cursor-pointer">Privacy Policy</Link></li>
                 <li><Link href="/terms" className="hover:text-primary transition-colors cursor-pointer">Terms of Service</Link></li>
                 <li><Link href="/cookies" className="hover:text-primary transition-colors cursor-pointer">Cookie Policy</Link></li>
-                <li><Link href="/rules" className="hover:text-primary transition-colors cursor-pointer">Community Guidelines</Link></li>
+                <li><Link href="/community-guidelines" className="hover:text-primary transition-colors cursor-pointer">Community Guidelines</Link></li>
               </ul>
             </div>
           </div>
