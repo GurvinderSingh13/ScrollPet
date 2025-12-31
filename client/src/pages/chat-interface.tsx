@@ -635,9 +635,9 @@ export default function ChatInterface() {
             </div>
 
             <div className="flex items-center gap-1">
-                <button className="p-2 hover:bg-white/10 rounded-full transition-colors" title="Guidelines">
+                <Link href="/community-guidelines" className="p-2 hover:bg-white/10 rounded-full transition-colors" title="Community Guidelines" data-testid="link-guidelines">
                   <BookOpen className="w-5 h-5 rotate-12" />
-                </button>
+                </Link>
                 <button className="p-2 hover:bg-white/10 rounded-full transition-colors" title="News">
                   <Megaphone className="w-5 h-5 -rotate-12" />
                 </button>

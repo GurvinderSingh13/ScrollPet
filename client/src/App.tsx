@@ -9,6 +9,7 @@ import ChatRooms from "@/pages/chat-rooms";
 import Login from "@/pages/login";
 import Signup from "@/pages/signup";
 import ChatInterface from "@/pages/chat-interface";
+import CommunityGuidelines from "@/pages/community-guidelines";
 
 function Router() {
   return (
@@ -18,6 +19,7 @@ function Router() {
       <Route path="/chat-interface" component={ChatInterface} />
       <Route path="/login" component={Login} />
       <Route path="/signup" component={Signup} />
+      <Route path="/community-guidelines" component={CommunityGuidelines} />
       <Route component={NotFound} />
     </Switch>
   );
