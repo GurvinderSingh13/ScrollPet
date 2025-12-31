@@ -1,0 +1,100 @@
+Create an FAQ page for ScrollPet.
+________________________________________
+Page Name
+ScrollPet FAQ
+________________________________________
+Page Purpose
+This page answers common user questions about ScrollPet, how chat rooms work, moderation, content rules, and platform usage.
+The page must be clear, well-structured, and easy to read.
+________________________________________
+Page Layout
+1. Page Title
+Display at the top:
+ScrollPet FAQ
+________________________________________
+2. FAQ List Structure
+Display FAQs as a numbered list.
+Each question should be:
+•	Clearly visible
+•	Bold or highlighted
+Each answer should:
+•	Appear directly below its question
+•	Be easy to read
+•	Support bullet points where applicable
+Accordion-style expand/collapse is optional but preferred.
+________________________________________
+FAQ Content (Use Exactly This)
+1. What is ScrollPet?
+ScrollPet is a community platform where pet lovers, breeders, and pet owners can connect with each other. It offers chat rooms based on different pets, breeds, and locations, making it easy to join discussions about pets you care about.
+________________________________________
+2. How do I join chat rooms?
+You can join chat rooms based on your pet type (e.g., dog, cat) and even by breed (e.g., Pug, Siamese). You can also join rooms for your country, state, or local district, as well as a global chat room where users from all over the world can chat.
+________________________________________
+3. What is the News Room?
+Each chat room (based on pet or breed) has its own News Room, where the ScrollPet team posts updates. These could include:
+•	Pet-related news and updates
+•	Announcements about the platform
+•	Promotions or special offers on pet products or services
+Only the ScrollPet team can post in the News Room; users can only read or view the posts.
+________________________________________
+4. What content can I share?
+You can share text messages, images, videos, and voice notes in the chat rooms. However, everything shared must be related to pets and must follow the community guidelines.
+________________________________________
+5. Who moderates the chat rooms?
+Both Company Moderators and Community Moderators manage the chat rooms:
+•	Company Moderators can permanently ban users who break the rules.
+•	Community Moderators can issue temporary bans and help manage discussions.
+________________________________________
+6. What happens if I break the rules?
+Violating the rules may lead to a temporary ban from posting in chat rooms. You’ll still be able to read the chat but won’t be able to participate. Repeated violations could result in a permanent ban.
+________________________________________
+7. How can I report or block a user?
+To report or block someone, click on their message or profile and choose from the available report options. This helps keep the community safe and respectful.
+________________________________________
+8. What pet categories are available?
+ScrollPet has nine main pet categories: Dogs, Cats, Horses, Fish, Rabbits, Birds, Hamsters, Turtles, and Other Pets. Each category has sub-categories for different breeds.
+________________________________________
+9. Can I delete my account?
+Currently, account deletion is not available, but this feature will be added in the future.
+________________________________________
+10. What languages are supported?
+•	Global chat: Only English
+•	National chats: National language (e.g., Hindi for India)
+•	State/District chats: Both national and regional languages are allowed
+English can be used in any chat room.
+________________________________________
+11. How do I become a Community Moderator?
+Active, helpful, and respectful users may be invited by the ScrollPet team to become Community Moderators.
+________________________________________
+12. Can I switch between chat rooms?
+Yes, you can switch between chat rooms any time. You can choose different rooms based on the pet category, breed, or location that interests you.
+________________________________________
+13. What should I do if I see inappropriate content?
+You can report inappropriate content by clicking on the message and selecting the report option. This helps keep the community safe and enjoyable for everyone.
+________________________________________
+14. Can I suggest new pet categories?
+Yes, if there’s a pet category or breed you’d like to see added, you can suggest it. The ScrollPet team will review your suggestion.
+________________________________________
+15. What should I do if I’m banned from a chat room?
+If you’re banned, review the community guidelines and wait until the ban is lifted. You can contact support if you think the ban was unfair.
+________________________________________
+16. How do I update my profile?
+You can update your profile information in the account settings section.
+________________________________________
+17. How can I provide feedback?
+You can share your feedback or suggestions through the feedback section or by contacting customer support. Your feedback helps improve ScrollPet.
+________________________________________
+UI / UX Requirements
+•	Clean and readable layout
+•	Mobile-friendly scrolling
+•	Proper spacing between questions
+•	Consistent styling with other ScrollPet pages
+•	Read-only for users
+________________________________________
+Accessibility
+•	FAQ page must be accessible from:
+o	Header (FAQ link)
+o	Footer (optional)
+________________________________________
+Build this page exactly as described without adding or removing questions.
+

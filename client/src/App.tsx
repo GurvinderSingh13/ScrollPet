@@ -10,6 +10,7 @@ import Login from "@/pages/login";
 import Signup from "@/pages/signup";
 import ChatInterface from "@/pages/chat-interface";
 import CommunityGuidelines from "@/pages/community-guidelines";
+import FAQ from "@/pages/faq";
 
 function Router() {
   return (
@@ -20,6 +21,7 @@ function Router() {
       <Route path="/login" component={Login} />
       <Route path="/signup" component={Signup} />
       <Route path="/community-guidelines" component={CommunityGuidelines} />
+      <Route path="/faq" component={FAQ} />
       <Route component={NotFound} />
     </Switch>
   );
