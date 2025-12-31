@@ -1,0 +1,75 @@
+Create a Community Guidelines page for ScrollPet.
+________________________________________
+Page Name
+ScrollPet Community Guidelines
+________________________________________
+Page Purpose
+This page explains the rules and behavior expected from users to maintain a respectful, pet-focused community on ScrollPet.
+The content must be clear, readable, and easy to understand.
+________________________________________
+Page Layout
+1. Page Title
+At the top of the page, display:
+ScrollPet Community Guidelines
+________________________________________
+2. Introductory Text
+Display the following paragraph exactly:
+ScrollPet is designed for pet lovers to connect with others who share the same interests and needs. To maintain a focused and respectful environment, please ensure that every post and discussion revolves around pets.
+________________________________________
+3. Main Rules Section
+Display a section titled:
+Main Rules
+List the rules in numbered order as shown below.
+________________________________________
+Rule 1: Stay on Topic
+•	Only discuss topics related to pets.
+•	Non-pet-related discussions are not allowed.
+________________________________________
+Rule 2: Language Guidelines
+•	Global Chat Room: English only.
+•	Nation’s Chat: National language only (e.g., Hindi for India).
+•	State & District Chats: National and regional languages are allowed.
+•	English is permitted in any Nation or State chat room.
+________________________________________
+Rule 3: Respectful Communication
+•	No abusive or harassing language.
+•	Block users if you cannot engage civilly.
+________________________________________
+Rule 4: Moderator Authority
+•	If a moderator (Staff Member or Authority Person) requests that you drop a topic or argument, you must comply.
+•	If you wish to continue the discussion, move it to private messages.
+________________________________________
+Rule 5: Permitted Content
+•	Spam, roleplay, or unrelated content is not allowed.
+________________________________________
+Rule 6: Respect Pet Categories
+•	Each pet and breed has its designated chat room.
+•	Do not discuss other pets or breeds in the wrong chat rooms.
+________________________________________
+Rule 7: Competitor Discussion
+•	Discussing or posting about ScrollPet’s competitors is prohibited.
+________________________________________
+Rule 8: Fair Trading
+•	Do not pressure anyone into giving away their pets for free or at a low price.
+•	For negotiations, use private messaging.
+________________________________________
+UI / UX Requirements
+•	Clean and simple layout
+•	Easy-to-read font
+•	Proper spacing between rules
+•	Mobile-friendly scrolling
+•	Consistent styling with the rest of ScrollPet
+________________________________________
+Accessibility & Usage
+•	This page must be accessible from:
+o	Chat room header (Community Guidelines icon)
+o	Footer (optional)
+•	Page is read-only for users
+________________________________________
+What NOT to Build
+•	No comments section
+•	No editing for users
+•	No acceptance checkbox (for MVP)
+________________________________________
+Build this page exactly as described, without adding or removing rules.
+
