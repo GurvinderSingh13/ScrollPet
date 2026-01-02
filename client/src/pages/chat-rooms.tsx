@@ -15,6 +15,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import logoImage from "@assets/Scrollpet_logo_1766997907297.png";
+import { useAuth } from "@/hooks/use-auth";
 
 // Import stock images
 import dogImg from "@assets/stock_images/happy_dog_portrait_o_6e5075a4.jpg";
@@ -43,14 +44,22 @@ const CHAT_ROOMS = [
 
 export default function ChatRooms() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [isLoggedIn, setIsLoggedIn] = useState(() => localStorage.getItem('isLoggedIn') === 'true');
+  const { user, isLoading, isAuthenticated, logout } = useAuth();
   const [, setLocation] = useLocation();
 
   const handleRoomClick = (roomId: string) => {
-    if (isLoggedIn) {
+    if (isAuthenticated) {
       setLocation('/chat-interface');
     } else {
-      setLocation('/login');
+      window.location.href = '/api/login';
+    }
+  };
+
+  const handleAuthClick = () => {
+    if (isAuthenticated) {
+      logout();
+    } else {
+      window.location.href = '/api/login';
     }
   };
 
@@ -97,11 +106,12 @@ export default function ChatRooms() {
 
           <div className="hidden md:flex items-center gap-4">
             <Button 
-              variant={isLoggedIn ? "ghost" : "default"}
-              onClick={() => setIsLoggedIn(!isLoggedIn)}
+              variant={isAuthenticated ? "ghost" : "default"}
+              onClick={handleAuthClick}
               className="font-bold cursor-pointer rounded-full px-6"
+              disabled={isLoading}
             >
-              {isLoggedIn ? "Logout" : "Login"}
+              {isLoading ? "..." : isAuthenticated ? "Logout" : "Login"}
             </Button>
           </div>
 
@@ -119,8 +129,8 @@ export default function ChatRooms() {
             <Link href="/about" className="block text-base font-semibold py-3 px-4 rounded-lg hover:bg-muted cursor-pointer">About Us</Link>
             <Link href="/faq" className="block text-base font-semibold py-3 px-4 rounded-lg hover:bg-muted cursor-pointer">FAQ</Link>
             <Link href="/contact" className="block text-base font-semibold py-3 px-4 rounded-lg hover:bg-muted cursor-pointer">Contact Us</Link>
-            <Button className="w-full mt-4 cursor-pointer rounded-full py-6 text-lg" onClick={() => setIsLoggedIn(!isLoggedIn)}>
-              {isLoggedIn ? "Logout" : "Login"}
+            <Button className="w-full mt-4 cursor-pointer rounded-full py-6 text-lg" onClick={handleAuthClick} disabled={isLoading}>
+              {isLoading ? "..." : isAuthenticated ? "Logout" : "Login"}
             </Button>
           </div>
         )}
@@ -156,7 +166,7 @@ export default function ChatRooms() {
                     )}
                     
                     {/* Locked Overlay */}
-                    {!isLoggedIn && (
+                    {!isAuthenticated && (
                       <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 backdrop-blur-sm">
                         <Lock className="text-white w-10 h-10 drop-shadow-md" />
                       </div>

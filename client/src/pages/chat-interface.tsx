@@ -34,6 +34,7 @@ import { INDIA_LOCATIONS, getDistricts, type StateOrUT } from "@/data/indiaLocat
 import { PET_BREEDS, getBreeds } from "@/data/petBreeds";
 import { ChatInput } from "@/components/ChatInput";
 import { MessageBubble } from "@/components/MessageBubble";
+import { useAuth } from "@/hooks/use-auth";
 
 import dogImg from "@assets/stock_images/happy_dog_portrait_o_6e5075a4.jpg";
 import catImg from "@assets/stock_images/ginger_cat_sitting_f_07d19cb3.jpg";
@@ -127,14 +128,23 @@ export default function ChatInterface() {
   const [activeLocation, setActiveLocation] = useState('global');
   const [activeDistrict, setActiveDistrict] = useState<string | null>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [isLoggedIn, setIsLoggedIn] = useState(() => localStorage.getItem('isLoggedIn') === 'true');
-  const [userId, setUserId] = useState(() => localStorage.getItem('userId') || '');
-  const [displayName, setDisplayName] = useState(() => localStorage.getItem('displayName') || 'Anonymous');
+  const { user, isLoading: authLoading, isAuthenticated, logout } = useAuth();
   const [, setLocation] = useLocation();
   const [messages, setMessages] = useState<Message[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // Derive user info from auth
+  const userId = user?.id || '';
+  const displayName = user?.firstName || user?.email?.split('@')[0] || 'Anonymous';
+
   const { pinnedIds, togglePin, isPinned } = usePinnedStates();
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) {
+      window.location.href = '/api/login';
+    }
+  }, [authLoading, isAuthenticated]);
 
   // Get available breeds for current pet type
   const currentBreeds = getBreeds(activePet);
@@ -176,25 +186,7 @@ export default function ChatInterface() {
     ? currentBreeds.find(b => b.id === activeBreed) 
     : null;
 
-  // Create demo user if needed
-  useEffect(() => {
-    if (!userId && isLoggedIn) {
-      fetch('/api/users/create-demo', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ displayName: 'User_' + Math.floor(Math.random() * 1000) }),
-      })
-        .then(res => res.json())
-        .then(user => {
-          setUserId(user.id);
-          setDisplayName(user.displayName);
-          localStorage.setItem('userId', user.id);
-          localStorage.setItem('displayName', user.displayName);
-        })
-        .catch(console.error);
-    }
-  }, [userId, isLoggedIn]);
-
+  
   // Fetch messages for current room
   const { data: historicalMessages } = useQuery({
     queryKey: ['messages', activePet, activeBreed, chatRoomLocation],
@@ -247,11 +239,7 @@ export default function ChatInterface() {
   const activePetData = PETS.find(p => p.id === activePet);
 
   const handleLogout = () => {
-    localStorage.removeItem('isLoggedIn');
-    localStorage.removeItem('userId');
-    localStorage.removeItem('displayName');
-    setIsLoggedIn(false);
-    setLocation('/');
+    logout();
   };
 
   const handleLocationClick = (locId: string) => {
@@ -341,7 +329,11 @@ export default function ChatInterface() {
           </nav>
 
           <div className="hidden md:flex items-center gap-4">
-            {isLoggedIn ? (
+            {authLoading ? (
+              <Button variant="ghost" className="font-bold cursor-pointer rounded-full px-6" disabled>
+                ...
+              </Button>
+            ) : isAuthenticated ? (
               <Button 
                 variant="ghost"
                 onClick={handleLogout}
@@ -350,14 +342,13 @@ export default function ChatInterface() {
                 Logout
               </Button>
             ) : (
-              <Link href="/login">
-                <Button 
-                  variant="default"
-                  className="font-bold cursor-pointer rounded-full px-6"
-                >
-                  Login
-                </Button>
-              </Link>
+              <Button 
+                variant="default"
+                onClick={() => window.location.href = '/api/login'}
+                className="font-bold cursor-pointer rounded-full px-6"
+              >
+                Login
+              </Button>
             )}
           </div>
 
@@ -373,16 +364,18 @@ export default function ChatInterface() {
             <Link href="/about" className="block text-base font-semibold py-3 px-4 rounded-lg hover:bg-muted cursor-pointer">About Us</Link>
             <Link href="/faq" className="block text-base font-semibold py-3 px-4 rounded-lg hover:bg-muted cursor-pointer">FAQ</Link>
             <Link href="/contact" className="block text-base font-semibold py-3 px-4 rounded-lg hover:bg-muted cursor-pointer">Contact Us</Link>
-            {isLoggedIn ? (
+            {authLoading ? (
+              <Button className="w-full mt-4 cursor-pointer rounded-full py-6 text-lg" disabled>
+                ...
+              </Button>
+            ) : isAuthenticated ? (
               <Button className="w-full mt-4 cursor-pointer rounded-full py-6 text-lg" onClick={handleLogout}>
                 Logout
               </Button>
             ) : (
-              <Link href="/login">
-                <Button className="w-full mt-4 cursor-pointer rounded-full py-6 text-lg">
-                  Login
-                </Button>
-              </Link>
+              <Button className="w-full mt-4 cursor-pointer rounded-full py-6 text-lg" onClick={() => window.location.href = '/api/login'}>
+                Login
+              </Button>
             )}
           </div>
         )}

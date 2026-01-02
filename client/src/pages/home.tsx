@@ -15,14 +15,18 @@ import { useState } from "react";
 import heroImage from "@assets/generated_images/happy_community_of_pet_lovers_in_a_park.png";
 import introImage from "@assets/generated_images/minimalist_pet_chat_concept_illustration.png";
 import logoImage from "@assets/Scrollpet_logo_1766997907297.png";
+import { useAuth } from "@/hooks/use-auth";
 
 export default function Home() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [isLoggedIn, setIsLoggedIn] = useState(() => localStorage.getItem('isLoggedIn') === 'true');
+  const { user, isLoading, isAuthenticated, logout } = useAuth();
 
-  const handleLogout = () => {
-    localStorage.removeItem('isLoggedIn');
-    setIsLoggedIn(false);
+  const handleAuthClick = () => {
+    if (isAuthenticated) {
+      logout();
+    } else {
+      window.location.href = '/api/login';
+    }
   };
 
   const containerVariants = {
@@ -68,24 +72,14 @@ export default function Home() {
           </nav>
 
           <div className="hidden md:flex items-center gap-4">
-            {isLoggedIn ? (
-              <Button 
-                variant="ghost"
-                onClick={handleLogout}
-                className="font-bold cursor-pointer rounded-full px-6"
-              >
-                Logout
-              </Button>
-            ) : (
-              <Link href="/login">
-                <Button 
-                  variant="default"
-                  className="font-bold cursor-pointer rounded-full px-6"
-                >
-                  Login
-                </Button>
-              </Link>
-            )}
+            <Button 
+              variant={isAuthenticated ? "ghost" : "default"}
+              onClick={handleAuthClick}
+              className="font-bold cursor-pointer rounded-full px-6"
+              disabled={isLoading}
+            >
+              {isLoading ? "..." : isAuthenticated ? "Logout" : "Login"}
+            </Button>
           </div>
 
           {/* Mobile Menu Toggle */}
@@ -102,11 +96,9 @@ export default function Home() {
             <Link href="/about" className="block text-base font-semibold py-3 px-4 rounded-lg hover:bg-muted cursor-pointer">About Us</Link>
             <Link href="/faq" className="block text-base font-semibold py-3 px-4 rounded-lg hover:bg-muted cursor-pointer">FAQ</Link>
             <Link href="/contact" className="block text-base font-semibold py-3 px-4 rounded-lg hover:bg-muted cursor-pointer">Contact Us</Link>
-            <Link href="/login">
-              <Button className="w-full mt-4 cursor-pointer rounded-full py-6 text-lg">
-                {isLoggedIn ? "Logout" : "Login"}
-              </Button>
-            </Link>
+            <Button className="w-full mt-4 cursor-pointer rounded-full py-6 text-lg" onClick={handleAuthClick} disabled={isLoading}>
+              {isLoading ? "..." : isAuthenticated ? "Logout" : "Login"}
+            </Button>
           </div>
         )}
       </header>
@@ -136,18 +128,18 @@ export default function Home() {
                   A safe, friendly community built around trust and care. Connect with other owners, share stories, and find the support you need.
                 </p>
                 <div className="flex flex-col sm:flex-row gap-4">
-                  {isLoggedIn ? (
-                     <Button size="lg" className="text-lg px-8 py-7 rounded-full shadow-xl shadow-primary/20 hover:shadow-2xl hover:shadow-primary/30 transition-all cursor-pointer">
-                       Go to Chat Rooms
-                       <ArrowRight className="ml-2 h-5 w-5" />
-                     </Button>
-                  ) : (
-                    <Link href="/login">
+                  {isAuthenticated ? (
+                    <Link href="/chat">
                       <Button size="lg" className="text-lg px-8 py-7 rounded-full shadow-xl shadow-primary/20 hover:shadow-2xl hover:shadow-primary/30 transition-all cursor-pointer">
-                        Join the Community
+                        Go to Chat Rooms
                         <ArrowRight className="ml-2 h-5 w-5" />
                       </Button>
                     </Link>
+                  ) : (
+                    <Button size="lg" className="text-lg px-8 py-7 rounded-full shadow-xl shadow-primary/20 hover:shadow-2xl hover:shadow-primary/30 transition-all cursor-pointer" onClick={() => window.location.href = '/api/login'}>
+                      Join the Community
+                      <ArrowRight className="ml-2 h-5 w-5" />
+                    </Button>
                   )}
                   <Button variant="outline" size="lg" className="text-lg px-8 py-7 rounded-full border-2 hover:bg-muted transition-all cursor-pointer">
                     Learn More
