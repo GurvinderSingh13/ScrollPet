@@ -3,7 +3,7 @@ import { pgTable, text, varchar, timestamp, integer, index, jsonb } from "drizzl
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-// Session storage table for Replit Auth
+// Session storage table for express-session
 export const sessions = pgTable(
   "sessions",
   {
@@ -14,13 +14,15 @@ export const sessions = pgTable(
   (table) => [index("IDX_session_expire").on(table.expire)]
 );
 
-// Unified users table supporting both legacy and Replit Auth
+// Users table with custom local authentication
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  username: text("username"),
-  password: text("password"),
+  username: text("username").notNull(),
+  email: varchar("email").unique().notNull(),
+  password: text("password").notNull(),
   displayName: text("display_name"),
-  email: varchar("email").unique(),
+  country: text("country"),
+  state: text("state"),
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),
