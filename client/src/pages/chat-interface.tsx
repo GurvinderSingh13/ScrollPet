@@ -135,14 +135,14 @@ export default function ChatInterface() {
 
   // Derive user info from auth
   const userId = user?.id || '';
-  const displayName = user?.firstName || user?.email?.split('@')[0] || 'Anonymous';
+  const displayName = user?.displayName || user?.username || user?.email?.split('@')[0] || 'Anonymous';
 
   const { pinnedIds, togglePin, isPinned } = usePinnedStates();
 
   // Redirect to login if not authenticated
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
-      window.location.href = '/api/login';
+      window.location.href = '/login';
     }
   }, [authLoading, isAuthenticated]);
 
@@ -344,7 +344,7 @@ export default function ChatInterface() {
             ) : (
               <Button 
                 variant="default"
-                onClick={() => window.location.href = '/api/login'}
+                onClick={() => window.location.href = '/login'}
                 className="font-bold cursor-pointer rounded-full px-6"
               >
                 Login
@@ -373,7 +373,7 @@ export default function ChatInterface() {
                 Logout
               </Button>
             ) : (
-              <Button className="w-full mt-4 cursor-pointer rounded-full py-6 text-lg" onClick={() => window.location.href = '/api/login'}>
+              <Button className="w-full mt-4 cursor-pointer rounded-full py-6 text-lg" onClick={() => window.location.href = '/login'}>
                 Login
               </Button>
             )}

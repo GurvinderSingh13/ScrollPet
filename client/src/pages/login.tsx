@@ -15,16 +15,37 @@ export default function Login() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [, setLocation] = useLocation();
+  
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError("");
     setIsLoading(true);
-    // Simulate login
-    setTimeout(() => {
-      localStorage.setItem('isLoggedIn', 'true');
-      setIsLoading(false);
+    
+    try {
+      const response = await fetch("/api/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ email, password }),
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        setError(data.error || "Login failed");
+        setIsLoading(false);
+        return;
+      }
+      
       setLocation('/chat-interface');
-    }, 1500);
+    } catch (err) {
+      setError("Login failed. Please try again.");
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -99,9 +120,13 @@ export default function Login() {
           <form onSubmit={handleLogin} className="space-y-6">
             <div className="space-y-5">
               <Input 
-                id="username" 
-                placeholder="Email or User Name*" 
+                id="email" 
+                type="email"
+                placeholder="Email Address*" 
                 required 
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                data-testid="input-email"
                 className="rounded-full border border-gray-200 bg-white py-6 px-6 text-base placeholder:text-gray-400 focus:border-primary/50 focus:ring-0 transition-all shadow-sm"
               />
 
@@ -111,6 +136,9 @@ export default function Login() {
                   type="password" 
                   placeholder="Enter Password" 
                   required 
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  data-testid="input-password"
                   className="rounded-full border border-gray-200 bg-white py-6 px-6 text-base placeholder:text-gray-400 focus:border-primary/50 focus:ring-0 transition-all shadow-sm"
                 />
                 <div className="px-2">
@@ -121,11 +149,18 @@ export default function Login() {
               </div>
             </div>
 
+            {error && (
+              <div className="text-red-500 text-sm text-center font-medium" data-testid="text-error">
+                {error}
+              </div>
+            )}
+
             <div className="pt-2 flex justify-center">
               <Button 
                 type="submit" 
                 className="w-48 py-6 rounded-full text-lg font-bold bg-[#FF6600] hover:bg-[#FF6600]/90 text-white shadow-md hover:shadow-lg transition-all"
                 disabled={isLoading}
+                data-testid="button-login"
               >
                 {isLoading ? "Logging in..." : "Log In"}
               </Button>
