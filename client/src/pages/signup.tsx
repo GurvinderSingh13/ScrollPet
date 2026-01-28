@@ -20,11 +20,37 @@ export default function Signup() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [, setLocation] = useLocation();
+  
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [error, setError] = useState("");
+
+  const validateEmail = (email: string) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
 
   const handleSignup = (e: React.FormEvent) => {
     e.preventDefault();
+    setError("");
+
+    if (!validateEmail(email)) {
+      setError("Please enter a valid email address");
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setError("Passwords do not match");
+      return;
+    }
+
+    if (password.length < 6) {
+      setError("Password must be at least 6 characters");
+      return;
+    }
+
     setIsLoading(true);
-    // Simulate signup
     setTimeout(() => {
       setIsLoading(false);
       setLocation('/');
@@ -113,8 +139,12 @@ export default function Signup() {
             />
 
             <Input 
-              placeholder="Email ID or Phone Number" 
+              type="email"
+              placeholder="Email Address" 
               required 
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              data-testid="input-email"
               className="rounded-full border border-gray-200 bg-white py-6 px-6 text-base placeholder:text-gray-400 focus:border-primary/50 focus:ring-0 transition-all shadow-sm"
             />
 
@@ -146,6 +176,9 @@ export default function Signup() {
               type="password" 
               placeholder="Enter Password" 
               required 
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              data-testid="input-password"
               className="rounded-full border border-gray-200 bg-white py-6 px-6 text-base placeholder:text-gray-400 focus:border-primary/50 focus:ring-0 transition-all shadow-sm"
             />
 
@@ -153,8 +186,17 @@ export default function Signup() {
               type="password" 
               placeholder="Confirm Password" 
               required 
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              data-testid="input-confirm-password"
               className="rounded-full border border-gray-200 bg-white py-6 px-6 text-base placeholder:text-gray-400 focus:border-primary/50 focus:ring-0 transition-all shadow-sm"
             />
+
+            {error && (
+              <div className="text-red-500 text-sm text-center font-medium" data-testid="text-error">
+                {error}
+              </div>
+            )}
 
             <div className="pt-4 flex justify-center">
               <Button 
