@@ -142,9 +142,12 @@ export default function Login() {
                   className="rounded-full border border-gray-200 bg-white py-6 px-6 text-base placeholder:text-gray-400 focus:border-primary/50 focus:ring-0 transition-all shadow-sm"
                 />
                 <div className="px-2">
-                  <Link href="/forgot-password">
-                    <span className="text-sm font-medium text-blue-500 hover:text-blue-600 cursor-pointer underline decoration-blue-500/30 underline-offset-4">Forgot Password?</span>
-                  </Link>
+                  <a 
+                    href="mailto:scrollpet@gmail.com?subject=ScrollPet%3A%20Password%20Reset%20Request"
+                    className="text-sm font-medium text-blue-500 hover:text-blue-600 cursor-pointer underline decoration-blue-500/30 underline-offset-4"
+                  >
+                    Trouble logging in? Contact Support
+                  </a>
                 </div>
               </div>
             </div>
