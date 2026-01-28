@@ -51,7 +51,7 @@ export default function ChatRooms() {
     if (isAuthenticated) {
       setLocation('/chat-interface');
     } else {
-      window.location.href = '/api/login';
+      window.location.href = '/login';
     }
   };
 
@@ -59,7 +59,7 @@ export default function ChatRooms() {
     if (isAuthenticated) {
       logout();
     } else {
-      window.location.href = '/api/login';
+      window.location.href = '/login';
     }
   };
 

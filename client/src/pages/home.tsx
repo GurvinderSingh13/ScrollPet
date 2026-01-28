@@ -25,7 +25,7 @@ export default function Home() {
     if (isAuthenticated) {
       logout();
     } else {
-      window.location.href = '/api/login';
+      window.location.href = '/login';
     }
   };
 

@@ -260,8 +260,10 @@ export async function registerRoutes(
   // Create a test user (for demo purposes)
   app.post("/api/users/create-demo", async (req, res) => {
     try {
+      const timestamp = Date.now();
       const demoUser = await storage.createUser({
-        username: `user_${Date.now()}`,
+        username: `user_${timestamp}`,
+        email: `demo_${timestamp}@scrollpet.com`,
         displayName: req.body.displayName || "Demo User",
         password: "demo",
       });

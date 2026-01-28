@@ -21,9 +21,12 @@ export default function Signup() {
   const [isLoading, setIsLoading] = useState(false);
   const [, setLocation] = useLocation();
   
+  const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [country, setCountry] = useState("");
+  const [state, setState] = useState("");
   const [error, setError] = useState("");
 
   const validateEmail = (email: string) => {
@@ -31,9 +34,14 @@ export default function Signup() {
     return emailRegex.test(email);
   };
 
-  const handleSignup = (e: React.FormEvent) => {
+  const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+
+    if (username.length < 3) {
+      setError("Username must be at least 3 characters");
+      return;
+    }
 
     if (!validateEmail(email)) {
       setError("Please enter a valid email address");
@@ -51,10 +59,34 @@ export default function Signup() {
     }
 
     setIsLoading(true);
-    setTimeout(() => {
+    
+    try {
+      const response = await fetch("/api/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ 
+          username, 
+          email, 
+          password,
+          country: country || undefined,
+          state: state || undefined,
+        }),
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        setError(data.error || "Registration failed");
+        setIsLoading(false);
+        return;
+      }
+      
+      setLocation('/chat-interface');
+    } catch (err) {
+      setError("Registration failed. Please try again.");
       setIsLoading(false);
-      setLocation('/');
-    }, 1500);
+    }
   };
 
   return (
@@ -127,14 +159,11 @@ export default function Signup() {
 
           <form onSubmit={handleSignup} className="space-y-5">
             <Input 
-              placeholder="Full Name" 
-              required 
-              className="rounded-full border border-gray-200 bg-white py-6 px-6 text-base placeholder:text-gray-400 focus:border-primary/50 focus:ring-0 transition-all shadow-sm"
-            />
-
-            <Input 
               placeholder="Username" 
               required 
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              data-testid="input-username"
               className="rounded-full border border-gray-200 bg-white py-6 px-6 text-base placeholder:text-gray-400 focus:border-primary/50 focus:ring-0 transition-all shadow-sm"
             />
 
@@ -149,24 +178,24 @@ export default function Signup() {
             />
 
             <div className="grid grid-cols-2 gap-4">
-              <Select>
-                <SelectTrigger className="rounded-full border-gray-200 bg-white py-6 px-6 text-base text-gray-400 focus:ring-0 shadow-sm h-14">
+              <Select value={country} onValueChange={setCountry}>
+                <SelectTrigger className="rounded-full border-gray-200 bg-white py-6 px-6 text-base text-gray-400 focus:ring-0 shadow-sm h-14" data-testid="select-country">
                   <SelectValue placeholder="Select Country" />
                 </SelectTrigger>
                 <SelectContent>
-                  {COUNTRIES.map(country => (
-                    <SelectItem key={country} value={country}>{country}</SelectItem>
+                  {COUNTRIES.map(c => (
+                    <SelectItem key={c} value={c}>{c}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
 
-              <Select>
-                <SelectTrigger className="rounded-full border-gray-200 bg-white py-6 px-6 text-base text-gray-400 focus:ring-0 shadow-sm h-14">
+              <Select value={state} onValueChange={setState}>
+                <SelectTrigger className="rounded-full border-gray-200 bg-white py-6 px-6 text-base text-gray-400 focus:ring-0 shadow-sm h-14" data-testid="select-state">
                   <SelectValue placeholder="Select State" />
                 </SelectTrigger>
                 <SelectContent>
-                  {STATES.map(state => (
-                    <SelectItem key={state} value={state}>{state}</SelectItem>
+                  {STATES.map(s => (
+                    <SelectItem key={s} value={s}>{s}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
