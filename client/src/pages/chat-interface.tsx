@@ -202,7 +202,7 @@ export default function ChatInterface() {
   // Update messages when historical messages load
   useEffect(() => {
     if (historicalMessages) {
-      setMessages(historicalMessages.reverse());
+      setMessages([...historicalMessages].reverse());
     }
   }, [historicalMessages]);
 
