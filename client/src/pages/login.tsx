@@ -141,14 +141,6 @@ export default function Login() {
                   data-testid="input-password"
                   className="rounded-full border border-gray-200 bg-white py-6 px-6 text-base placeholder:text-gray-400 focus:border-primary/50 focus:ring-0 transition-all shadow-sm"
                 />
-                <div className="px-2">
-                  <a 
-                    href="mailto:scrollpet@gmail.com?subject=ScrollPet%3A%20Password%20Reset%20Request"
-                    className="text-sm font-medium text-blue-500 hover:text-blue-600 cursor-pointer underline decoration-blue-500/30 underline-offset-4"
-                  >
-                    Trouble logging in? Contact Support
-                  </a>
-                </div>
               </div>
             </div>
 
@@ -169,6 +161,22 @@ export default function Login() {
               </Button>
             </div>
           </form>
+
+          <div className="text-center mt-4">
+            <a 
+              href="mailto:scrollpet@gmail.com?subject=ScrollPet%3A%20Password%20Reset%20Request"
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => {
+                e.stopPropagation();
+                window.location.href = "mailto:scrollpet@gmail.com?subject=ScrollPet%3A%20Password%20Reset%20Request";
+              }}
+              className="text-sm font-medium text-blue-500 hover:text-blue-600 cursor-pointer underline decoration-blue-500/30 underline-offset-4"
+              data-testid="link-contact-support"
+            >
+              Trouble logging in? Contact Support
+            </a>
+          </div>
 
           <div className="flex flex-col sm:flex-row gap-4 mt-8 justify-center">
             <Button className="flex-1 max-w-[240px] py-6 rounded-full bg-[#3b5998] hover:bg-[#3b5998]/90 text-white font-medium shadow-sm transition-all gap-3">
