@@ -25,7 +25,8 @@ export default defineConfig({
   ],
   resolve: {
     alias: {
-      "@": path.resolve(import.meta.dirname, "client", "src"),
+      // 1. CHANGED: Removed "client" here so it looks directly in "src"
+      "@": path.resolve(import.meta.dirname, "src"),
       "@shared": path.resolve(import.meta.dirname, "shared"),
       "@assets": path.resolve(import.meta.dirname, "attached_assets"),
     },
@@ -35,9 +36,11 @@ export default defineConfig({
       plugins: [],
     },
   },
-  root: path.resolve(import.meta.dirname, "client"),
+  // 2. CHANGED: Set root to the main project folder instead of "client"
+  root: path.resolve(import.meta.dirname, "."),
   build: {
-    outDir: path.resolve(import.meta.dirname, "dist/public"),
+    // 3. CHANGED: Set output to "dist" to match your Vercel settings
+    outDir: path.resolve(import.meta.dirname, "dist"),
     emptyOutDir: true,
   },
   server: {
