@@ -1,4 +1,6 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
+import { supabase } from '@/lib/supabase';
+import type { RealtimeChannel } from '@supabase/supabase-js';
 
 interface Message {
   id: string;
@@ -25,116 +27,118 @@ interface UseWebSocketOptions {
   onMessage?: (message: Message) => void;
 }
 
-export function useWebSocket({ userId, petType, breed, location, onMessage }: UseWebSocketOptions) {
-  const wsRef = useRef<WebSocket | null>(null);
-  const [isConnected, setIsConnected] = useState(false);
-  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const onMessageRef = useRef(onMessage);
-  const roomRef = useRef({ userId, petType, breed, location });
+function mapRowToMessage(row: any): Message {
+  const userData = row.users;
+  return {
+    id: row.id,
+    userId: row.user_id,
+    petType: row.pet_type,
+    location: row.location,
+    content: row.content,
+    messageType: row.message_type,
+    mediaUrl: row.media_url,
+    mediaDuration: row.media_duration,
+    createdAt: row.created_at,
+    user: userData
+      ? {
+          id: userData.id,
+          username: userData.username || '',
+          displayName: userData.display_name || userData.username || '',
+        }
+      : {
+          id: row.user_id,
+          username: 'Unknown',
+          displayName: 'Unknown',
+        },
+  };
+}
 
-  // Keep refs updated
+export function useWebSocket({ userId, petType, breed, location, onMessage }: UseWebSocketOptions) {
+  const [isConnected, setIsConnected] = useState(false);
+  const channelRef = useRef<RealtimeChannel | null>(null);
+  const onMessageRef = useRef(onMessage);
+
   useEffect(() => {
     onMessageRef.current = onMessage;
   }, [onMessage]);
 
   useEffect(() => {
-    roomRef.current = { userId, petType, breed, location };
-  }, [userId, petType, breed, location]);
-
-  // Main connection effect
-  useEffect(() => {
     if (!userId) return;
 
-    const connect = () => {
-      if (wsRef.current?.readyState === WebSocket.OPEN || 
-          wsRef.current?.readyState === WebSocket.CONNECTING) {
-        return;
-      }
+    const channelName = `chat-${petType}-${breed || 'all'}-${location}`;
 
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
+    if (channelRef.current) {
+      supabase.removeChannel(channelRef.current);
+      channelRef.current = null;
+    }
 
-      ws.onopen = () => {
-        console.log('WebSocket connected');
-        setIsConnected(true);
-        
-        // Join the room
-        const room = roomRef.current;
-        ws.send(JSON.stringify({
-          type: 'join',
-          userId: room.userId,
-          petType: room.petType,
-          breed: room.breed,
-          location: room.location,
-        }));
-      };
+    const channel = supabase
+      .channel(channelName)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+        },
+        async (payload) => {
+          const newRow = payload.new as any;
 
-      ws.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          if (data.type === 'message' && onMessageRef.current) {
-            onMessageRef.current(data.data);
-          }
-        } catch (error) {
-          console.error('Failed to parse message:', error);
+          if (newRow.pet_type !== petType) return;
+          if (newRow.location !== location) return;
+          if (breed && newRow.breed !== breed) return;
+
+          const { data: userData } = await supabase
+            .from('users')
+            .select('id, username, display_name')
+            .eq('id', newRow.user_id)
+            .single();
+
+          const msg = mapRowToMessage({ ...newRow, users: userData });
+          onMessageRef.current?.(msg);
         }
-      };
+      )
+      .subscribe((status) => {
+        setIsConnected(status === 'SUBSCRIBED');
+      });
 
-      ws.onclose = () => {
-        console.log('WebSocket disconnected');
-        setIsConnected(false);
-        wsRef.current = null;
-        
-        // Attempt to reconnect after 3 seconds
-        reconnectTimeoutRef.current = setTimeout(() => {
-          connect();
-        }, 3000);
-      };
-
-      ws.onerror = (error) => {
-        console.error('WebSocket error:', error);
-      };
-
-      wsRef.current = ws;
-    };
-
-    connect();
+    channelRef.current = channel;
 
     return () => {
-      if (reconnectTimeoutRef.current) {
-        clearTimeout(reconnectTimeoutRef.current);
-      }
-      if (wsRef.current) {
-        wsRef.current.close();
-        wsRef.current = null;
-      }
+      supabase.removeChannel(channel);
+      channelRef.current = null;
       setIsConnected(false);
     };
-  }, [userId]);
+  }, [userId, petType, breed, location]);
 
-  // Rejoin when room changes (only if already connected)
-  useEffect(() => {
-    if (isConnected && wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({
-        type: 'join',
-        userId,
-        petType,
-        breed,
-        location,
-      }));
-    }
-  }, [petType, breed, location, userId, isConnected]);
+  const sendMessage = useCallback(
+    async (content: string) => {
+      if (!userId) return false;
+      try {
+        const insertData: any = {
+          user_id: userId,
+          pet_type: petType,
+          location,
+          content,
+          message_type: 'text',
+        };
+        if (breed) {
+          insertData.breed = breed;
+        }
 
-  const sendMessage = useCallback((content: string) => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({
-        type: 'message',
-        content,
-      }));
-      return true;
-    }
-    return false;
-  }, []);
+        const { error } = await supabase.from('messages').insert(insertData);
+        if (error) {
+          console.error('Failed to send message:', error);
+          return false;
+        }
+        return true;
+      } catch (err) {
+        console.error('Error sending message:', err);
+        return false;
+      }
+    },
+    [userId, petType, breed, location]
+  );
 
   return {
     isConnected,

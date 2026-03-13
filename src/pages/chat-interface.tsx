@@ -30,6 +30,7 @@ import { cn } from "@/lib/utils";
 import logoImage from "@assets/Scrollpet_logo_1766997907297.png";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/lib/supabase";
 import { INDIA_LOCATIONS, getDistricts, type StateOrUT } from "@/data/indiaLocations";
 import { PET_BREEDS, getBreeds } from "@/data/petBreeds";
 import { ChatInput } from "@/components/ChatInput";
@@ -191,10 +192,46 @@ export default function ChatInterface() {
   const { data: historicalMessages } = useQuery({
     queryKey: ['messages', activePet, activeBreed, chatRoomLocation],
     queryFn: async () => {
-      const breedParam = activeBreed ? `&breed=${activeBreed}` : '';
-      const res = await fetch(`/api/messages?petType=${activePet}&location=${chatRoomLocation}${breedParam}`);
-      if (!res.ok) throw new Error('Failed to fetch messages');
-      return res.json() as Promise<Message[]>;
+      let query = supabase
+        .from('messages')
+        .select('*, users(id, username, display_name)')
+        .eq('pet_type', activePet)
+        .eq('location', chatRoomLocation)
+        .order('created_at', { ascending: false })
+        .limit(50);
+
+      if (activeBreed) {
+        query = query.eq('breed', activeBreed);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+
+      return (data || []).map((row: any) => {
+        const userData = row.users;
+        return {
+          id: row.id,
+          userId: row.user_id,
+          petType: row.pet_type,
+          location: row.location,
+          content: row.content,
+          messageType: row.message_type,
+          mediaUrl: row.media_url,
+          mediaDuration: row.media_duration,
+          createdAt: row.created_at,
+          user: userData
+            ? {
+                id: userData.id,
+                username: userData.username || '',
+                displayName: userData.display_name || userData.username || '',
+              }
+            : {
+                id: row.user_id,
+                username: 'Unknown',
+                displayName: 'Unknown',
+              },
+        } as Message;
+      });
     },
     enabled: !!userId,
   });
@@ -257,36 +294,48 @@ export default function ChatInterface() {
     if (!isConnected) return false;
 
     try {
-      // If there's a media file, use HTTP POST to upload
+      let mediaUrl: string | null = null;
+
       if (mediaFile) {
-        const formData = new FormData();
-        formData.append('file', mediaFile, mediaFile instanceof File ? mediaFile.name : 'audio.webm');
-        formData.append('userId', userId);
-        formData.append('petType', activePet);
-        if (activeBreed) {
-          formData.append('breed', activeBreed);
-        }
-        formData.append('location', chatRoomLocation);
-        formData.append('content', content);
-        formData.append('messageType', messageType);
-        if (mediaDuration) {
-          formData.append('mediaDuration', mediaDuration.toString());
-        }
+        const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+        const ext = mediaFile instanceof File ? mediaFile.name.split('.').pop() : 'webm';
+        const filePath = `chat-media/${fileName}.${ext}`;
 
-        const response = await fetch('/api/messages', {
-          method: 'POST',
-          body: formData,
-        });
+        const { error: uploadError } = await supabase.storage
+          .from('chat-uploads')
+          .upload(filePath, mediaFile);
 
-        if (!response.ok) {
-          throw new Error('Failed to send message');
+        if (uploadError) {
+          console.error('Upload error:', uploadError);
+          return false;
         }
 
-        return true;
-      } else {
-        // Text-only message via WebSocket
-        return sendWsMessage(content);
+        const { data: urlData } = supabase.storage
+          .from('chat-uploads')
+          .getPublicUrl(filePath);
+        mediaUrl = urlData.publicUrl;
       }
+
+      const insertData: any = {
+        user_id: userId,
+        pet_type: activePet,
+        location: chatRoomLocation,
+        content: content || (messageType === 'audio' ? '🎤 Voice message' : '📎 Media'),
+        message_type: messageType,
+        media_url: mediaUrl,
+        media_duration: mediaDuration || null,
+      };
+      if (activeBreed) {
+        insertData.breed = activeBreed;
+      }
+
+      const { error } = await supabase.from('messages').insert(insertData);
+      if (error) {
+        console.error('Failed to send message:', error);
+        return false;
+      }
+
+      return true;
     } catch (error) {
       console.error('Error sending message:', error);
       return false;

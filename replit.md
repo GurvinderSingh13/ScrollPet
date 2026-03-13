@@ -18,64 +18,73 @@ Preferred communication style: Simple, everyday language.
 - **Styling**: Tailwind CSS v4 with CSS variables for theming
 - **Animations**: Framer Motion for page transitions and micro-interactions
 - **Typography**: Montserrat font family via Google Fonts
+- **Deployment**: Vercel (frontend), Supabase (database + auth + realtime)
 
 ### Backend Architecture
-- **Runtime**: Node.js with Express.js
+- **Runtime**: Node.js with Express.js (dev server only)
 - **Language**: TypeScript with ESM modules
-- **API Pattern**: REST endpoints under `/api` prefix
-- **Real-time Communication**: WebSocket server (ws library) for live chat messaging
-- **Build Process**: Custom build script using esbuild for server and Vite for client
+- **Production**: Frontend-only on Vercel; all data operations go directly to Supabase from the client
 
 ### Data Storage
-- **Database**: PostgreSQL
-- **ORM**: Drizzle ORM with drizzle-zod for schema validation
-- **Schema Location**: `shared/schema.ts` contains database table definitions
+- **Database**: Supabase (PostgreSQL)
+- **Client Library**: @supabase/supabase-js for queries, inserts, and realtime subscriptions
+- **Schema Location**: `shared/schema.ts` contains Drizzle table definitions (reference)
 - **Tables**: 
-  - `users` - User accounts with id, username, password, displayName
-  - `messages` - Chat messages with userId, petType, location, content
+  - `users` - User accounts with id, username, email, password, displayName, country, state
+  - `messages` - Chat messages with userId, petType, breed, location, content, messageType, mediaUrl, mediaDuration
 
 ### Authentication
-- **Current State**: Simple localStorage-based login simulation
-- **Session Support**: connect-pg-simple configured for PostgreSQL session storage (available for future implementation)
+- **Provider**: Supabase Auth (email/password)
+- **Client**: `src/lib/supabase.ts` creates the Supabase client using `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`
+- **Login**: `supabase.auth.signInWithPassword()` in `src/pages/login.tsx`
+- **Signup**: `supabase.auth.signUp()` in `src/pages/signup.tsx` (stores username, country, state as user_metadata)
+- **Session**: `supabase.auth.getSession()` in `src/hooks/use-auth.ts`
+- **Logout**: `supabase.auth.signOut()`
+- **Password Reset**: Manual via mailto link to scrollpet@gmail.com (MVP)
+
+### Real-time Chat
+- **Provider**: Supabase Realtime Channels (postgres_changes)
+- **Hook**: `src/hooks/useWebSocket.ts` subscribes to INSERT events on the `messages` table
+- **Message Fetch**: Supabase `select()` query with join to `users` table
+- **Message Send**: Supabase `insert()` into `messages` table
+- **Media Upload**: Supabase Storage bucket `chat-uploads` for images/video/audio
 
 ### Project Structure
 ```
-├── client/           # React frontend application
-│   ├── src/
-│   │   ├── components/ui/  # shadcn/ui components
-│   │   ├── pages/          # Route page components
-│   │   ├── hooks/          # Custom React hooks
-│   │   └── lib/            # Utilities and query client
-├── server/           # Express backend
+├── index.html        # Entry point (root level for Vercel)
+├── src/              # React frontend application
+│   ├── components/   # UI components (shadcn/ui, ChatInput, MessageBubble, etc.)
+│   ├── pages/        # Route page components
+│   ├── hooks/        # Custom React hooks (use-auth, useWebSocket)
+│   ├── lib/          # Utilities (supabase client, queryClient, utils)
+│   └── data/         # Static data (indiaLocations, petBreeds)
+├── server/           # Express dev server
 │   ├── index.ts      # Server entry point
-│   ├── routes.ts     # API routes and WebSocket setup
-│   ├── storage.ts    # Database access layer
-│   └── static.ts     # Static file serving
-├── shared/           # Shared code between client/server
+│   ├── vite.ts       # Vite dev middleware (points to root index.html)
+│   ├── routes.ts     # API routes
+│   └── storage.ts    # Database access layer
+├── shared/           # Shared code
 │   └── schema.ts     # Drizzle schema definitions
 └── db/               # Database connection setup
 ```
 
 ### Path Aliases
-- `@/*` → `client/src/*`
+- `@/*` → `src/*`
 - `@shared/*` → `shared/*`
 - `@assets` → `attached_assets/`
 
 ## External Dependencies
 
-### Database
-- **PostgreSQL**: Primary database, connection via `DATABASE_URL` environment variable
-- **Drizzle Kit**: Database migrations stored in `/migrations` directory
-
-### Third-Party Services
-- None currently integrated, but infrastructure supports:
-  - Stripe (payment processing)
-  - OpenAI/Google Generative AI (AI features)
-  - Nodemailer (email)
+### Supabase
+- **Database**: PostgreSQL hosted on Supabase
+- **Auth**: Supabase Auth for email/password authentication
+- **Realtime**: Supabase Channels for live chat subscriptions
+- **Storage**: Supabase Storage for media file uploads
+- **Environment Variables**: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`
 
 ### Key NPM Packages
 - **UI**: Radix UI primitives, Lucide icons, class-variance-authority
 - **Forms**: React Hook Form with Zod resolvers
 - **Data**: TanStack React Query, date-fns
-- **Real-time**: ws (WebSocket library)
-- **Database**: pg (PostgreSQL client), drizzle-orm
+- **Auth/Realtime**: @supabase/supabase-js
+- **Database (dev)**: pg (PostgreSQL client), drizzle-orm
