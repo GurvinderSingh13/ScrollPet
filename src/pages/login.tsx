@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import logoImage from "@assets/Scrollpet_logo_1766997907297.png";
+import { supabase } from "@/lib/supabase";
 
 export default function Login() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -26,17 +27,13 @@ export default function Login() {
     setIsLoading(true);
     
     try {
-      const response = await fetch("/api/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ email, password }),
+      const { error: authError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
       });
       
-      const data = await response.json();
-      
-      if (!response.ok) {
-        setError(data.error || "Login failed");
+      if (authError) {
+        setError(authError.message || "Login failed");
         setIsLoading(false);
         return;
       }

@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import logoImage from "@assets/Scrollpet_logo_1766997907297.png";
+import { supabase } from "@/lib/supabase";
 
 // Mock data for countries and states
 const COUNTRIES = ["United States", "United Kingdom", "Canada", "Australia", "India", "Germany", "France", "Japan"];
@@ -61,23 +62,21 @@ export default function Signup() {
     setIsLoading(true);
     
     try {
-      const response = await fetch("/api/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ 
-          username, 
-          email, 
-          password,
-          country: country || undefined,
-          state: state || undefined,
-        }),
+      const { error: authError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            username,
+            display_name: username,
+            country: country || undefined,
+            state: state || undefined,
+          },
+        },
       });
       
-      const data = await response.json();
-      
-      if (!response.ok) {
-        setError(data.error || "Registration failed");
+      if (authError) {
+        setError(authError.message || "Registration failed");
         setIsLoading(false);
         return;
       }
