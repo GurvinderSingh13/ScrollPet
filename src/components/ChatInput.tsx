@@ -1,12 +1,22 @@
-import { useState, useRef, useEffect } from 'react';
-import { Smile, Image as ImageIcon, Mic, Send, X, Play, Pause, Square, Loader2 } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { EmojiPicker } from './EmojiPicker';
+import { useState, useRef, useEffect } from "react";
+import {
+  Smile,
+  Image as ImageIcon,
+  Mic,
+  Send,
+  X,
+  Play,
+  Pause,
+  Square,
+  Loader2,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import { EmojiPicker } from "./EmojiPicker";
 
 interface MediaPreview {
   file: File;
   url: string;
-  type: 'image' | 'video';
+  type: "image" | "video";
 }
 
 interface AudioPreview {
@@ -16,13 +26,31 @@ interface AudioPreview {
 }
 
 interface ChatInputProps {
-  onSendMessage: (content: string, messageType?: string, mediaFile?: File | Blob, mediaDuration?: number) => Promise<boolean>;
+  onSendMessage: (
+    content: string,
+    type: "text" | "image" | "video" | "audio",
+    file?: File,
+    duration?: number,
+  ) => Promise<boolean>;
   isConnected: boolean;
-  disabled?: boolean;
+  initialValue?: string;
+  onClearInitialValue?: () => void;
 }
 
-export function ChatInput({ onSendMessage, isConnected, disabled }: ChatInputProps) {
-  const [message, setMessage] = useState('');
+export function ChatInput({
+  onSendMessage,
+  isConnected,
+  initialValue,
+  onClearInitialValue,
+}: ChatInputProps) {
+  const [message, setMessage] = useState("");
+  useEffect(() => {
+    if (initialValue) {
+      setMessage(initialValue);
+      inputRef.current?.focus();
+      onClearInitialValue?.();
+    }
+  }, [initialValue, onClearInitialValue]);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [mediaPreview, setMediaPreview] = useState<MediaPreview | null>(null);
   const [audioPreview, setAudioPreview] = useState<AudioPreview | null>(null);
@@ -30,24 +58,29 @@ export function ChatInput({ onSendMessage, isConnected, disabled }: ChatInputPro
   const [recordingTime, setRecordingTime] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
-  
+
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
-  const recordingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const recordingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(
+    null,
+  );
   const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
   const emojiPickerRef = useRef<HTMLDivElement>(null);
 
   // Close emoji picker when clicking outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (emojiPickerRef.current && !emojiPickerRef.current.contains(event.target as Node)) {
+      if (
+        emojiPickerRef.current &&
+        !emojiPickerRef.current.contains(event.target as Node)
+      ) {
         setShowEmojiPicker(false);
       }
     }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
   // Cleanup audio player
@@ -72,7 +105,7 @@ export function ChatInput({ onSendMessage, isConnected, disabled }: ChatInputPro
         input.focus();
       }, 0);
     } else {
-      setMessage(prev => prev + emoji);
+      setMessage((prev) => prev + emoji);
     }
   };
 
@@ -81,29 +114,39 @@ export function ChatInput({ onSendMessage, isConnected, disabled }: ChatInputPro
     if (!file) return;
 
     // Validate file type
-    const validImageTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-    const validVideoTypes = ['video/mp4', 'video/webm', 'video/quicktime'];
-    
-    if (!validImageTypes.includes(file.type) && !validVideoTypes.includes(file.type)) {
-      alert('Please select a valid image (JPG, PNG, GIF, WEBP) or video (MP4, WEBM, MOV) file.');
+    const validImageTypes = [
+      "image/jpeg",
+      "image/png",
+      "image/gif",
+      "image/webp",
+    ];
+    const validVideoTypes = ["video/mp4", "video/webm", "video/quicktime"];
+
+    if (
+      !validImageTypes.includes(file.type) &&
+      !validVideoTypes.includes(file.type)
+    ) {
+      alert(
+        "Please select a valid image (JPG, PNG, GIF, WEBP) or video (MP4, WEBM, MOV) file.",
+      );
       return;
     }
 
     // Validate file size (max 50MB)
     if (file.size > 50 * 1024 * 1024) {
-      alert('File size must be less than 50MB.');
+      alert("File size must be less than 50MB.");
       return;
     }
 
     const url = URL.createObjectURL(file);
-    const type = validImageTypes.includes(file.type) ? 'image' : 'video';
-    
+    const type = validImageTypes.includes(file.type) ? "image" : "video";
+
     setMediaPreview({ file, url, type });
     setAudioPreview(null);
-    
+
     // Reset file input
     if (fileInputRef.current) {
-      fileInputRef.current.value = '';
+      fileInputRef.current.value = "";
     }
   };
 
@@ -128,8 +171,10 @@ export function ChatInput({ onSendMessage, isConnected, disabled }: ChatInputPro
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
-      
+      const mediaRecorder = new MediaRecorder(stream, {
+        mimeType: "audio/webm;codecs=opus",
+      });
+
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
 
@@ -140,21 +185,23 @@ export function ChatInput({ onSendMessage, isConnected, disabled }: ChatInputPro
       };
 
       mediaRecorder.onstop = () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        const audioBlob = new Blob(audioChunksRef.current, {
+          type: "audio/webm",
+        });
         const url = URL.createObjectURL(audioBlob);
         setAudioPreview({ blob: audioBlob, url, duration: recordingTime });
-        
+
         // Stop all tracks
-        stream.getTracks().forEach(track => track.stop());
+        stream.getTracks().forEach((track) => track.stop());
       };
 
       mediaRecorder.start(100);
       setIsRecording(true);
       setRecordingTime(0);
-      
+
       // Start timer
       recordingIntervalRef.current = setInterval(() => {
-        setRecordingTime(prev => {
+        setRecordingTime((prev) => {
           if (prev >= 60) {
             stopRecording();
             return prev;
@@ -162,10 +209,9 @@ export function ChatInput({ onSendMessage, isConnected, disabled }: ChatInputPro
           return prev + 1;
         });
       }, 1000);
-
     } catch (error) {
-      console.error('Error starting recording:', error);
-      alert('Could not access microphone. Please check your permissions.');
+      console.error("Error starting recording:", error);
+      alert("Could not access microphone. Please check your permissions.");
     }
   };
 
@@ -173,7 +219,7 @@ export function ChatInput({ onSendMessage, isConnected, disabled }: ChatInputPro
     if (mediaRecorderRef.current && isRecording) {
       mediaRecorderRef.current.stop();
       setIsRecording(false);
-      
+
       if (recordingIntervalRef.current) {
         clearInterval(recordingIntervalRef.current);
         recordingIntervalRef.current = null;
@@ -201,7 +247,7 @@ export function ChatInput({ onSendMessage, isConnected, disabled }: ChatInputPro
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
   const handleSend = async () => {
@@ -210,25 +256,34 @@ export function ChatInput({ onSendMessage, isConnected, disabled }: ChatInputPro
     // Determine what to send
     if (audioPreview) {
       setIsUploading(true);
-      const success = await onSendMessage(message.trim(), 'audio', audioPreview.blob, audioPreview.duration);
+      const success = await onSendMessage(
+        message.trim(),
+        "audio",
+        audioPreview.blob,
+        audioPreview.duration,
+      );
       setIsUploading(false);
       if (success) {
-        setMessage('');
+        setMessage("");
         removeAudioPreview();
       }
     } else if (mediaPreview) {
       setIsUploading(true);
-      const messageType = mediaPreview.type === 'image' ? 'image' : 'video';
-      const success = await onSendMessage(message.trim(), messageType, mediaPreview.file);
+      const messageType = mediaPreview.type === "image" ? "image" : "video";
+      const success = await onSendMessage(
+        message.trim(),
+        messageType,
+        mediaPreview.file,
+      );
       setIsUploading(false);
       if (success) {
-        setMessage('');
+        setMessage("");
         removeMediaPreview();
       }
     } else if (message.trim()) {
-      const success = await onSendMessage(message.trim(), 'text');
+      const success = await onSendMessage(message.trim(), "text");
       if (success) {
-        setMessage('');
+        setMessage("");
       }
     }
   };
@@ -242,18 +297,14 @@ export function ChatInput({ onSendMessage, isConnected, disabled }: ChatInputPro
       {mediaPreview && (
         <div className="mb-3 relative inline-block">
           <div className="rounded-lg overflow-hidden border border-gray-200 shadow-sm max-w-xs">
-            {mediaPreview.type === 'image' ? (
-              <img 
-                src={mediaPreview.url} 
-                alt="Preview" 
+            {mediaPreview.type === "image" ? (
+              <img
+                src={mediaPreview.url}
+                alt="Preview"
                 className="max-h-40 object-contain"
               />
             ) : (
-              <video 
-                src={mediaPreview.url} 
-                className="max-h-40"
-                controls
-              />
+              <video src={mediaPreview.url} className="max-h-40" controls />
             )}
           </div>
           <button
@@ -272,13 +323,19 @@ export function ChatInput({ onSendMessage, isConnected, disabled }: ChatInputPro
             onClick={toggleAudioPlayback}
             className="w-10 h-10 flex items-center justify-center bg-[#007699] text-white rounded-full hover:bg-[#007699]/90 transition-colors"
           >
-            {isPlayingAudio ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5 ml-0.5" />}
+            {isPlayingAudio ? (
+              <Pause className="w-5 h-5" />
+            ) : (
+              <Play className="w-5 h-5 ml-0.5" />
+            )}
           </button>
           <div className="flex-1">
             <div className="h-1 bg-gray-300 rounded-full">
               <div className="h-1 bg-[#007699] rounded-full w-0" />
             </div>
-            <span className="text-xs text-gray-500 mt-1">{formatTime(audioPreview.duration)}</span>
+            <span className="text-xs text-gray-500 mt-1">
+              {formatTime(audioPreview.duration)}
+            </span>
           </div>
           <button
             onClick={removeAudioPreview}
@@ -293,7 +350,9 @@ export function ChatInput({ onSendMessage, isConnected, disabled }: ChatInputPro
       {isRecording && (
         <div className="mb-3 flex items-center gap-3 bg-red-50 border border-red-200 rounded-lg p-3 max-w-xs">
           <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse" />
-          <span className="text-red-600 font-medium">Recording... {formatTime(recordingTime)}</span>
+          <span className="text-red-600 font-medium">
+            Recording... {formatTime(recordingTime)}
+          </span>
           <button
             onClick={stopRecording}
             className="ml-auto p-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
@@ -307,7 +366,7 @@ export function ChatInput({ onSendMessage, isConnected, disabled }: ChatInputPro
       <div className="flex items-center gap-2 max-w-4xl mx-auto bg-white border rounded-full px-2 py-2 shadow-sm focus-within:ring-2 focus-within:ring-[#007699]/20 transition-all hover:border-gray-300">
         {/* Emoji Button */}
         <div className="relative" ref={emojiPickerRef}>
-          <button 
+          <button
             onClick={() => setShowEmojiPicker(!showEmojiPicker)}
             className="p-2.5 hover:bg-gray-100 rounded-full text-gray-500 transition-colors"
             data-testid="button-emoji"
@@ -315,7 +374,7 @@ export function ChatInput({ onSendMessage, isConnected, disabled }: ChatInputPro
             <Smile className="w-6 h-6" />
           </button>
           {showEmojiPicker && (
-            <EmojiPicker 
+            <EmojiPicker
               onSelect={handleEmojiSelect}
               onClose={() => setShowEmojiPicker(false)}
             />
@@ -323,7 +382,7 @@ export function ChatInput({ onSendMessage, isConnected, disabled }: ChatInputPro
         </div>
 
         {/* Attachment Button */}
-        <button 
+        <button
           onClick={() => fileInputRef.current?.click()}
           className="p-2.5 hover:bg-gray-100 rounded-full text-gray-500 transition-colors"
           data-testid="button-attachment"
@@ -337,9 +396,9 @@ export function ChatInput({ onSendMessage, isConnected, disabled }: ChatInputPro
           onChange={handleFileSelect}
           className="hidden"
         />
-        
+
         {/* Text Input */}
-        <input 
+        <input
           ref={inputRef}
           type="text"
           placeholder="Type a message..."
@@ -347,7 +406,7 @@ export function ChatInput({ onSendMessage, isConnected, disabled }: ChatInputPro
           value={message}
           onChange={(e) => setMessage(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === 'Enter' && hasContent && !isUploading) {
+            if (e.key === "Enter" && hasContent && !isUploading) {
               handleSend();
             }
           }}
@@ -361,7 +420,7 @@ export function ChatInput({ onSendMessage, isConnected, disabled }: ChatInputPro
             <Loader2 className="w-5 h-5 text-gray-500 animate-spin" />
           </div>
         ) : showMic ? (
-          <button 
+          <button
             onClick={startRecording}
             className="p-2.5 rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 transition-colors"
             disabled={!isConnected}
@@ -370,7 +429,7 @@ export function ChatInput({ onSendMessage, isConnected, disabled }: ChatInputPro
             <Mic className="w-5 h-5" />
           </button>
         ) : (
-          <button 
+          <button
             onClick={handleSend}
             className="p-2.5 rounded-full bg-[#007699] text-white hover:bg-[#007699]/90 transition-all shadow-sm"
             disabled={!isConnected || isUploading}

@@ -13,7 +13,8 @@ import CommunityGuidelines from "@/pages/community-guidelines";
 import FAQ from "@/pages/faq";
 import Profile from "@/components/Profile";
 import UserProfile from "@/pages/user-profile";
-import PublicProfile from "@/pages/public-profile"; // <-- New import added here
+import PublicProfile from "@/pages/public-profile";
+import AdminDashboard from "@/pages/admin-dashboard"; // <-- New import added here
 
 function Router() {
   return (
@@ -27,7 +28,9 @@ function Router() {
       <Route path="/faq" component={FAQ} />
       <Route path="/profile" component={Profile} />
       <Route path="/user-profile" component={UserProfile} />
-      <Route path="/profile/:username" component={PublicProfile} /> {/* <-- New route added here */}
+      <Route path="/profile/:username" component={PublicProfile} />
+      <Route path="/admin" component={AdminDashboard} />{" "}
+      {/* <-- New route added here */}
       <Route component={NotFound} />
     </Switch>
   );
