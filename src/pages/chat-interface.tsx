@@ -137,7 +137,6 @@ const getAvailableDurations = (role: string) => {
   ];
 };
 
-// Compressed Icon to prevent cutoff
 const PawIcon = ({ className }: { className?: string }) => (
   <svg
     className={className}
@@ -340,7 +339,6 @@ export default function ChatInterface() {
     setIsNewsRoom(false);
   };
 
-  // Fetch Announcements
   useEffect(() => {
     if (!isNewsRoom || activeDmUser || !userId) return;
 
@@ -362,7 +360,6 @@ export default function ChatInterface() {
     fetchAnnouncements();
   }, [isNewsRoom, chatRoomLocation, activePet, activeDmUser, userId]);
 
-  // Existing Messages Fetch
   useEffect(() => {
     if (!userId || isNewsRoom) return;
     let cancelled = false;
@@ -567,7 +564,14 @@ export default function ChatInterface() {
         const { error: uploadError } = await supabase.storage
           .from("chat-uploads")
           .upload(filePath, mediaFile);
-        if (uploadError) return false;
+
+        if (uploadError) {
+          toast({
+            description: `Media Upload Error: ${uploadError.message}`,
+            variant: "destructive",
+          });
+          return false;
+        }
         const { data: urlData } = supabase.storage
           .from("chat-uploads")
           .getPublicUrl(filePath);
@@ -588,6 +592,7 @@ export default function ChatInterface() {
           target_pet: activePet,
           status: postStatus,
         });
+
         if (error) throw error;
 
         if (postStatus === "pending") {
@@ -637,10 +642,15 @@ export default function ChatInterface() {
         insertData.breed = activeBreed;
 
       const { error } = await supabase.from("messages").insert(insertData);
-      if (error) return false;
+      if (error) throw error;
       return true;
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error sending:", error);
+      // NEW: Added this toast to catch ANY silent database failures!
+      toast({
+        description: `System Error: ${error.message || "Failed to process message."}`,
+        variant: "destructive",
+      });
       return false;
     }
   };
