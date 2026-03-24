@@ -1,21 +1,23 @@
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 import { 
   Menu,
   X,
   Facebook,
-  Chrome
+  Chrome,
+  Check,
+  ChevronsUpDown
 } from "lucide-react";
 import { useState } from "react";
 import logoImage from "@assets/Scrollpet_logo_1766997907297.png";
 import { supabase } from "@/lib/supabase";
 
-// Mock data for countries and states
-const COUNTRIES = ["United States", "United Kingdom", "Canada", "Australia", "India", "Germany", "France", "Japan"];
-const STATES = ["California", "New York", "Texas", "Florida", "Illinois", "Washington", "Oregon", "Nevada"];
+import { Country, State } from 'country-state-city';
 
 export default function Signup() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -28,7 +30,12 @@ export default function Signup() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [country, setCountry] = useState("");
   const [state, setState] = useState("");
+  const [openCountry, setOpenCountry] = useState(false);
+  const [openState, setOpenState] = useState(false);
   const [error, setError] = useState("");
+
+  const countries = Country.getAllCountries();
+  const states = country ? State.getStatesOfCountry(country) : [];
 
   const validateEmail = (email: string) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -69,8 +76,8 @@ export default function Signup() {
           data: {
             username,
             display_name: username,
-            country: country || undefined,
-            state: state || undefined,
+            country: country ? Country.getCountryByCode(country)?.name : undefined,
+            state: state && country ? State.getStateByCodeAndCountry(state, country)?.name : undefined,
           },
         },
       });
@@ -177,27 +184,99 @@ export default function Signup() {
             />
 
             <div className="grid grid-cols-2 gap-4">
-              <Select value={country} onValueChange={setCountry}>
-                <SelectTrigger className="rounded-full border-gray-200 bg-white py-6 px-6 text-base text-gray-400 focus:ring-0 shadow-sm h-14" data-testid="select-country">
-                  <SelectValue placeholder="Select Country" />
-                </SelectTrigger>
-                <SelectContent>
-                  {COUNTRIES.map(c => (
-                    <SelectItem key={c} value={c}>{c}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Popover open={openCountry} onOpenChange={setOpenCountry}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={openCountry}
+                    className="justify-between rounded-full border-gray-200 bg-white py-6 px-6 text-base text-gray-500 hover:text-gray-500 focus:ring-0 shadow-sm h-14 w-full"
+                  >
+                    {country
+                      ? countries.find((c) => c.isoCode === country)?.name
+                      : "Select Country"}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                  <Command>
+                    <CommandInput placeholder="Search country..." />
+                    <CommandList>
+                      <CommandEmpty>No country found.</CommandEmpty>
+                      <CommandGroup>
+                        {countries.map((c) => (
+                          <CommandItem
+                            key={c.isoCode}
+                            value={c.name}
+                            onSelect={() => {
+                              setCountry(c.isoCode === country ? "" : c.isoCode);
+                              setState("");
+                              setOpenCountry(false);
+                            }}
+                          >
+                            <Check
+                              className={cn(
+                                "mr-2 h-4 w-4",
+                                country === c.isoCode ? "opacity-100" : "opacity-0"
+                              )}
+                            />
+                            {c.name}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
 
-              <Select value={state} onValueChange={setState}>
-                <SelectTrigger className="rounded-full border-gray-200 bg-white py-6 px-6 text-base text-gray-400 focus:ring-0 shadow-sm h-14" data-testid="select-state">
-                  <SelectValue placeholder="Select State" />
-                </SelectTrigger>
-                <SelectContent>
-                  {STATES.map(s => (
-                    <SelectItem key={s} value={s}>{s}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Popover open={openState} onOpenChange={setOpenState}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={openState}
+                    disabled={!country || states.length === 0}
+                    className="justify-between rounded-full border-gray-200 bg-white py-6 px-6 text-base text-gray-500 hover:text-gray-500 focus:ring-0 shadow-sm h-14 w-full"
+                  >
+                    {state
+                      ? states.find((s) => s.isoCode === state)?.name
+                      : !country 
+                        ? "Select Country First" 
+                        : states.length === 0 
+                          ? "No States Available" 
+                          : "Select State"}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                  <Command>
+                    <CommandInput placeholder="Search state..." />
+                    <CommandList>
+                      <CommandEmpty>No state found.</CommandEmpty>
+                      <CommandGroup>
+                        {states.map((s) => (
+                          <CommandItem
+                            key={s.isoCode}
+                            value={s.name}
+                            onSelect={() => {
+                              setState(s.isoCode === state ? "" : s.isoCode);
+                              setOpenState(false);
+                            }}
+                          >
+                            <Check
+                              className={cn(
+                                "mr-2 h-4 w-4",
+                                state === s.isoCode ? "opacity-100" : "opacity-0"
+                              )}
+                            />
+                            {s.name}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </div>
 
             <Input 

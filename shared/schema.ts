@@ -44,6 +44,7 @@ export type UpsertUser = typeof users.$inferInsert;
 export const messages = pgTable("messages", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull().references(() => users.id),
+  receiverId: varchar("receiver_id").references(() => users.id), // Added for DMs
   petType: text("pet_type").notNull(),
   breed: text("breed"),
   location: text("location").notNull(),
@@ -61,3 +62,24 @@ export const insertMessageSchema = createInsertSchema(messages).omit({
 
 export type InsertMessage = z.infer<typeof insertMessageSchema>;
 export type Message = typeof messages.$inferSelect;
+
+// Pets table for user profiles
+export const pets = pgTable("pets", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  name: text("name").notNull(),
+  type: text("type").notNull(),
+  breed: text("breed"),
+  gender: text("gender"),
+  dob: varchar("dob"),
+  location: text("location"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertPetSchema = createInsertSchema(pets).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertPet = z.infer<typeof insertPetSchema>;
+export type Pet = typeof pets.$inferSelect;

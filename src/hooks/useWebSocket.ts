@@ -12,6 +12,7 @@ interface Message {
   mediaUrl?: string | null;
   mediaDuration?: number | null;
   createdAt: string;
+  receiverId?: string | null;
   user: {
     id: string;
     username: string;
@@ -39,6 +40,7 @@ function mapRowToMessage(row: any): Message {
     mediaUrl: row.media_url,
     mediaDuration: row.media_duration,
     createdAt: row.created_at,
+    receiverId: row.receiver_id,
     user: userData
       ? {
           id: userData.id,
@@ -72,6 +74,7 @@ export function useWebSocket({ userId, petType, breed, location, onMessage }: Us
       channelRef.current = null;
     }
 
+    // Channel for PUBLIC messages in the current room (filtered by location at DB level)
     const channel = supabase
       .channel(channelName)
       .on(
@@ -80,13 +83,40 @@ export function useWebSocket({ userId, petType, breed, location, onMessage }: Us
           event: 'INSERT',
           schema: 'public',
           table: 'messages',
+          filter: `location=eq.${location}`,
         },
         async (payload) => {
           const newRow = payload.new as any;
 
+          // Skip DMs in this listener
+          if (newRow.receiver_id) return;
+
+          // Strict client-side room filters
           if (newRow.pet_type !== petType) return;
           if (newRow.location !== location) return;
           if (breed && newRow.breed !== breed) return;
+
+          const { data: userData } = await supabase
+            .from('users')
+            .select('id, username, display_name')
+            .eq('id', newRow.user_id)
+            .single();
+
+          const msg = mapRowToMessage({ ...newRow, users: userData });
+          onMessageRef.current?.(msg);
+        }
+      )
+      // Second listener: DMs targeted at this user (no location filter needed)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+          filter: `receiver_id=eq.${userId}`,
+        },
+        async (payload) => {
+          const newRow = payload.new as any;
 
           const { data: userData } = await supabase
             .from('users')

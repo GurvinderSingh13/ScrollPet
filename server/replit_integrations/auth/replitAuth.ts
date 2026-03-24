@@ -51,9 +51,13 @@ function updateUserSession(
 }
 
 async function upsertUser(claims: any) {
+  const email = claims["email"] || "";
+  const username = claims["username"] || email.split("@")[0] || `user_${claims["sub"]}`;
   await authStorage.upsertUser({
     id: claims["sub"],
-    email: claims["email"],
+    email: email,
+    username: username,
+    password: "",
     firstName: claims["first_name"],
     lastName: claims["last_name"],
     profileImageUrl: claims["profile_image_url"],

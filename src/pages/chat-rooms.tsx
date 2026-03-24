@@ -14,6 +14,13 @@ import {
   DialogDescription,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { User } from "lucide-react";
 import logoImage from "@assets/Scrollpet_logo_1766997907297.png";
 import { useAuth } from "@/hooks/use-auth";
 
@@ -105,14 +112,37 @@ export default function ChatRooms() {
           </nav>
 
           <div className="hidden md:flex items-center gap-4">
-            <Button 
-              variant={isAuthenticated ? "ghost" : "default"}
-              onClick={handleAuthClick}
-              className="font-bold cursor-pointer rounded-full px-6"
-              disabled={isLoading}
-            >
-              {isLoading ? "..." : isAuthenticated ? "Logout" : "Login"}
-            </Button>
+            {isLoading ? (
+               <Button variant="ghost" disabled>...</Button>
+            ) : isAuthenticated ? (
+               <DropdownMenu>
+                 <DropdownMenuTrigger asChild>
+                   <button className="h-10 w-10 rounded-full border border-border bg-muted flex items-center justify-center overflow-hidden hover:ring-2 hover:ring-primary/50 transition-all cursor-pointer">
+                     {user?.id ? (
+                       <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.id}`} alt="User Avatar" className="h-full w-full object-cover" />
+                     ) : (
+                       <User className="h-5 w-5 text-muted-foreground" />
+                     )}
+                   </button>
+                 </DropdownMenuTrigger>
+                 <DropdownMenuContent align="end" className="w-56 mt-2">
+                   <div className="px-3 py-2 border-b border-border/50 mb-1">
+                     <p className="font-medium text-sm text-foreground truncate">{user?.displayName || user?.username || 'User'}</p>
+                     <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
+                   </div>
+                   <DropdownMenuItem asChild>
+                     <Link href="/user-profile" className="w-full cursor-pointer flex items-center">Profile Dashboard</Link>
+                   </DropdownMenuItem>
+                   <DropdownMenuItem onClick={logout} className="text-destructive cursor-pointer flex items-center font-medium">
+                     Log Out
+                   </DropdownMenuItem>
+                 </DropdownMenuContent>
+               </DropdownMenu>
+            ) : (
+               <Button onClick={() => window.location.href = '/login'} className="font-bold cursor-pointer rounded-full px-6">
+                 Login
+               </Button>
+            )}
           </div>
 
           {/* Mobile Menu Toggle */}
@@ -129,9 +159,20 @@ export default function ChatRooms() {
             <Link href="/about" className="block text-base font-semibold py-3 px-4 rounded-lg hover:bg-muted cursor-pointer">About Us</Link>
             <Link href="/faq" className="block text-base font-semibold py-3 px-4 rounded-lg hover:bg-muted cursor-pointer">FAQ</Link>
             <Link href="/contact" className="block text-base font-semibold py-3 px-4 rounded-lg hover:bg-muted cursor-pointer">Contact Us</Link>
-            <Button className="w-full mt-4 cursor-pointer rounded-full py-6 text-lg" onClick={handleAuthClick} disabled={isLoading}>
-              {isLoading ? "..." : isAuthenticated ? "Logout" : "Login"}
-            </Button>
+            {isLoading ? (
+               <Button className="w-full mt-4 cursor-pointer rounded-full py-6 text-lg" disabled>...</Button>
+            ) : isAuthenticated ? (
+               <>
+                 <Link href="/user-profile" className="block text-base font-semibold py-3 px-4 rounded-lg hover:bg-muted cursor-pointer text-primary">Profile Dashboard</Link>
+                 <Button className="w-full mt-4 cursor-pointer rounded-full py-6 text-lg" variant="destructive" onClick={logout}>
+                   Log Out
+                 </Button>
+               </>
+            ) : (
+               <Button className="w-full mt-4 cursor-pointer rounded-full py-6 text-lg" onClick={() => window.location.href = '/login'}>
+                 Login
+               </Button>
+            )}
           </div>
         )}
       </header>
