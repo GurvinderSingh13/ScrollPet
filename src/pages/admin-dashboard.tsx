@@ -28,16 +28,16 @@ import {
   Shield,
   AlertTriangle,
   CheckCircle,
-  Trash2,
   ArrowLeft,
   Loader2,
   Clock,
   Ban,
+  Users,
+  Search,
 } from "lucide-react";
 import logoImage from "@assets/Scrollpet_logo_1766997907297.png";
 import { toast } from "@/hooks/use-toast";
 
-// Helper function to determine who can ban who
 const canBanTarget = (myRole: string, targetRole: string) => {
   if (myRole === "admin") return targetRole !== "admin";
   if (myRole === "staff") return !["admin", "staff"].includes(targetRole);
@@ -47,7 +47,6 @@ const canBanTarget = (myRole: string, targetRole: string) => {
   return false;
 };
 
-// Helper function to get available ban durations based on role
 const getAvailableDurations = (role: string) => {
   const base = [
     { label: "6 Hours", value: "6h" },
@@ -55,14 +54,12 @@ const getAvailableDurations = (role: string) => {
     { label: "24 Hours", value: "24h" },
   ];
   if (role === "moderator") return base;
-
   const superMod = [
     ...base,
     { label: "3 Days", value: "3d" },
     { label: "7 Days", value: "7d" },
   ];
   if (role === "super_moderator") return superMod;
-
   return [
     ...superMod,
     { label: "30 Days", value: "30d" },
@@ -81,7 +78,13 @@ export default function AdminDashboard() {
   const [banDuration, setBanDuration] = useState<string>("24h");
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // 1. Fetch current user's role to verify they are staff
+  // NEW: Role Management States
+  const [isRoleModalOpen, setIsRoleModalOpen] = useState(false);
+  const [searchUsername, setSearchUsername] = useState("");
+  const [searchedUser, setSearchedUser] = useState<any>(null);
+  const [newRole, setNewRole] = useState("user");
+  const [isSearching, setIsSearching] = useState(false);
+
   const { data: dbUser, isLoading: userLoading } = useQuery({
     queryKey: ["db-user-admin", user?.id],
     queryFn: async () => {
@@ -101,7 +104,6 @@ export default function AdminDashboard() {
     dbUser &&
     ["moderator", "super_moderator", "staff", "admin"].includes(dbUser.role);
 
-  // Security Check: Kick out normal users
   useEffect(() => {
     if (!authLoading && !userLoading) {
       if (!user || (dbUser && !isModOrAbove)) {
@@ -114,27 +116,122 @@ export default function AdminDashboard() {
     }
   }, [user, dbUser, authLoading, userLoading, setLocation, isModOrAbove]);
 
-  // 2. Fetch all reports with joined data
   const { data: reports, isLoading: reportsLoading } = useQuery({
     queryKey: ["admin-reports"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data: rawReports, error } = await supabase
         .from("reports")
-        .select(
-          `
-          id, reason, created_at,
-          reporter:reporter_id (id, display_name, username),
-          reported:reported_user_id (id, display_name, username, role),
-          message:message_id (content, location)
-        `,
-        )
+        .select("*")
         .order("created_at", { ascending: false });
-
       if (error) throw error;
-      return data;
+      if (!rawReports || rawReports.length === 0) return [];
+
+      const userIds = [
+        ...new Set(
+          rawReports
+            .flatMap((r) => [r.reporter_id, r.reported_user_id])
+            .filter(Boolean),
+        ),
+      ];
+      const { data: usersData } = await supabase
+        .from("users")
+        .select("id, username, display_name, role")
+        .in("id", userIds);
+
+      const msgIds = [
+        ...new Set(rawReports.map((r) => r.message_id).filter(Boolean)),
+      ];
+      let messagesData: any[] = [];
+      if (msgIds.length > 0) {
+        // NEW: Fetching pet_type for accurate teleporting
+        const { data: mData } = await supabase
+          .from("messages")
+          .select("id, content, location, pet_type")
+          .in("id", msgIds);
+        messagesData = mData || [];
+      }
+
+      return rawReports.map((report) => {
+        const reporterUser = usersData?.find(
+          (u) => u.id === report.reporter_id,
+        );
+        const reportedUser = usersData?.find(
+          (u) => u.id === report.reported_user_id,
+        );
+        const msg = messagesData?.find((m) => m.id === report.message_id);
+
+        return {
+          id: report.id,
+          reason: report.reason,
+          created_at: report.created_at,
+          reporter: reporterUser || { display_name: "Unknown User" },
+          reported: reportedUser || {
+            id: report.reported_user_id,
+            display_name: "Unknown User",
+            role: "user",
+          },
+          message: msg || {
+            content: "Media file or deleted message",
+            location: "Unknown",
+            pet_type: "dog",
+          },
+        };
+      });
     },
     enabled: isModOrAbove,
   });
+
+  // NEW: Search for a user to promote
+  const handleSearchUser = async () => {
+    if (!searchUsername.trim()) return;
+    setIsSearching(true);
+    setSearchedUser(null);
+    try {
+      const { data, error } = await supabase
+        .from("users")
+        .select("id, username, display_name, role")
+        .ilike("username", searchUsername.trim())
+        .maybeSingle();
+
+      if (error) throw error;
+      if (data) {
+        setSearchedUser(data);
+        setNewRole(data.role || "user");
+      } else {
+        toast({
+          description: "No user found with that username.",
+          variant: "destructive",
+        });
+      }
+    } catch (err: any) {
+      toast({ description: "Search failed.", variant: "destructive" });
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  // NEW: Save the new role
+  const handleUpdateRole = async () => {
+    if (!searchedUser) return;
+    setIsProcessing(true);
+    try {
+      const { error } = await supabase
+        .from("users")
+        .update({ role: newRole })
+        .eq("id", searchedUser.id);
+      if (error) throw error;
+      toast({
+        description: `Successfully promoted @${searchedUser.username} to ${newRole.replace("_", " ")}!`,
+      });
+      setIsRoleModalOpen(false);
+      setSearchUsername("");
+      setSearchedUser(null);
+    } catch (err: any) {
+      toast({ description: "Failed to update role.", variant: "destructive" });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
 
   const handleOpenAction = (report: any) => {
     if (!canBanTarget(dbUser.role, report.reported.role || "user")) {
@@ -170,9 +267,7 @@ export default function AdminDashboard() {
     setIsProcessing(true);
 
     try {
-      let expiresAt = null; // Default to permanent
-
-      // Calculate expiration time if not permanent
+      let expiresAt = null;
       if (banDuration !== "permanent") {
         const now = new Date();
         if (banDuration === "6h") now.setHours(now.getHours() + 6);
@@ -182,11 +277,9 @@ export default function AdminDashboard() {
         else if (banDuration === "7d") now.setDate(now.getDate() + 7);
         else if (banDuration === "30d") now.setDate(now.getDate() + 30);
         else if (banDuration === "1y") now.setFullYear(now.getFullYear() + 1);
-
         expiresAt = now.toISOString();
       }
 
-      // 1. Insert Ban Record
       const { error: banError } = await supabase.from("bans").insert({
         user_id: selectedReport.reported.id,
         banned_by: user.id,
@@ -195,7 +288,6 @@ export default function AdminDashboard() {
       });
       if (banError) throw banError;
 
-      // 2. Delete the Report (Ticket resolved!)
       const { error: deleteError } = await supabase
         .from("reports")
         .delete()
@@ -228,7 +320,6 @@ export default function AdminDashboard() {
 
   return (
     <div className="min-h-screen bg-[#F5F7F9] font-sans">
-      {/* Admin Header */}
       <header className="bg-[#00789c] text-white shadow-md">
         <div className="container mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-4">
@@ -246,11 +337,23 @@ export default function AdminDashboard() {
               {dbUser.role.replace("_", " ")}
             </span>
           </div>
-          <img
-            src={logoImage}
-            alt="Logo"
-            className="h-8 brightness-0 invert opacity-80"
-          />
+
+          {/* NEW: Manage Team Button (Admin Only) */}
+          <div className="flex items-center gap-4">
+            {dbUser.role === "admin" && (
+              <Button
+                onClick={() => setIsRoleModalOpen(true)}
+                className="bg-white/10 hover:bg-white/20 text-white border-white/20 border text-sm h-9 cursor-pointer"
+              >
+                <Users className="w-4 h-4 mr-2" /> Manage Team Roles
+              </Button>
+            )}
+            <img
+              src={logoImage}
+              alt="Logo"
+              className="h-8 brightness-0 invert opacity-80"
+            />
+          </div>
         </div>
       </header>
 
@@ -319,10 +422,33 @@ export default function AdminDashboard() {
                         </td>
                         <td className="px-6 py-4">
                           <div className="text-gray-500 max-w-[250px] truncate italic mb-1">
-                            "{report.message?.content || "Media/No text"}"
+                            "{report.message?.content}"
                           </div>
-                          <div className="text-[10px] font-mono text-[#007699] bg-[#007699]/10 inline-block px-1.5 py-0.5 rounded">
-                            {report.message?.location || "Unknown Room"}
+                          <div className="flex items-center gap-2 mt-2">
+                            <div className="text-[10px] font-mono text-[#007699] bg-[#007699]/10 inline-block px-1.5 py-0.5 rounded">
+                              {report.message?.location}
+                            </div>
+
+                            {/* NEW: Teleport Button! */}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 px-2 text-[10px] text-[#007699] hover:text-[#005a75] border border-[#007699]/20 cursor-pointer"
+                              onClick={() => {
+                                sessionStorage.setItem(
+                                  "teleport_location",
+                                  report.message.location,
+                                );
+                                if (report.message.pet_type)
+                                  sessionStorage.setItem(
+                                    "teleport_pet",
+                                    report.message.pet_type,
+                                  );
+                                setLocation("/chat-interface");
+                              }}
+                            >
+                              Teleport to Chat ↗
+                            </Button>
                           </div>
                         </td>
                         <td className="px-6 py-4">
@@ -337,14 +463,14 @@ export default function AdminDashboard() {
                           <Button
                             variant="outline"
                             size="sm"
-                            className="text-gray-500 hover:text-gray-700"
+                            className="text-gray-500 hover:text-gray-700 cursor-pointer"
                             onClick={() => handleDismissReport(report.id)}
                           >
                             Dismiss
                           </Button>
                           <Button
                             size="sm"
-                            className="bg-red-600 hover:bg-red-700 text-white shadow-sm"
+                            className="bg-red-600 hover:bg-red-700 text-white shadow-sm cursor-pointer"
                             onClick={() => handleOpenAction(report)}
                           >
                             Take Action
@@ -360,7 +486,7 @@ export default function AdminDashboard() {
         </Card>
       </main>
 
-      {/* The Ban Modal */}
+      {/* Action Ban Modal */}
       <Dialog open={isActionModalOpen} onOpenChange={setIsActionModalOpen}>
         <DialogContent className="sm:max-w-[420px]">
           <DialogHeader>
@@ -368,7 +494,6 @@ export default function AdminDashboard() {
               <Ban className="w-5 h-5" /> Issue Server Ban
             </DialogTitle>
           </DialogHeader>
-
           {selectedReport && (
             <div className="space-y-5 py-4">
               <div className="bg-gray-50 p-3 rounded-lg border border-gray-100 text-sm">
@@ -383,7 +508,6 @@ export default function AdminDashboard() {
                   {selectedReport.reason}
                 </p>
               </div>
-
               <div className="space-y-2">
                 <label className="text-sm font-bold text-gray-700 flex items-center gap-2">
                   <Clock className="w-4 h-4 text-[#007699]" /> Select Ban
@@ -406,9 +530,8 @@ export default function AdminDashboard() {
                   {availableDurations[availableDurations.length - 1].label}.
                 </p>
               </div>
-
               <Button
-                className="w-full bg-red-600 hover:bg-red-700 text-white font-bold"
+                className="w-full bg-red-600 hover:bg-red-700 text-white font-bold cursor-pointer"
                 onClick={handleIssueBan}
                 disabled={isProcessing}
               >
@@ -419,6 +542,100 @@ export default function AdminDashboard() {
               </Button>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* NEW: Role Management Modal */}
+      <Dialog open={isRoleModalOpen} onOpenChange={setIsRoleModalOpen}>
+        <DialogContent className="sm:max-w-[450px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-[#00789c]">
+              <Users className="w-5 h-5" /> Manage Team Roles
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-6 py-4">
+            {/* Search Section */}
+            <div className="flex items-end gap-2">
+              <div className="flex-1 space-y-2">
+                <label className="text-sm font-bold text-gray-700">
+                  Search by Username
+                </label>
+                <div className="relative">
+                  <Search className="w-4 h-4 absolute left-3 top-3 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="e.g. JohnDoe123"
+                    className="w-full pl-9 pr-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#00789c]/20 outline-none"
+                    value={searchUsername}
+                    onChange={(e) => setSearchUsername(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handleSearchUser()}
+                  />
+                </div>
+              </div>
+              <Button
+                onClick={handleSearchUser}
+                disabled={isSearching || !searchUsername}
+                className="bg-[#00789c] hover:bg-[#005a75] text-white px-4 cursor-pointer"
+              >
+                {isSearching ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  "Search"
+                )}
+              </Button>
+            </div>
+
+            {/* Promotion Section */}
+            {searchedUser && (
+              <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 space-y-4">
+                <div className="flex items-center gap-3 border-b border-blue-200/50 pb-3">
+                  <div className="w-10 h-10 bg-white rounded-full border shadow-sm flex items-center justify-center font-bold text-[#00789c]">
+                    {searchedUser.username.charAt(0).toUpperCase()}
+                  </div>
+                  <div>
+                    <p className="font-bold text-gray-900">
+                      @{searchedUser.username}
+                    </p>
+                    <p className="text-xs font-semibold text-gray-500 uppercase">
+                      Current: {searchedUser.role.replace("_", " ")}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-gray-700">
+                    Assign New Role
+                  </label>
+                  <Select value={newRole} onValueChange={setNewRole}>
+                    <SelectTrigger className="w-full bg-white">
+                      <SelectValue placeholder="Select role..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="user">Normal User (Demote)</SelectItem>
+                      <SelectItem value="moderator">Moderator</SelectItem>
+                      <SelectItem value="super_moderator">
+                        Super Moderator
+                      </SelectItem>
+                      <SelectItem value="staff">Staff</SelectItem>
+                      <SelectItem value="admin">Administrator</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <Button
+                  className="w-full bg-[#00789c] hover:bg-[#005a75] text-white font-bold cursor-pointer"
+                  onClick={handleUpdateRole}
+                  disabled={isProcessing}
+                >
+                  {isProcessing ? (
+                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                  ) : null}
+                  {isProcessing ? "Updating..." : "Update Role"}
+                </Button>
+              </div>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
     </div>

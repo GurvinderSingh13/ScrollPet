@@ -127,7 +127,6 @@ function usePinnedStates() {
   return { pinnedIds, togglePin, isPinned };
 }
 
-// Helpers for Direct Banning
 const canBanTarget = (myRole: string, targetRole: string) => {
   if (myRole === "admin") return targetRole !== "admin";
   if (myRole === "staff") return !["admin", "staff"].includes(targetRole);
@@ -184,7 +183,6 @@ export default function ChatInterface() {
   );
   const [isModCountryOpen, setIsModCountryOpen] = useState(false);
 
-  // NEW: Direct Ban States
   const [isBanModalOpen, setIsBanModalOpen] = useState(false);
   const [userToBan, setUserToBan] = useState<{
     id: string;
@@ -193,6 +191,41 @@ export default function ChatInterface() {
   } | null>(null);
   const [banDuration, setBanDuration] = useState("24h");
   const [isProcessingBan, setIsProcessingBan] = useState(false);
+
+  // NEW: Teleportation Listener
+  useEffect(() => {
+    const tLoc = sessionStorage.getItem("teleport_location");
+    const tPet = sessionStorage.getItem("teleport_pet");
+
+    if (tLoc) {
+      if (tPet) setActivePet(tPet);
+
+      if (tLoc === "global" || tLoc === "staff_lounge") {
+        setActiveLocation(tLoc);
+      } else if (tLoc.startsWith("country:")) {
+        const cc = tLoc.split(":")[1];
+        const cObj = Country.getCountryByCode(cc);
+        if (cObj) setModSelectedCountry(cObj.name);
+        setActiveLocation("country");
+      } else if (tLoc.startsWith("state:")) {
+        const parts = tLoc.split(":");
+        const cObj = Country.getCountryByCode(parts[1]);
+        if (cObj) setModSelectedCountry(cObj.name);
+        setActiveLocation(parts[2]);
+      } else if (tLoc.startsWith("city:")) {
+        const parts = tLoc.split(":");
+        const cObj = Country.getCountryByCode(parts[1]);
+        if (cObj) setModSelectedCountry(cObj.name);
+        setActiveLocation(parts[2]);
+        setActiveDistrict(parts[3]);
+      }
+
+      sessionStorage.removeItem("teleport_location");
+      sessionStorage.removeItem("teleport_pet");
+      setSidebarView("public");
+      setMobileView("chat");
+    }
+  }, []);
 
   const PawIcon = ({ className }: { className?: string }) => (
     <svg
@@ -238,7 +271,6 @@ export default function ChatInterface() {
     enabled: !!userId,
   });
 
-  // NEW: Check if THIS user is banned to prevent typing
   const { data: myBan } = useQuery({
     queryKey: ["my-ban-status", userId],
     queryFn: async () => {
@@ -501,7 +533,6 @@ export default function ChatInterface() {
   ): Promise<boolean> => {
     if (!isConnected) return false;
 
-    // NEW: Block banned users
     if (myBan) {
       toast({
         description: "You are currently banned from sending messages.",
@@ -552,7 +583,6 @@ export default function ChatInterface() {
     }
   };
 
-  // NEW: Direct Ban Handling from Chat
   const handleOpenDirectBan = (targetUser: {
     id: string;
     displayName: string;
@@ -711,7 +741,6 @@ export default function ChatInterface() {
                     </Link>
                   </DropdownMenuItem>
 
-                  {/* NEW: Admin Dashboard Link in Profile Dropdown */}
                   {isModOrAbove && (
                     <DropdownMenuItem asChild>
                       <Link
@@ -1288,7 +1317,6 @@ export default function ChatInterface() {
         </main>
       </div>
 
-      {/* NEW: Direct Ban Modal */}
       <Dialog open={isBanModalOpen} onOpenChange={setIsBanModalOpen}>
         <DialogContent className="sm:max-w-[420px]">
           <DialogHeader>
