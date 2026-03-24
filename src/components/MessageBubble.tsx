@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Play, Pause, X, ChevronDown, Loader2 } from "lucide-react";
+import { Play, Pause, X, ChevronDown, Loader2, Ban } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   DropdownMenu,
@@ -30,6 +30,7 @@ interface Message {
     displayName: string;
     state?: string;
     country?: string;
+    role?: string;
   };
 }
 
@@ -37,8 +38,10 @@ interface MessageBubbleProps {
   message: Message;
   isOwnMessage: boolean;
   displayName: string;
+  currentUserRole?: string;
   onUserClick?: (userId: string, userName: string) => void;
   onReplyClick?: (userName: string) => void;
+  onBanClick?: () => void;
 }
 
 const REPORT_REASONS = [
@@ -55,16 +58,24 @@ export function MessageBubble({
   message,
   isOwnMessage,
   displayName,
+  currentUserRole = "user",
   onUserClick,
   onReplyClick,
+  onBanClick,
 }: MessageBubbleProps) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [showFullImage, setShowFullImage] = useState(false);
   const [audioRef, setAudioRef] = useState<HTMLAudioElement | null>(null);
 
-  // Report Modal States
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [isSubmittingReport, setIsSubmittingReport] = useState(false);
+
+  const isModOrAbove = [
+    "moderator",
+    "super_moderator",
+    "staff",
+    "admin",
+  ].includes(currentUserRole);
 
   const formatDuration = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -74,7 +85,6 @@ export function MessageBubble({
 
   const toggleAudio = () => {
     if (!message.mediaUrl) return;
-
     if (!audioRef) {
       const audio = new Audio(message.mediaUrl);
       audio.onended = () => setIsPlaying(false);
@@ -92,7 +102,6 @@ export function MessageBubble({
 
   const handleReportUser = async (reason: string) => {
     setIsSubmittingReport(true);
-
     try {
       const { data: userData } = await supabase.auth.getUser();
       if (!userData.user) throw new Error("You must be logged in to report.");
@@ -105,7 +114,6 @@ export function MessageBubble({
       });
 
       if (error) throw error;
-
       toast({
         description:
           "Report submitted successfully. Our team will review this shortly.",
@@ -113,8 +121,7 @@ export function MessageBubble({
       setIsReportModalOpen(false);
     } catch (err: any) {
       toast({
-        description:
-          err.message || "Failed to submit report. Please try again.",
+        description: err.message || "Failed to submit report.",
         variant: "destructive",
       });
     } finally {
@@ -130,15 +137,14 @@ export function MessageBubble({
             {message.mediaUrl && (
               <img
                 src={message.mediaUrl}
-                alt="Shared image"
-                className="max-w-full rounded-lg cursor-pointer hover:opacity-90 transition-opacity max-h-60 object-contain"
+                alt="Shared"
+                className="max-w-full rounded-lg cursor-pointer hover:opacity-90 max-h-60 object-contain"
                 onClick={() => setShowFullImage(true)}
               />
             )}
             {message.content && <p className="text-sm">{message.content}</p>}
           </div>
         );
-
       case "video":
         return (
           <div className="space-y-2">
@@ -152,7 +158,6 @@ export function MessageBubble({
             {message.content && <p className="text-sm">{message.content}</p>}
           </div>
         );
-
       case "audio":
         return (
           <div className="flex items-center gap-3 min-w-[180px]">
@@ -198,7 +203,6 @@ export function MessageBubble({
             </div>
           </div>
         );
-
       default:
         return <p>{message.content}</p>;
     }
@@ -239,7 +243,6 @@ export function MessageBubble({
         )}
 
         <div className="group relative flex items-start gap-2">
-          {/* THE MESSAGE CONTENT FIRST */}
           <div
             className={cn(
               "px-4 py-3 text-[15px] shadow-sm leading-relaxed",
@@ -254,7 +257,6 @@ export function MessageBubble({
             {renderContent()}
           </div>
 
-          {/* THE HOVER ICON AND MENU SECOND (Now rendering on the right) */}
           {!isOwnMessage && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -267,13 +269,13 @@ export function MessageBubble({
                 className="w-48 bg-white shadow-md border rounded-md"
               >
                 <DropdownMenuItem
-                  className="cursor-pointer hover:bg-gray-100 px-3 py-2 outline-none"
+                  className="cursor-pointer hover:bg-gray-100 px-3 py-2"
                   onClick={() => onReplyClick?.(message.user.displayName)}
                 >
                   Reply
                 </DropdownMenuItem>
                 <DropdownMenuItem
-                  className="cursor-pointer hover:bg-gray-100 px-3 py-2 outline-none"
+                  className="cursor-pointer hover:bg-gray-100 px-3 py-2"
                   onClick={() =>
                     onUserClick?.(message.user.id, message.user.displayName)
                   }
@@ -281,22 +283,30 @@ export function MessageBubble({
                   Private Message
                 </DropdownMenuItem>
                 <DropdownMenuItem
-                  className="cursor-pointer text-red-600 hover:bg-red-50 focus:text-red-700 focus:bg-red-100 px-3 py-2 outline-none transition-colors"
+                  className="cursor-pointer text-red-600 hover:bg-red-50 focus:bg-red-100 px-3 py-2"
                   onClick={() => setIsReportModalOpen(true)}
                 >
                   Report User
                 </DropdownMenuItem>
+
+                {/* NEW: Direct Ban option for Admins/Mods */}
+                {isModOrAbove && (
+                  <DropdownMenuItem
+                    className="cursor-pointer text-red-700 font-bold hover:bg-red-100 focus:bg-red-200 px-3 py-2 border-t border-red-100 mt-1"
+                    onClick={onBanClick}
+                  >
+                    <Ban className="w-4 h-4 mr-2" /> Ban User
+                  </DropdownMenuItem>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
           )}
         </div>
-
         {isOwnMessage && (
           <div className="text-xs text-gray-400 mt-1 mr-1">@{displayName}</div>
         )}
       </div>
 
-      {/* Full Image Modal */}
       {showFullImage && message.mediaUrl && (
         <div
           className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4"
@@ -317,7 +327,6 @@ export function MessageBubble({
         </div>
       )}
 
-      {/* Report User Modal */}
       <Dialog open={isReportModalOpen} onOpenChange={setIsReportModalOpen}>
         <DialogContent className="sm:max-w-[400px] p-0 overflow-hidden bg-white">
           <DialogHeader className="p-4 pb-2 border-b border-gray-100">
@@ -327,22 +336,20 @@ export function MessageBubble({
           </DialogHeader>
           <div className="px-6 py-4">
             <h3 className="text-lg font-semibold mb-4 text-gray-900">
-              Why are you reporting this post.
+              Why are you reporting this post?
             </h3>
-
             <div className="flex flex-col">
               {REPORT_REASONS.map((reason, index) => (
                 <button
                   key={index}
                   onClick={() => handleReportUser(reason)}
                   disabled={isSubmittingReport}
-                  className="text-left py-4 px-2 border-b border-gray-100 text-gray-700 hover:bg-gray-50 transition-colors last:border-0 hover:text-red-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="text-left py-4 px-2 border-b border-gray-100 text-gray-700 hover:bg-gray-50 hover:text-red-600 disabled:opacity-50"
                 >
                   {reason}
                 </button>
               ))}
             </div>
-
             {isSubmittingReport && (
               <div className="flex justify-center items-center py-4 text-sm text-gray-500">
                 <Loader2 className="w-4 h-4 animate-spin mr-2" /> Submitting
