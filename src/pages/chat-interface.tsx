@@ -210,7 +210,6 @@ export default function ChatInterface() {
     queryKey: ["db-user-chat", userId],
     queryFn: async () => {
       if (!userId) return null;
-      // Added news_cooldown_hours fetch
       const { data, error } = await supabase
         .from("users")
         .select("country, state, role, news_cooldown_hours")
@@ -247,7 +246,7 @@ export default function ChatInterface() {
     "staff",
     "admin",
   ].includes(userRole);
-  const cooldownHours = dbUser?.news_cooldown_hours ?? 24; // Default to 24 if null
+  const cooldownHours = dbUser?.news_cooldown_hours ?? 24;
 
   const effectiveCountryName =
     isModOrAbove && modSelectedCountry ? modSelectedCountry : dbUser?.country;
@@ -501,7 +500,46 @@ export default function ChatInterface() {
     onMessage: handleNewMessage,
   });
 
-  // NEW: User Delete Own Announcement Logic
+  const { data: dmContacts } = useQuery({
+    queryKey: ["dmContacts", userId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("messages")
+        .select(
+          `user_id, receiver_id, users:users!user_id(id, display_name, username), receiver:users!receiver_id(id, display_name, username)`,
+        )
+        .not("receiver_id", "is", null)
+        .or(`user_id.eq.${userId},receiver_id.eq.${userId}`)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      const contactsMap = new Map();
+      data?.forEach((msg: any) => {
+        if (
+          msg.user_id !== userId &&
+          msg.users &&
+          !contactsMap.has(msg.user_id)
+        )
+          contactsMap.set(msg.user_id, {
+            id: msg.user_id,
+            name: msg.users.display_name || msg.users.username || "Unknown",
+          });
+        if (
+          msg.receiver_id !== userId &&
+          msg.receiver_id &&
+          msg.receiver &&
+          !contactsMap.has(msg.receiver_id)
+        )
+          contactsMap.set(msg.receiver_id, {
+            id: msg.receiver_id,
+            name:
+              msg.receiver.display_name || msg.receiver.username || "Unknown",
+          });
+      });
+      return Array.from(contactsMap.values());
+    },
+    enabled: !!userId,
+  });
+
   const handleDeleteAnnouncement = async (postId: string) => {
     try {
       const { error } = await supabase
@@ -533,10 +571,8 @@ export default function ChatInterface() {
     }
 
     try {
-      // **NEWS ROOM LOGIC WITH COOLDOWN CHECK**
       if (isNewsRoom) {
         if (!isModOrAbove) {
-          // Check for cooldown
           const { data: lastPost } = await supabase
             .from("announcements")
             .select("created_at")
@@ -544,7 +580,6 @@ export default function ChatInterface() {
             .order("created_at", { ascending: false })
             .limit(1)
             .single();
-
           if (lastPost) {
             const lastPostTime = new Date(lastPost.created_at).getTime();
             const now = new Date().getTime();
@@ -556,7 +591,7 @@ export default function ChatInterface() {
                 description: `You are on cooldown. Please wait ${hoursLeft} more hour(s) before posting again.`,
                 variant: "destructive",
               });
-              return false; // Stop the post
+              return false;
             }
           }
         }
@@ -628,7 +663,6 @@ export default function ChatInterface() {
         return true;
       }
 
-      // **REGULAR CHAT LOGIC**
       let mediaUrl: string | null = null;
       if (mediaFile) {
         const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -738,6 +772,13 @@ export default function ChatInterface() {
       return `${stateObj?.name || "State"} - ${activeDistrict}`;
     return stateObj?.name || "State Room";
   };
+  const currentDistricts =
+    activeLocation !== "global" &&
+    activeLocation !== "country" &&
+    activeLocation !== "staff_lounge" &&
+    countryCode
+      ? City.getCitiesOfState(countryCode, activeLocation)
+      : [];
 
   return (
     <div className="h-[100dvh] flex flex-col bg-background font-sans overflow-hidden">
@@ -908,6 +949,26 @@ export default function ChatInterface() {
                         />
                       )}
                     </div>
+                    {currentBreeds.length > 0 && !activeDmUser && (
+                      <Select
+                        value={activeBreed || "__all__"}
+                        onValueChange={(value) =>
+                          setActiveBreed(value === "__all__" ? null : value)
+                        }
+                      >
+                        <SelectTrigger className="h-8 w-[140px] bg-white/10 border-white/20 text-white rounded-lg text-xs hover:bg-white/20 transition-colors flex-shrink-0">
+                          <SelectValue placeholder="All Breeds" />
+                        </SelectTrigger>
+                        <SelectContent className="max-h-60">
+                          <SelectItem value="__all__">All Breeds</SelectItem>
+                          {currentBreeds.map((breed) => (
+                            <SelectItem key={breed.id} value={breed.id}>
+                              {breed.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
                   </div>
                 ) : (
                   <div className="flex-1 relative w-[180px]">
@@ -966,8 +1027,209 @@ export default function ChatInterface() {
                     <span className="text-base">Global</span>
                   </div>
                 </button>
+                {isModOrAbove && (
+                  <button
+                    onClick={() => handleLocationClick("staff_lounge")}
+                    className={cn(
+                      "w-full flex items-center justify-between px-4 py-3.5 rounded-lg text-sm font-medium transition-all duration-200 text-left group border mb-2",
+                      activeLocation === "staff_lounge"
+                        ? "bg-[#00789c] text-white shadow-md border-[#00789c]"
+                        : "bg-white hover:bg-gray-50 text-gray-700 border-gray-100",
+                    )}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Shield
+                        className={cn(
+                          "w-5 h-5",
+                          activeLocation === "staff_lounge"
+                            ? "text-white"
+                            : "text-[#00789c]",
+                        )}
+                      />
+                      <span className="text-base font-bold">Staff Lounge</span>
+                    </div>
+                  </button>
+                )}
+                {!userCountryObj ? (
+                  <div className="mt-4 p-4 text-xs bg-orange-50 text-orange-600 rounded-lg border border-orange-200 flex items-start gap-2 shadow-sm">
+                    <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                    <p>
+                      Update your profile settings to unlock your private
+                      Country and State chat rooms!
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex items-center gap-2 mb-2">
+                      <button
+                        onClick={() => handleLocationClick("country")}
+                        className={cn(
+                          "flex-1 flex items-center justify-between px-4 py-3.5 rounded-lg text-sm font-medium transition-all duration-200 text-left group border",
+                          activeLocation === "country"
+                            ? "bg-[#FF6600] text-white shadow-md border-[#FF6600]"
+                            : "bg-white hover:bg-gray-50 text-gray-700 border-gray-100",
+                        )}
+                      >
+                        <div className="flex items-center gap-3">
+                          <span className="text-xl">{userCountryObj.flag}</span>
+                          <span className="text-base font-bold">
+                            {userCountryObj.name}
+                          </span>
+                        </div>
+                      </button>
+                      {isModOrAbove && (
+                        <Popover
+                          open={isModCountryOpen}
+                          onOpenChange={setIsModCountryOpen}
+                        >
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              className="w-12 h-[52px] p-0 shrink-0 border-gray-200 cursor-pointer"
+                            >
+                              <Globe className="w-5 h-5 text-gray-500" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent
+                            className="w-[300px] p-0"
+                            align="start"
+                          >
+                            <Command>
+                              <CommandInput placeholder="Search global regions..." />
+                              <CommandList>
+                                <CommandEmpty>No country found.</CommandEmpty>
+                                <CommandGroup>
+                                  {Country.getAllCountries().map((c) => (
+                                    <CommandItem
+                                      key={c.isoCode}
+                                      value={c.name}
+                                      onSelect={() => {
+                                        setModSelectedCountry(c.name);
+                                        setActiveLocation("country");
+                                        setActiveDistrict(null);
+                                        setIsModCountryOpen(false);
+                                      }}
+                                    >
+                                      <span className="mr-2 text-lg">
+                                        {c.flag}
+                                      </span>{" "}
+                                      {c.name}
+                                    </CommandItem>
+                                  ))}
+                                </CommandGroup>
+                              </CommandList>
+                            </Command>
+                          </PopoverContent>
+                        </Popover>
+                      )}
+                    </div>
+                    {pinnedStates.length > 0 && (
+                      <>
+                        <div className="px-2 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                          Pinned States
+                        </div>
+                        {pinnedStates.map((loc) => (
+                          <div
+                            key={`pinned-${loc.isoCode}`}
+                            className="flex items-center gap-1 mb-2"
+                          >
+                            <button
+                              onClick={() => handleLocationClick(loc.isoCode)}
+                              className={cn(
+                                "flex-1 flex items-center justify-between px-4 py-3.5 rounded-lg text-sm font-medium transition-all duration-200 text-left group border",
+                                activeLocation === loc.isoCode && !activeDmUser
+                                  ? "bg-[#FF6600] text-white border-[#FF6600]"
+                                  : "bg-white border-gray-100 hover:bg-gray-50",
+                              )}
+                            >
+                              <div className="flex items-center gap-3">
+                                <Pin
+                                  className={cn(
+                                    "w-4 h-4 rotate-45",
+                                    activeLocation === loc.isoCode &&
+                                      !activeDmUser
+                                      ? "text-white"
+                                      : "text-orange-500",
+                                  )}
+                                />
+                                <span className="text-sm">{loc.name}</span>
+                              </div>
+                            </button>
+                          </div>
+                        ))}
+                      </>
+                    )}
+                    <div className="px-2 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider mt-4">
+                      All States & Regions
+                    </div>
+                    {unpinnedStates.map((loc) => (
+                      <div
+                        key={loc.isoCode}
+                        className="flex items-center gap-1 mb-2"
+                      >
+                        <button
+                          onClick={() => handleLocationClick(loc.isoCode)}
+                          className={cn(
+                            "flex-1 flex items-center justify-between px-4 py-3.5 rounded-lg text-sm font-medium transition-all duration-200 text-left group border",
+                            activeLocation === loc.isoCode && !activeDmUser
+                              ? "bg-[#FF6600] text-white border-[#FF6600]"
+                              : "bg-white border-gray-100 hover:bg-gray-50",
+                          )}
+                        >
+                          <div className="flex items-center gap-3">
+                            <span className="text-sm">{loc.name}</span>
+                          </div>
+                        </button>
+                      </div>
+                    ))}
+                  </>
+                )}
               </>
-            ) : null}
+            ) : (
+              <div className="space-y-1">
+                <div className="px-2 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  Your Conversations
+                </div>
+                {dmContacts && dmContacts.length > 0 ? (
+                  dmContacts.map((contact) => (
+                    <button
+                      key={`dm-${contact.id}`}
+                      onClick={() => handleUserClick(contact.id, contact.name)}
+                      className={cn(
+                        "w-full flex items-center justify-between px-4 py-3.5 rounded-lg text-sm font-medium transition-all duration-200 text-left group border mb-2",
+                        activeDmUser?.id === contact.id
+                          ? "bg-[#FF6600] text-white"
+                          : "bg-white",
+                      )}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div
+                          className={cn(
+                            "w-8 h-8 rounded-full border overflow-hidden bg-gray-100 shrink-0 flex items-center justify-center",
+                            activeDmUser?.id === contact.id
+                              ? "border-white/50"
+                              : "border-gray-200",
+                          )}
+                        >
+                          <img
+                            src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${contact.id}`}
+                            alt="Avatar"
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                        <span className="text-base truncate">
+                          @{contact.name}
+                        </span>
+                      </div>
+                    </button>
+                  ))
+                ) : (
+                  <div className="text-center p-4 text-gray-500 text-sm">
+                    No active conversations yet.
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </aside>
 
@@ -1012,6 +1274,37 @@ export default function ChatInterface() {
                   <h2 className="font-bold text-xl truncate whitespace-nowrap">
                     {getHeaderDisplayName()}
                   </h2>
+                  {activeLocation !== "global" &&
+                    activeLocation !== "country" &&
+                    activeLocation !== "staff_lounge" &&
+                    currentDistricts.length > 0 &&
+                    !activeDmUser && (
+                      <div className="flex-shrink-0 ml-2">
+                        <Select
+                          value={activeDistrict || "__all__"}
+                          onValueChange={(value) =>
+                            setActiveDistrict(
+                              value === "__all__" ? null : value,
+                            )
+                          }
+                        >
+                          <SelectTrigger className="w-[150px] md:w-[160px] h-8 bg-white/10 text-white border-white/20 rounded-full text-xs focus:ring-0 hover:bg-white/20 flex-shrink-0">
+                            <SelectValue placeholder="Select City/District" />
+                          </SelectTrigger>
+                          <SelectContent className="max-h-60">
+                            <SelectItem value="__all__">All Region</SelectItem>
+                            {currentDistricts.map((district) => (
+                              <SelectItem
+                                key={district.name}
+                                value={district.name}
+                              >
+                                {district.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
                 </div>
                 <div className="flex items-center gap-1 flex-shrink-0 ml-auto">
                   {!activeDmUser && activeLocation !== "staff_lounge" && (
@@ -1060,7 +1353,6 @@ export default function ChatInterface() {
                             : "border-gray-100",
                         )}
                       >
-                        {/* PENDING TAG & DELETE BUTTON FOR USERS */}
                         {post.status === "pending" && (
                           <div className="bg-amber-100 text-amber-800 text-xs font-bold px-3 py-1.5 flex items-center justify-between border-b border-amber-200">
                             <div className="flex items-center gap-2">
@@ -1079,7 +1371,6 @@ export default function ChatInterface() {
                             )}
                           </div>
                         )}
-
                         <div className="p-4 flex items-center gap-3 border-b border-gray-50 bg-gray-50/50">
                           <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center text-amber-700 font-bold border border-amber-200">
                             {post.users?.display_name
@@ -1142,8 +1433,6 @@ export default function ChatInterface() {
           )}
         </main>
       </div>
-
-      {/* Ban Modal omitted for length safety, it remains functional behind the scenes */}
     </div>
   );
 }
