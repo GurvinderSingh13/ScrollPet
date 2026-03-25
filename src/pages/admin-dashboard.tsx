@@ -42,6 +42,8 @@ import {
 } from "lucide-react";
 import logoImage from "@assets/Scrollpet_logo_1766997907297.png";
 import { toast } from "@/hooks/use-toast";
+import { PET_BREEDS } from "@/data/petBreeds";
+import { Country, State } from "country-state-city";
 
 const canBanTarget = (myRole: string, targetRole: string) => {
   if (myRole === "admin") return targetRole !== "admin";
@@ -85,14 +87,22 @@ export default function AdminDashboard() {
 
   // Broadcast Hub State
   const PET_CATEGORIES = ["Dog", "Cat", "Fish", "Bird", "Rabbit", "Hamster", "Turtle", "Guinea Pig", "Horse", "Other"];
-  const TARGET_LOCATIONS = ["Global", "United States", "India", "United Kingdom", "Canada"];
+  const allCountries = Country.getAllCountries();
   const [broadcastText, setBroadcastText] = useState("");
-  const [selectedPets, setSelectedPets] = useState<string[]>([]);
-  const [selectedLocations, setSelectedLocations] = useState<string[]>([]);
   const [broadcastMediaFile, setBroadcastMediaFile] = useState<File | null>(null);
   const [broadcastMediaPreview, setBroadcastMediaPreview] = useState<string | null>(null);
   const [isBroadcasting, setIsBroadcasting] = useState(false);
   const broadcastFileRef = useRef<HTMLInputElement>(null);
+  // Pets: category → set of selected breed IDs (empty = whole category)
+  const [selectedPetCategories, setSelectedPetCategories] = useState<string[]>([]);
+  const [selectedBreeds, setSelectedBreeds] = useState<Record<string, string[]>>({});
+  const [expandedPets, setExpandedPets] = useState<string[]>([]);
+  // Locations: country iso codes + per-country state selections
+  const [includeGlobal, setIncludeGlobal] = useState(false);
+  const [selectedCountryCodes, setSelectedCountryCodes] = useState<string[]>([]);
+  const [selectedStates, setSelectedStates] = useState<Record<string, string[]>>({});
+  const [expandedCountries, setExpandedCountries] = useState<string[]>([]);
+  const [countrySearch, setCountrySearch] = useState("");
 
   // Report States
   const [selectedReport, setSelectedReport] = useState<any | null>(null);
@@ -105,6 +115,7 @@ export default function AdminDashboard() {
   const [searchUsername, setSearchUsername] = useState("");
   const [searchedUser, setSearchedUser] = useState<any>(null);
   const [newRole, setNewRole] = useState("user");
+  const [cooldownHours, setCooldownHours] = useState(24);
   const [isSearching, setIsSearching] = useState(false);
 
   const { data: dbUser, isLoading: userLoading } = useQuery({
@@ -286,15 +297,16 @@ export default function AdminDashboard() {
     try {
       const { error } = await supabase
         .from("users")
-        .update({ role: newRole })
+        .update({ role: newRole, news_cooldown_hours: cooldownHours })
         .eq("id", searchedUser.id);
       if (error) throw error;
       toast({
-        description: `Successfully promoted @${searchedUser.username} to ${newRole.replace("_", " ")}!`,
+        description: `Successfully updated @${searchedUser.username} to ${newRole.replace("_", " ")} with a ${cooldownHours}h news cooldown!`,
       });
       setIsRoleModalOpen(false);
       setSearchUsername("");
       setSearchedUser(null);
+      setCooldownHours(24);
     } catch (err: any) {
       toast({ description: "Failed to update role.", variant: "destructive" });
     } finally {
@@ -387,11 +399,11 @@ export default function AdminDashboard() {
       toast({ description: "Please enter announcement text.", variant: "destructive" });
       return;
     }
-    if (selectedPets.length === 0) {
+    if (selectedPetCategories.length === 0) {
       toast({ description: "Please select at least one pet category.", variant: "destructive" });
       return;
     }
-    if (selectedLocations.length === 0) {
+    if (!includeGlobal && selectedCountryCodes.length === 0) {
       toast({ description: "Please select at least one target location.", variant: "destructive" });
       return;
     }
@@ -409,13 +421,43 @@ export default function AdminDashboard() {
         mediaUrl = urlData.publicUrl;
       }
 
+      // Build flat location targets
+      const locationTargets: string[] = [];
+      if (includeGlobal) locationTargets.push("global");
+      for (const isoCode of selectedCountryCodes) {
+        const statesChosen = selectedStates[isoCode] || [];
+        if (statesChosen.length === 0) {
+          const country = Country.getCountryByCode(isoCode);
+          if (country) locationTargets.push(country.name);
+        } else {
+          locationTargets.push(...statesChosen);
+        }
+      }
+
+      // Build flat pet targets { petType, breed }
+      const petTargets: Array<{ petType: string; breed: string | null }> = [];
+      for (const category of selectedPetCategories) {
+        const petKey = category.toLowerCase().replace(/ /g, "-");
+        const breedsChosen = selectedBreeds[category] || [];
+        const availableBreeds = PET_BREEDS[petKey] || [];
+        if (breedsChosen.length === 0 || breedsChosen.length === availableBreeds.length) {
+          petTargets.push({ petType: category.toLowerCase(), breed: null });
+        } else {
+          for (const breedId of breedsChosen) {
+            petTargets.push({ petType: category.toLowerCase(), breed: breedId });
+          }
+        }
+      }
+
+      // Cross-product insert
       const rows: any[] = [];
-      for (const loc of selectedLocations) {
-        for (const pet of selectedPets) {
+      for (const loc of locationTargets) {
+        for (const { petType, breed } of petTargets) {
           rows.push({
             content: broadcastText.trim(),
             target_location: loc,
-            target_pet: pet.toLowerCase(),
+            target_pet: petType,
+            target_breed: breed,
             status: "approved",
             author_id: user!.id,
             media_url: mediaUrl,
@@ -426,10 +468,16 @@ export default function AdminDashboard() {
       const { error } = await supabase.from("announcements").insert(rows);
       if (error) throw error;
 
-      toast({ description: `Broadcast sent to ${rows.length} room${rows.length > 1 ? "s" : ""}!` });
+      toast({ description: `Broadcast sent! Created ${rows.length} announcement${rows.length !== 1 ? "s" : ""} across ${locationTargets.length} location${locationTargets.length !== 1 ? "s" : ""}.` });
       setBroadcastText("");
-      setSelectedPets([]);
-      setSelectedLocations([]);
+      setSelectedPetCategories([]);
+      setSelectedBreeds({});
+      setExpandedPets([]);
+      setIncludeGlobal(false);
+      setSelectedCountryCodes([]);
+      setSelectedStates({});
+      setExpandedCountries([]);
+      setCountrySearch("");
       setBroadcastMediaFile(null);
       setBroadcastMediaPreview(null);
       if (broadcastFileRef.current) broadcastFileRef.current.value = "";
@@ -713,14 +761,14 @@ export default function AdminDashboard() {
               ))}
             {/* BROADCAST HUB TAB */}
             {activeTab === "broadcast" && (
-              <div className="p-8 max-w-3xl mx-auto">
+              <div className="p-8 max-w-4xl mx-auto">
                 <div className="flex items-center gap-3 mb-6">
                   <div className="w-10 h-10 rounded-xl bg-orange-100 flex items-center justify-center">
                     <Megaphone className="w-5 h-5 text-orange-600" />
                   </div>
                   <div>
                     <h2 className="text-lg font-bold text-gray-900">Super Broadcaster</h2>
-                    <p className="text-sm text-gray-500">Send an instant announcement directly to any chat room.</p>
+                    <p className="text-sm text-gray-500">Send an instant announcement to any combination of rooms worldwide.</p>
                   </div>
                 </div>
 
@@ -781,8 +829,8 @@ export default function AdminDashboard() {
                     />
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* Pet Categories */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* ── PET CATEGORIES with breeds ── */}
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
                         <label className="text-sm font-bold text-gray-700">Select Pet Categories <span className="text-red-500">*</span></label>
@@ -790,35 +838,113 @@ export default function AdminDashboard() {
                           type="button"
                           data-testid="button-select-all-pets"
                           className="text-xs font-semibold text-orange-600 hover:text-orange-700 cursor-pointer"
-                          onClick={() =>
-                            setSelectedPets(
-                              selectedPets.length === PET_CATEGORIES.length ? [] : [...PET_CATEGORIES]
-                            )
-                          }
+                          onClick={() => {
+                            if (selectedPetCategories.length === PET_CATEGORIES.length) {
+                              setSelectedPetCategories([]);
+                              setSelectedBreeds({});
+                              setExpandedPets([]);
+                            } else {
+                              setSelectedPetCategories([...PET_CATEGORIES]);
+                            }
+                          }}
                         >
-                          {selectedPets.length === PET_CATEGORIES.length ? "Deselect All" : "Select All"}
+                          {selectedPetCategories.length === PET_CATEGORIES.length ? "Deselect All" : "Select All Pets"}
                         </button>
                       </div>
-                      <div className="bg-gray-50 border border-gray-200 rounded-xl p-3 space-y-2">
-                        {PET_CATEGORIES.map((pet) => (
-                          <label key={pet} className="flex items-center gap-2.5 cursor-pointer group" data-testid={`checkbox-pet-${pet.toLowerCase().replace(" ", "-")}`}>
-                            <div
-                              className={`w-4 h-4 rounded border flex items-center justify-center transition-colors flex-shrink-0 ${selectedPets.includes(pet) ? "bg-orange-500 border-orange-500" : "border-gray-300 group-hover:border-orange-400"}`}
-                              onClick={() =>
-                                setSelectedPets((prev) =>
-                                  prev.includes(pet) ? prev.filter((p) => p !== pet) : [...prev, pet]
-                                )
-                              }
-                            >
-                              {selectedPets.includes(pet) && <Check className="w-2.5 h-2.5 text-white" />}
+                      <div className="bg-gray-50 border border-gray-200 rounded-xl p-3 space-y-1 max-h-[420px] overflow-y-auto">
+                        {PET_CATEGORIES.map((pet) => {
+                          const petKey = pet.toLowerCase().replace(/ /g, "-");
+                          const breeds = PET_BREEDS[petKey] || [];
+                          const isSelected = selectedPetCategories.includes(pet);
+                          const isExpanded = expandedPets.includes(pet);
+                          const breedsChosen = selectedBreeds[pet] || [];
+                          return (
+                            <div key={pet}>
+                              <div className="flex items-center gap-2 py-1">
+                                <div
+                                  className={`w-4 h-4 rounded border flex items-center justify-center transition-colors flex-shrink-0 cursor-pointer ${isSelected ? "bg-orange-500 border-orange-500" : "border-gray-300 hover:border-orange-400"}`}
+                                  onClick={() => {
+                                    if (isSelected) {
+                                      setSelectedPetCategories((p) => p.filter((c) => c !== pet));
+                                      setSelectedBreeds((b) => { const n = { ...b }; delete n[pet]; return n; });
+                                      setExpandedPets((e) => e.filter((x) => x !== pet));
+                                    } else {
+                                      setSelectedPetCategories((p) => [...p, pet]);
+                                      setExpandedPets((e) => e.includes(pet) ? e : [...e, pet]);
+                                    }
+                                  }}
+                                  data-testid={`checkbox-pet-${petKey}`}
+                                >
+                                  {isSelected && <Check className="w-2.5 h-2.5 text-white" />}
+                                </div>
+                                <span
+                                  className="text-sm text-gray-700 select-none font-medium flex-1 cursor-pointer"
+                                  onClick={() => {
+                                    if (isSelected) setExpandedPets((e) => e.includes(pet) ? e.filter((x) => x !== pet) : [...e, pet]);
+                                  }}
+                                >
+                                  {pet}
+                                  {isSelected && breeds.length > 0 && (
+                                    <span className="ml-2 text-[10px] text-orange-500 font-bold">
+                                      {breedsChosen.length === 0 ? "All breeds" : `${breedsChosen.length}/${breeds.length} breeds`}
+                                    </span>
+                                  )}
+                                </span>
+                                {isSelected && breeds.length > 0 && (
+                                  <button
+                                    type="button"
+                                    className="text-[10px] text-gray-400 hover:text-gray-600 cursor-pointer px-1"
+                                    onClick={() => setExpandedPets((e) => e.includes(pet) ? e.filter((x) => x !== pet) : [...e, pet])}
+                                  >
+                                    {isExpanded ? "▲" : "▼"}
+                                  </button>
+                                )}
+                              </div>
+                              {isSelected && isExpanded && breeds.length > 0 && (
+                                <div className="ml-6 mt-1 mb-2 bg-white border border-gray-100 rounded-lg p-2 space-y-1">
+                                  <button
+                                    type="button"
+                                    className="text-[10px] font-bold text-orange-600 hover:text-orange-700 cursor-pointer mb-1"
+                                    onClick={() => {
+                                      setSelectedBreeds((b) => {
+                                        const n = { ...b };
+                                        if ((n[pet] || []).length === breeds.length) {
+                                          delete n[pet];
+                                        } else {
+                                          n[pet] = breeds.map((br) => br.id);
+                                        }
+                                        return n;
+                                      });
+                                    }}
+                                  >
+                                    {(breedsChosen.length === breeds.length) ? "Deselect All Breeds" : "Select All Breeds"}
+                                  </button>
+                                  {breeds.map((breed) => (
+                                    <div key={breed.id} className="flex items-center gap-2">
+                                      <div
+                                        className={`w-3.5 h-3.5 rounded border flex items-center justify-center flex-shrink-0 cursor-pointer transition-colors ${breedsChosen.includes(breed.id) ? "bg-orange-400 border-orange-400" : "border-gray-300 hover:border-orange-300"}`}
+                                        onClick={() => {
+                                          setSelectedBreeds((b) => {
+                                            const curr = b[pet] || [];
+                                            const updated = curr.includes(breed.id) ? curr.filter((id) => id !== breed.id) : [...curr, breed.id];
+                                            return { ...b, [pet]: updated };
+                                          });
+                                        }}
+                                      >
+                                        {breedsChosen.includes(breed.id) && <Check className="w-2 h-2 text-white" />}
+                                      </div>
+                                      <span className="text-xs text-gray-600 select-none">{breed.name}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
                             </div>
-                            <span className="text-sm text-gray-700 select-none">{pet}</span>
-                          </label>
-                        ))}
+                          );
+                        })}
                       </div>
                     </div>
 
-                    {/* Target Locations */}
+                    {/* ── TARGET LOCATIONS with country-state-city ── */}
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
                         <label className="text-sm font-bold text-gray-700">Select Target Locations <span className="text-red-500">*</span></label>
@@ -826,44 +952,158 @@ export default function AdminDashboard() {
                           type="button"
                           data-testid="button-select-all-locations"
                           className="text-xs font-semibold text-orange-600 hover:text-orange-700 cursor-pointer"
-                          onClick={() =>
-                            setSelectedLocations(
-                              selectedLocations.length === TARGET_LOCATIONS.length ? [] : [...TARGET_LOCATIONS]
-                            )
-                          }
+                          onClick={() => {
+                            if (selectedCountryCodes.length === allCountries.length && includeGlobal) {
+                              setSelectedCountryCodes([]);
+                              setSelectedStates({});
+                              setExpandedCountries([]);
+                              setIncludeGlobal(false);
+                            } else {
+                              setIncludeGlobal(true);
+                              setSelectedCountryCodes(allCountries.map((c) => c.isoCode));
+                            }
+                          }}
                         >
-                          {selectedLocations.length === TARGET_LOCATIONS.length ? "Deselect All" : "Select All"}
+                          {selectedCountryCodes.length === allCountries.length && includeGlobal ? "Deselect All" : "Select All Countries"}
                         </button>
                       </div>
-                      <div className="bg-gray-50 border border-gray-200 rounded-xl p-3 space-y-2">
-                        {TARGET_LOCATIONS.map((loc) => (
-                          <label key={loc} className="flex items-center gap-2.5 cursor-pointer group" data-testid={`checkbox-location-${loc.toLowerCase().replace(" ", "-")}`}>
-                            <div
-                              className={`w-4 h-4 rounded border flex items-center justify-center transition-colors flex-shrink-0 ${selectedLocations.includes(loc) ? "bg-orange-500 border-orange-500" : "border-gray-300 group-hover:border-orange-400"}`}
-                              onClick={() =>
-                                setSelectedLocations((prev) =>
-                                  prev.includes(loc) ? prev.filter((l) => l !== loc) : [...prev, loc]
-                                )
-                              }
-                            >
-                              {selectedLocations.includes(loc) && <Check className="w-2.5 h-2.5 text-white" />}
+
+                      {/* Search */}
+                      <div className="relative">
+                        <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-gray-400" />
+                        <input
+                          type="text"
+                          placeholder="Search countries..."
+                          className="w-full pl-8 pr-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs focus:ring-2 focus:ring-orange-400/20 outline-none"
+                          value={countrySearch}
+                          onChange={(e) => setCountrySearch(e.target.value)}
+                        />
+                      </div>
+
+                      <div className="bg-gray-50 border border-gray-200 rounded-xl p-3 space-y-1 max-h-[420px] overflow-y-auto">
+                        {/* Global option */}
+                        {(!countrySearch || "global".includes(countrySearch.toLowerCase())) && (
+                          <div
+                            className="flex items-center gap-2 py-1 cursor-pointer"
+                            onClick={() => setIncludeGlobal((g) => !g)}
+                          >
+                            <div className={`w-4 h-4 rounded border flex items-center justify-center transition-colors flex-shrink-0 ${includeGlobal ? "bg-orange-500 border-orange-500" : "border-gray-300 hover:border-orange-400"}`}>
+                              {includeGlobal && <Check className="w-2.5 h-2.5 text-white" />}
                             </div>
-                            <span className="text-sm text-gray-700 select-none">{loc}</span>
-                          </label>
-                        ))}
+                            <span className="text-sm font-semibold text-orange-700 select-none">🌍 Global</span>
+                          </div>
+                        )}
+
+                        {/* Countries */}
+                        {allCountries
+                          .filter((c) => c.name.toLowerCase().includes(countrySearch.toLowerCase()))
+                          .map((country) => {
+                            const states = State.getStatesOfCountry(country.isoCode);
+                            const isSelected = selectedCountryCodes.includes(country.isoCode);
+                            const isExpanded = expandedCountries.includes(country.isoCode);
+                            const statesChosen = selectedStates[country.isoCode] || [];
+                            return (
+                              <div key={country.isoCode}>
+                                <div className="flex items-center gap-2 py-0.5">
+                                  <div
+                                    className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 cursor-pointer transition-colors ${isSelected ? "bg-orange-500 border-orange-500" : "border-gray-300 hover:border-orange-400"}`}
+                                    onClick={() => {
+                                      if (isSelected) {
+                                        setSelectedCountryCodes((c) => c.filter((x) => x !== country.isoCode));
+                                        setSelectedStates((s) => { const n = { ...s }; delete n[country.isoCode]; return n; });
+                                        setExpandedCountries((e) => e.filter((x) => x !== country.isoCode));
+                                      } else {
+                                        setSelectedCountryCodes((c) => [...c, country.isoCode]);
+                                        if (states.length > 0) setExpandedCountries((e) => e.includes(country.isoCode) ? e : [...e, country.isoCode]);
+                                      }
+                                    }}
+                                    data-testid={`checkbox-country-${country.isoCode}`}
+                                  >
+                                    {isSelected && <Check className="w-2.5 h-2.5 text-white" />}
+                                  </div>
+                                  <span className="text-sm text-gray-700 select-none flex-1">
+                                    {country.flag} {country.name}
+                                    {isSelected && states.length > 0 && (
+                                      <span className="ml-2 text-[10px] text-orange-500 font-bold">
+                                        {statesChosen.length === 0 ? "Whole country" : `${statesChosen.length} state${statesChosen.length !== 1 ? "s" : ""}`}
+                                      </span>
+                                    )}
+                                  </span>
+                                  {isSelected && states.length > 0 && (
+                                    <button
+                                      type="button"
+                                      className="text-[10px] text-gray-400 hover:text-gray-600 cursor-pointer px-1"
+                                      onClick={() => setExpandedCountries((e) => e.includes(country.isoCode) ? e.filter((x) => x !== country.isoCode) : [...e, country.isoCode])}
+                                    >
+                                      {isExpanded ? "▲" : "▼"}
+                                    </button>
+                                  )}
+                                </div>
+                                {isSelected && isExpanded && states.length > 0 && (
+                                  <div className="ml-6 mt-1 mb-2 bg-white border border-gray-100 rounded-lg p-2 space-y-1 max-h-48 overflow-y-auto">
+                                    <button
+                                      type="button"
+                                      className="text-[10px] font-bold text-orange-600 hover:text-orange-700 cursor-pointer mb-1"
+                                      onClick={() => {
+                                        setSelectedStates((s) => {
+                                          const n = { ...s };
+                                          if ((n[country.isoCode] || []).length === states.length) {
+                                            delete n[country.isoCode];
+                                          } else {
+                                            n[country.isoCode] = states.map((st) => st.name);
+                                          }
+                                          return n;
+                                        });
+                                      }}
+                                    >
+                                      {(statesChosen.length === states.length) ? "Deselect All States" : "Select All States"}
+                                    </button>
+                                    {states.map((state) => (
+                                      <div key={state.isoCode} className="flex items-center gap-2">
+                                        <div
+                                          className={`w-3.5 h-3.5 rounded border flex items-center justify-center flex-shrink-0 cursor-pointer transition-colors ${statesChosen.includes(state.name) ? "bg-orange-400 border-orange-400" : "border-gray-300 hover:border-orange-300"}`}
+                                          onClick={() => {
+                                            setSelectedStates((s) => {
+                                              const curr = s[country.isoCode] || [];
+                                              const updated = curr.includes(state.name) ? curr.filter((n) => n !== state.name) : [...curr, state.name];
+                                              return { ...s, [country.isoCode]: updated };
+                                            });
+                                          }}
+                                        >
+                                          {statesChosen.includes(state.name) && <Check className="w-2 h-2 text-white" />}
+                                        </div>
+                                        <span className="text-xs text-gray-600 select-none">{state.name}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
                       </div>
                     </div>
                   </div>
 
-                  {/* Summary & Broadcast Button */}
-                  {(selectedPets.length > 0 && selectedLocations.length > 0) && (
-                    <div className="bg-orange-50 border border-orange-200 rounded-xl px-4 py-3 text-sm text-orange-800">
-                      <span className="font-bold">Preview:</span> This will create{" "}
-                      <span className="font-bold">{selectedPets.length * selectedLocations.length}</span> announcement{selectedPets.length * selectedLocations.length !== 1 ? "s" : ""} across{" "}
-                      <span className="font-bold">{selectedLocations.length}</span> location{selectedLocations.length !== 1 ? "s" : ""} and{" "}
-                      <span className="font-bold">{selectedPets.length}</span> pet category/categories.
-                    </div>
-                  )}
+                  {/* Summary */}
+                  {(selectedPetCategories.length > 0 && (includeGlobal || selectedCountryCodes.length > 0)) && (() => {
+                    const locationCount = (includeGlobal ? 1 : 0) + selectedCountryCodes.reduce((acc, iso) => {
+                      const st = selectedStates[iso] || [];
+                      return acc + (st.length === 0 ? 1 : st.length);
+                    }, 0);
+                    const petCount = selectedPetCategories.reduce((acc, cat) => {
+                      const petKey = cat.toLowerCase().replace(/ /g, "-");
+                      const breeds = PET_BREEDS[petKey] || [];
+                      const chosen = selectedBreeds[cat] || [];
+                      return acc + (chosen.length === 0 || chosen.length === breeds.length ? 1 : chosen.length);
+                    }, 0);
+                    return (
+                      <div className="bg-orange-50 border border-orange-200 rounded-xl px-4 py-3 text-sm text-orange-800">
+                        <span className="font-bold">Preview:</span> This will create{" "}
+                        <span className="font-bold">{locationCount * petCount}</span> announcement{locationCount * petCount !== 1 ? "s" : ""} — targeting{" "}
+                        <span className="font-bold">{locationCount}</span> location{locationCount !== 1 ? "s" : ""} × <span className="font-bold">{petCount}</span> pet target{petCount !== 1 ? "s" : ""}.
+                      </div>
+                    );
+                  })()}
 
                   <Button
                     data-testid="button-broadcast"
@@ -1018,6 +1258,21 @@ export default function AdminDashboard() {
                       <SelectItem value="admin">Administrator</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-gray-700 flex items-center gap-1.5">
+                    <Clock className="w-3.5 h-3.5 text-[#00789c]" /> Cooldown Hours
+                    <span className="text-xs text-gray-400 font-normal">(news posting cooldown)</span>
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    max={8760}
+                    data-testid="input-cooldown-hours"
+                    className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#00789c]/20 outline-none"
+                    value={cooldownHours}
+                    onChange={(e) => setCooldownHours(Math.max(0, parseInt(e.target.value) || 0))}
+                  />
                 </div>
                 <Button
                   className="w-full bg-[#00789c] hover:bg-[#005a75] text-white font-bold cursor-pointer"
