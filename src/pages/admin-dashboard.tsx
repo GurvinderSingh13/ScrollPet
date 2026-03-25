@@ -93,9 +93,15 @@ export default function AdminDashboard() {
   // Broadcast States
   const [broadcastText, setBroadcastText] = useState("");
   const [broadcastMedia, setBroadcastMedia] = useState<File | null>(null);
-  const [targetCountry, setTargetCountry] = useState("Global");
-  const [targetStates, setTargetStates] = useState<string[]>([]);
+  // multi-country
+  const [includeGlobal, setIncludeGlobal] = useState(false);
+  const [targetCountries, setTargetCountries] = useState<string[]>([]); // ISO codes
+  const [targetStates, setTargetStates] = useState<Record<string, string[]>>({}); // isoCode -> state names
+  const [countrySearch, setCountrySearch] = useState("");
+  // pets + breeds
   const [targetPets, setTargetPets] = useState<string[]>([]);
+  const [targetBreeds, setTargetBreeds] = useState<Record<string, string[]>>({}); // pet -> breed IDs
+  const allCountries = Country.getAllCountries();
 
   const { data: dbUser } = useQuery({
     queryKey: ["db-user-admin", user?.id],
@@ -256,58 +262,76 @@ export default function AdminDashboard() {
 
   const handleBroadcast = async () => {
     if (!broadcastText.trim() && !broadcastMedia)
-      return toast({
-        description: "Add content to broadcast.",
-        variant: "destructive",
-      });
+      return toast({ description: "Add content to broadcast.", variant: "destructive" });
     if (targetPets.length === 0)
-      return toast({
-        description: "Select at least one pet category.",
-        variant: "destructive",
-      });
+      return toast({ description: "Select at least one pet category.", variant: "destructive" });
+    if (!includeGlobal && targetCountries.length === 0)
+      return toast({ description: "Select at least one location target.", variant: "destructive" });
 
     setIsProcessing(true);
     try {
-      let mediaUrl = null;
+      let mediaUrl: string | null = null;
       if (broadcastMedia) {
         const filePath = `chat-media/${Date.now()}-${broadcastMedia.name}`;
-        await supabase.storage
-          .from("chat-uploads")
-          .upload(filePath, broadcastMedia);
-        const { data } = supabase.storage
-          .from("chat-uploads")
-          .getPublicUrl(filePath);
-        mediaUrl = data.publicUrl;
+        const { data: up } = await supabase.storage.from("chat-uploads").upload(filePath, broadcastMedia);
+        if (up) {
+          const { data: urlData } = supabase.storage.from("chat-uploads").getPublicUrl(filePath);
+          mediaUrl = urlData.publicUrl;
+        }
       }
 
-      const inserts = [];
-      const locations =
-        targetCountry === "Global"
-          ? ["global"]
-          : targetStates.length > 0
-            ? targetStates.map((s) => `state:${targetCountry}:${s}`)
-            : [`country:${targetCountry}`];
+      // Build flat location list
+      const locations: string[] = [];
+      if (includeGlobal) locations.push("global");
+      for (const iso of targetCountries) {
+        const states = targetStates[iso] || [];
+        if (states.length === 0) {
+          const country = Country.getCountryByCode(iso);
+          if (country) locations.push(country.name);
+        } else {
+          locations.push(...states);
+        }
+      }
 
+      // Build flat pet+breed list: [{ pet, breed }]
+      const petTargets: Array<{ pet: string; breed: string | null }> = [];
+      for (const pet of targetPets) {
+        const breeds = targetBreeds[pet] || [];
+        if (breeds.length === 0) {
+          petTargets.push({ pet, breed: null });
+        } else {
+          for (const b of breeds) petTargets.push({ pet, breed: b });
+        }
+      }
+
+      // Cross product
+      const inserts: any[] = [];
       for (const loc of locations) {
-        for (const pet of targetPets) {
+        for (const { pet, breed } of petTargets) {
           inserts.push({
             author_id: user?.id,
             content: broadcastText,
             media_url: mediaUrl,
             target_location: loc,
             target_pet: pet,
+            target_breed: breed,
             status: "approved",
           });
         }
       }
 
-      await supabase.from("announcements").insert(inserts);
-      toast({ description: `Broadcast sent to ${inserts.length} rooms!` });
+      const { error } = await supabase.from("announcements").insert(inserts);
+      if (error) throw error;
+      toast({ description: `✓ Broadcast sent to ${inserts.length} room${inserts.length !== 1 ? "s" : ""}!` });
       setBroadcastText("");
+      setBroadcastMedia(null);
       setTargetPets([]);
-      setTargetStates([]);
-    } catch (err) {
-      toast({ description: "Broadcast failed.", variant: "destructive" });
+      setTargetBreeds({});
+      setTargetCountries([]);
+      setTargetStates({});
+      setIncludeGlobal(false);
+    } catch (err: any) {
+      toast({ description: err.message || "Broadcast failed.", variant: "destructive" });
     } finally {
       setIsProcessing(false);
     }
@@ -381,127 +405,306 @@ export default function AdminDashboard() {
             )}
 
             {activeTab === "broadcast" && (
-              <div className="max-w-3xl space-y-6">
-                <div className="space-y-2">
-                  <label className="font-bold text-gray-700">
-                    Announcement Message
-                  </label>
+              <div className="space-y-5">
+                {/* Header */}
+                <div className="flex items-center gap-3 pb-3 border-b border-gray-100">
+                  <div className="w-9 h-9 rounded-xl bg-orange-100 flex items-center justify-center shrink-0">
+                    <Megaphone className="w-4 h-4 text-orange-600" />
+                  </div>
+                  <div>
+                    <p className="font-bold text-gray-900">Super Broadcaster</p>
+                    <p className="text-xs text-gray-400">Target any combination of countries, states, pet categories, and breeds.</p>
+                  </div>
+                </div>
+
+                {/* Message */}
+                <div className="space-y-1.5">
+                  <label className="text-sm font-bold text-gray-700">Announcement Message <span className="text-red-500">*</span></label>
                   <textarea
-                    className="w-full border rounded-lg p-3 min-h-[100px] outline-none focus:ring-2 focus:ring-orange-500/20"
-                    placeholder="Type your global announcement..."
+                    className="w-full border border-gray-200 rounded-xl p-3 min-h-[90px] text-sm outline-none focus:ring-2 focus:ring-orange-400/30 bg-gray-50 resize-none"
+                    placeholder="Type your announcement here…"
                     value={broadcastText}
                     onChange={(e) => setBroadcastText(e.target.value)}
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-6">
-                  <div className="border p-4 rounded-lg bg-gray-50 space-y-3">
-                    <label className="font-bold flex justify-between">
-                      Target Country
-                    </label>
-                    <Select
-                      value={targetCountry}
-                      onValueChange={(val) => {
-                        setTargetCountry(val);
-                        setTargetStates([]);
-                      }}
-                    >
-                      <SelectTrigger className="bg-white">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Global">🌎 Global</SelectItem>
-                        {Country.getAllCountries().map((c) => (
-                          <SelectItem key={c.isoCode} value={c.isoCode}>
-                            {c.flag} {c.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                {/* 4-column targeting grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
 
-                    {targetCountry !== "Global" && (
-                      <div className="mt-4">
-                        <label className="text-xs font-bold text-gray-500 uppercase">
-                          Select States (Optional)
-                        </label>
-                        <div className="max-h-40 overflow-y-auto space-y-1 mt-2 bg-white border p-2 rounded">
-                          {State.getStatesOfCountry(targetCountry).map((s) => (
-                            <label
-                              key={s.isoCode}
-                              className="flex items-center gap-2 text-sm p-1 hover:bg-gray-50"
-                            >
-                              <input
-                                type="checkbox"
-                                checked={targetStates.includes(s.isoCode)}
-                                onChange={(e) => {
-                                  if (e.target.checked)
-                                    setTargetStates([
-                                      ...targetStates,
-                                      s.isoCode,
-                                    ]);
-                                  else
-                                    setTargetStates(
-                                      targetStates.filter(
-                                        (ts) => ts !== s.isoCode,
-                                      ),
-                                    );
-                                }}
-                              />{" "}
-                              {s.name}
-                            </label>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="border p-4 rounded-lg bg-gray-50">
-                    <label className="font-bold flex justify-between mb-3">
-                      Target Pets{" "}
+                  {/* ── Col 1: Countries ── */}
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-gray-600 uppercase tracking-wide">Countries</span>
                       <button
-                        className="text-xs text-blue-600 hover:underline"
-                        onClick={() => setTargetPets(PET_CATEGORIES)}
+                        type="button"
+                        className="text-[10px] font-semibold text-orange-500 hover:text-orange-700 cursor-pointer"
+                        onClick={() => {
+                          if (targetCountries.length === allCountries.length && includeGlobal) {
+                            setTargetCountries([]);
+                            setTargetStates({});
+                            setIncludeGlobal(false);
+                          } else {
+                            setIncludeGlobal(true);
+                            setTargetCountries(allCountries.map((c) => c.isoCode));
+                          }
+                        }}
                       >
-                        Select All
+                        {targetCountries.length === allCountries.length && includeGlobal ? "Clear All" : "Select All"}
                       </button>
-                    </label>
-                    <div className="grid grid-cols-2 gap-2">
-                      {PET_CATEGORIES.map((pet) => (
-                        <label
-                          key={pet}
-                          className="flex items-center gap-2 text-sm bg-white border p-2 rounded cursor-pointer hover:bg-orange-50"
-                        >
+                    </div>
+                    {/* Search */}
+                    <div className="relative">
+                      <Search className="w-3 h-3 absolute left-2.5 top-2.5 text-gray-400" />
+                      <input
+                        type="text"
+                        placeholder="Search…"
+                        className="w-full pl-7 pr-2 py-1.5 text-xs border border-gray-200 rounded-lg bg-white outline-none focus:ring-1 focus:ring-orange-300"
+                        value={countrySearch}
+                        onChange={(e) => setCountrySearch(e.target.value)}
+                      />
+                    </div>
+                    <div className="border border-gray-200 rounded-xl bg-gray-50 overflow-y-auto max-h-60 p-2 space-y-0.5">
+                      {/* Global */}
+                      {(!countrySearch || "global".includes(countrySearch.toLowerCase())) && (
+                        <label className="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-orange-50 cursor-pointer">
                           <input
                             type="checkbox"
                             className="accent-orange-500"
-                            checked={targetPets.includes(pet)}
-                            onChange={(e) => {
-                              if (e.target.checked)
-                                setTargetPets([...targetPets, pet]);
-                              else
-                                setTargetPets(
-                                  targetPets.filter((p) => p !== pet),
-                                );
-                            }}
-                          />{" "}
-                          {pet.charAt(0).toUpperCase() + pet.slice(1)}
+                            checked={includeGlobal}
+                            onChange={(e) => setIncludeGlobal(e.target.checked)}
+                          />
+                          <span className="text-xs font-semibold text-orange-700">🌍 Global</span>
                         </label>
-                      ))}
+                      )}
+                      {allCountries
+                        .filter((c) => c.name.toLowerCase().includes(countrySearch.toLowerCase()))
+                        .map((c) => (
+                          <label key={c.isoCode} className="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-orange-50 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              className="accent-orange-500"
+                              checked={targetCountries.includes(c.isoCode)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setTargetCountries((prev) => [...prev, c.isoCode]);
+                                } else {
+                                  setTargetCountries((prev) => prev.filter((x) => x !== c.isoCode));
+                                  setTargetStates((prev) => { const n = { ...prev }; delete n[c.isoCode]; return n; });
+                                }
+                              }}
+                            />
+                            <span className="text-xs text-gray-700">{c.flag} {c.name}</span>
+                          </label>
+                        ))}
+                    </div>
+                    <p className="text-[10px] text-gray-400 text-center">
+                      {(includeGlobal ? 1 : 0) + targetCountries.length} selected
+                    </p>
+                  </div>
+
+                  {/* ── Col 2: States ── */}
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-gray-600 uppercase tracking-wide">States / Regions</span>
+                      <span className="text-[10px] text-gray-400">optional</span>
+                    </div>
+                    <div className="border border-gray-200 rounded-xl bg-gray-50 overflow-y-auto max-h-[292px] p-2 space-y-2">
+                      {targetCountries.length === 0 ? (
+                        <p className="text-xs text-gray-400 text-center py-8">Select countries first</p>
+                      ) : (
+                        targetCountries.map((iso) => {
+                          const country = Country.getCountryByCode(iso);
+                          const states = State.getStatesOfCountry(iso);
+                          if (states.length === 0) return null;
+                          const chosen = targetStates[iso] || [];
+                          return (
+                            <div key={iso}>
+                              <div className="flex items-center justify-between mb-1">
+                                <p className="text-[10px] font-bold text-gray-500 uppercase">{country?.flag} {country?.name}</p>
+                                <button
+                                  type="button"
+                                  className="text-[10px] text-orange-500 hover:text-orange-700 cursor-pointer"
+                                  onClick={() => {
+                                    setTargetStates((prev) => {
+                                      const n = { ...prev };
+                                      if (chosen.length === states.length) delete n[iso];
+                                      else n[iso] = states.map((s) => s.name);
+                                      return n;
+                                    });
+                                  }}
+                                >
+                                  {chosen.length === states.length ? "Clear" : "All"}
+                                </button>
+                              </div>
+                              {states.map((s) => (
+                                <label key={s.isoCode} className="flex items-center gap-1.5 px-1 py-0.5 rounded hover:bg-orange-50 cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    className="accent-orange-500"
+                                    checked={chosen.includes(s.name)}
+                                    onChange={(e) => {
+                                      setTargetStates((prev) => {
+                                        const curr = prev[iso] || [];
+                                        return {
+                                          ...prev,
+                                          [iso]: e.target.checked
+                                            ? [...curr, s.name]
+                                            : curr.filter((x) => x !== s.name),
+                                        };
+                                      });
+                                    }}
+                                  />
+                                  <span className="text-xs text-gray-700">{s.name}</span>
+                                </label>
+                              ))}
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+
+                  {/* ── Col 3: Pet Categories ── */}
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-gray-600 uppercase tracking-wide">Pet Categories</span>
+                      <button
+                        type="button"
+                        className="text-[10px] font-semibold text-orange-500 hover:text-orange-700 cursor-pointer"
+                        onClick={() => {
+                          if (targetPets.length === PET_CATEGORIES.length) {
+                            setTargetPets([]);
+                            setTargetBreeds({});
+                          } else {
+                            setTargetPets([...PET_CATEGORIES]);
+                          }
+                        }}
+                      >
+                        {targetPets.length === PET_CATEGORIES.length ? "Clear All" : "Select All"}
+                      </button>
+                    </div>
+                    <div className="border border-gray-200 rounded-xl bg-gray-50 overflow-y-auto max-h-[292px] p-2 space-y-0.5">
+                      {PET_CATEGORIES.map((pet) => {
+                        const label = pet.charAt(0).toUpperCase() + pet.slice(1).replace("-", " ");
+                        return (
+                          <label key={pet} className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-orange-50 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              className="accent-orange-500"
+                              checked={targetPets.includes(pet)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setTargetPets((prev) => [...prev, pet]);
+                                } else {
+                                  setTargetPets((prev) => prev.filter((p) => p !== pet));
+                                  setTargetBreeds((prev) => { const n = { ...prev }; delete n[pet]; return n; });
+                                }
+                              }}
+                            />
+                            <span className="text-sm text-gray-700">{label}</span>
+                            {targetPets.includes(pet) && (targetBreeds[pet]?.length ?? 0) > 0 && (
+                              <span className="ml-auto text-[10px] bg-orange-100 text-orange-600 font-bold px-1.5 py-0.5 rounded-full">
+                                {targetBreeds[pet].length}
+                              </span>
+                            )}
+                          </label>
+                        );
+                      })}
+                    </div>
+                    <p className="text-[10px] text-gray-400 text-center">{targetPets.length} selected</p>
+                  </div>
+
+                  {/* ── Col 4: Breeds ── */}
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-gray-600 uppercase tracking-wide">Breeds</span>
+                      <span className="text-[10px] text-gray-400">optional</span>
+                    </div>
+                    <div className="border border-gray-200 rounded-xl bg-gray-50 overflow-y-auto max-h-[292px] p-2 space-y-2">
+                      {targetPets.length === 0 ? (
+                        <p className="text-xs text-gray-400 text-center py-8">Select pet categories first</p>
+                      ) : (
+                        targetPets.map((pet) => {
+                          const breeds = getBreeds(pet);
+                          if (breeds.length === 0) return null;
+                          const label = pet.charAt(0).toUpperCase() + pet.slice(1).replace("-", " ");
+                          const chosen = targetBreeds[pet] || [];
+                          return (
+                            <div key={pet}>
+                              <div className="flex items-center justify-between mb-1">
+                                <p className="text-[10px] font-bold text-gray-500 uppercase">{label}</p>
+                                <button
+                                  type="button"
+                                  className="text-[10px] text-orange-500 hover:text-orange-700 cursor-pointer"
+                                  onClick={() => {
+                                    setTargetBreeds((prev) => {
+                                      const n = { ...prev };
+                                      if (chosen.length === breeds.length) delete n[pet];
+                                      else n[pet] = breeds.map((b) => b.id);
+                                      return n;
+                                    });
+                                  }}
+                                >
+                                  {chosen.length === breeds.length ? "Clear" : "All"}
+                                </button>
+                              </div>
+                              {breeds.map((b) => (
+                                <label key={b.id} className="flex items-center gap-1.5 px-1 py-0.5 rounded hover:bg-orange-50 cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    className="accent-orange-500"
+                                    checked={chosen.includes(b.id)}
+                                    onChange={(e) => {
+                                      setTargetBreeds((prev) => {
+                                        const curr = prev[pet] || [];
+                                        return {
+                                          ...prev,
+                                          [pet]: e.target.checked
+                                            ? [...curr, b.id]
+                                            : curr.filter((x) => x !== b.id),
+                                        };
+                                      });
+                                    }}
+                                  />
+                                  <span className="text-xs text-gray-700">{b.name}</span>
+                                </label>
+                              ))}
+                            </div>
+                          );
+                        })
+                      )}
                     </div>
                   </div>
                 </div>
 
+                {/* Preview + Broadcast button */}
+                {(targetPets.length > 0 && (includeGlobal || targetCountries.length > 0)) && (() => {
+                  const locCount = (includeGlobal ? 1 : 0) + targetCountries.reduce((acc, iso) => {
+                    const st = targetStates[iso] || [];
+                    return acc + (st.length === 0 ? 1 : st.length);
+                  }, 0);
+                  const petCount = targetPets.reduce((acc, pet) => {
+                    const br = targetBreeds[pet] || [];
+                    const all = getBreeds(pet);
+                    return acc + (br.length === 0 || br.length === all.length ? 1 : br.length);
+                  }, 0);
+                  return (
+                    <div className="bg-orange-50 border border-orange-200 rounded-xl px-4 py-2.5 text-sm text-orange-800">
+                      <span className="font-bold">Preview:</span> {locCount * petCount} announcement{locCount * petCount !== 1 ? "s" : ""} will be created
+                      ({locCount} location{locCount !== 1 ? "s" : ""} × {petCount} pet target{petCount !== 1 ? "s" : ""})
+                    </div>
+                  );
+                })()}
+
                 <Button
-                  className="w-full py-6 text-lg bg-orange-600 hover:bg-orange-700 text-white font-bold"
+                  className="w-full py-5 text-base bg-orange-600 hover:bg-orange-700 text-white font-bold cursor-pointer"
                   onClick={handleBroadcast}
                   disabled={isProcessing}
                 >
-                  {isProcessing ? (
-                    <Loader2 className="w-6 h-6 animate-spin mr-2" />
-                  ) : (
-                    <Megaphone className="w-6 h-6 mr-2" />
-                  )}
-                  Blast Announcement Now
+                  {isProcessing
+                    ? <><Loader2 className="w-5 h-5 animate-spin mr-2" /> Broadcasting…</>
+                    : <><Megaphone className="w-5 h-5 mr-2" /> Blast Announcement Now</>
+                  }
                 </Button>
               </div>
             )}

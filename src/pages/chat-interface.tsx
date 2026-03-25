@@ -247,7 +247,7 @@ export default function ChatInterface() {
     "staff",
     "admin",
   ].includes(userRole);
-  const cooldownHours = dbUser?.news_cooldown_hours || 24; // Default to 24 if null
+  const cooldownHours = dbUser?.news_cooldown_hours ?? 24; // Default to 24 if null
 
   const effectiveCountryName =
     isModOrAbove && modSelectedCountry ? modSelectedCountry : dbUser?.country;
@@ -705,14 +705,12 @@ export default function ChatInterface() {
         else if (banDuration === "1y") now.setFullYear(now.getFullYear() + 1);
         expiresAt = now.toISOString();
       }
-      const { error: banError } = await supabase
-        .from("bans")
-        .insert({
-          user_id: userToBan.id,
-          banned_by: user.id,
-          reason: `Direct ban issued from Chat Room by Moderation.`,
-          expires_at: expiresAt,
-        });
+      const { error: banError } = await supabase.from("bans").insert({
+        user_id: userToBan.id,
+        banned_by: user.id,
+        reason: `Direct ban issued from Chat Room by Moderation.`,
+        expires_at: expiresAt,
+      });
       if (banError) throw banError;
       toast({ description: `Ban issued successfully for ${banDuration}.` });
       setIsBanModalOpen(false);
@@ -1134,7 +1132,12 @@ export default function ChatInterface() {
                 <div ref={messagesEndRef} />
               </div>
 
-              <ChatInput onSendMessage={handleSendMessage} isConnected={isConnected || isNewsRoom} initialValue={replyToUser || undefined} onClearInitialValue={() => setReplyToUser(null)} />
+              <ChatInput
+                onSendMessage={handleSendMessage}
+                isConnected={isConnected || isNewsRoom}
+                initialValue={replyToUser || undefined}
+                onClearInitialValue={() => setReplyToUser(null)}
+              />
             </>
           )}
         </main>
