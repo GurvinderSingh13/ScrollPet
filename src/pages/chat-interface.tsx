@@ -1134,12 +1134,7 @@ export default function ChatInterface() {
                 <div ref={messagesEndRef} />
               </div>
 
-              <ChatInput
-                onSendMessage={handleSendMessage}
-                isConnected={isConnected}
-                initialValue={replyToUser || undefined}
-                onClearInitialValue={() => setReplyToUser(null)}
-              />
+              <ChatInput onSendMessage={handleSendMessage} isConnected={isConnected || isNewsRoom} initialValue={replyToUser || undefined} onClearInitialValue={() => setReplyToUser(null)} />
             </>
           )}
         </main>
