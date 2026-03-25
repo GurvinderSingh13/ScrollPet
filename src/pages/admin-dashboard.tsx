@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -37,6 +37,8 @@ import {
   Megaphone,
   Check,
   X,
+  Upload,
+  Radio,
 } from "lucide-react";
 import logoImage from "@assets/Scrollpet_logo_1766997907297.png";
 import { toast } from "@/hooks/use-toast";
@@ -77,9 +79,20 @@ export default function AdminDashboard() {
   const queryClient = useQueryClient();
 
   // Tab State
-  const [activeTab, setActiveTab] = useState<"reports" | "announcements">(
+  const [activeTab, setActiveTab] = useState<"reports" | "announcements" | "broadcast">(
     "reports",
   );
+
+  // Broadcast Hub State
+  const PET_CATEGORIES = ["Dog", "Cat", "Fish", "Bird", "Rabbit", "Hamster", "Turtle", "Guinea Pig", "Horse", "Other"];
+  const TARGET_LOCATIONS = ["Global", "United States", "India", "United Kingdom", "Canada"];
+  const [broadcastText, setBroadcastText] = useState("");
+  const [selectedPets, setSelectedPets] = useState<string[]>([]);
+  const [selectedLocations, setSelectedLocations] = useState<string[]>([]);
+  const [broadcastMediaFile, setBroadcastMediaFile] = useState<File | null>(null);
+  const [broadcastMediaPreview, setBroadcastMediaPreview] = useState<string | null>(null);
+  const [isBroadcasting, setIsBroadcasting] = useState(false);
+  const broadcastFileRef = useRef<HTMLInputElement>(null);
 
   // Report States
   const [selectedReport, setSelectedReport] = useState<any | null>(null);
@@ -362,6 +375,71 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleBroadcastMediaChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setBroadcastMediaFile(file);
+    setBroadcastMediaPreview(URL.createObjectURL(file));
+  };
+
+  const handleBroadcast = async () => {
+    if (!broadcastText.trim()) {
+      toast({ description: "Please enter announcement text.", variant: "destructive" });
+      return;
+    }
+    if (selectedPets.length === 0) {
+      toast({ description: "Please select at least one pet category.", variant: "destructive" });
+      return;
+    }
+    if (selectedLocations.length === 0) {
+      toast({ description: "Please select at least one target location.", variant: "destructive" });
+      return;
+    }
+    setIsBroadcasting(true);
+    try {
+      let mediaUrl: string | null = null;
+      if (broadcastMediaFile) {
+        const ext = broadcastMediaFile.name.split(".").pop();
+        const fileName = `broadcast_${Date.now()}.${ext}`;
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from("chat-uploads")
+          .upload(fileName, broadcastMediaFile, { upsert: true });
+        if (uploadError) throw uploadError;
+        const { data: urlData } = supabase.storage.from("chat-uploads").getPublicUrl(uploadData.path);
+        mediaUrl = urlData.publicUrl;
+      }
+
+      const rows: any[] = [];
+      for (const loc of selectedLocations) {
+        for (const pet of selectedPets) {
+          rows.push({
+            content: broadcastText.trim(),
+            target_location: loc,
+            target_pet: pet.toLowerCase(),
+            status: "approved",
+            author_id: user!.id,
+            media_url: mediaUrl,
+          });
+        }
+      }
+
+      const { error } = await supabase.from("announcements").insert(rows);
+      if (error) throw error;
+
+      toast({ description: `Broadcast sent to ${rows.length} room${rows.length > 1 ? "s" : ""}!` });
+      setBroadcastText("");
+      setSelectedPets([]);
+      setSelectedLocations([]);
+      setBroadcastMediaFile(null);
+      setBroadcastMediaPreview(null);
+      if (broadcastFileRef.current) broadcastFileRef.current.value = "";
+    } catch (err: any) {
+      toast({ description: err.message || "Broadcast failed.", variant: "destructive" });
+    } finally {
+      setIsBroadcasting(false);
+    }
+  };
+
   if (authLoading || userLoading || !isModOrAbove) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -440,6 +518,13 @@ export default function AdminDashboard() {
                 <span className="ml-1 bg-amber-100 text-amber-700 py-0.5 px-2 rounded-full text-xs">
                   {pendingPosts?.length || 0}
                 </span>
+              </button>
+              <button
+                className={`pb-3 px-1 text-sm font-bold border-b-2 transition-colors cursor-pointer flex items-center gap-1.5 ${activeTab === "broadcast" ? "border-orange-500 text-orange-600" : "border-transparent text-gray-500 hover:text-gray-700"}`}
+                onClick={() => setActiveTab("broadcast")}
+              >
+                <Radio className="w-3.5 h-3.5" />
+                Broadcast Hub
               </button>
             </div>
           </CardHeader>
@@ -626,6 +711,175 @@ export default function AdminDashboard() {
                   </table>
                 </div>
               ))}
+            {/* BROADCAST HUB TAB */}
+            {activeTab === "broadcast" && (
+              <div className="p-8 max-w-3xl mx-auto">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="w-10 h-10 rounded-xl bg-orange-100 flex items-center justify-center">
+                    <Megaphone className="w-5 h-5 text-orange-600" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-bold text-gray-900">Super Broadcaster</h2>
+                    <p className="text-sm text-gray-500">Send an instant announcement directly to any chat room.</p>
+                  </div>
+                </div>
+
+                <div className="space-y-6">
+                  {/* Announcement Text */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-gray-700">Announcement Message <span className="text-red-500">*</span></label>
+                    <textarea
+                      data-testid="input-broadcast-text"
+                      rows={4}
+                      placeholder="Write your announcement here..."
+                      className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-orange-400/30 focus:border-orange-400 outline-none resize-none transition-colors"
+                      value={broadcastText}
+                      onChange={(e) => setBroadcastText(e.target.value)}
+                    />
+                  </div>
+
+                  {/* Media Upload */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-gray-700">Attach Media <span className="text-gray-400 font-normal">(optional — image or video)</span></label>
+                    <div
+                      className="border-2 border-dashed border-gray-200 rounded-xl p-5 flex flex-col items-center gap-3 cursor-pointer hover:border-orange-400 hover:bg-orange-50/30 transition-colors"
+                      onClick={() => broadcastFileRef.current?.click()}
+                    >
+                      {broadcastMediaPreview ? (
+                        <div className="relative w-full">
+                          {broadcastMediaFile?.type.startsWith("video/") ? (
+                            <video src={broadcastMediaPreview} className="max-h-40 rounded-lg mx-auto object-cover" controls />
+                          ) : (
+                            <img src={broadcastMediaPreview} alt="Preview" className="max-h-40 rounded-lg mx-auto object-cover" />
+                          )}
+                          <button
+                            type="button"
+                            className="absolute top-1 right-1 bg-white border border-gray-200 rounded-full w-6 h-6 flex items-center justify-center shadow cursor-pointer hover:bg-red-50"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setBroadcastMediaFile(null);
+                              setBroadcastMediaPreview(null);
+                              if (broadcastFileRef.current) broadcastFileRef.current.value = "";
+                            }}
+                          >
+                            <X className="w-3 h-3 text-gray-500" />
+                          </button>
+                        </div>
+                      ) : (
+                        <>
+                          <Upload className="w-8 h-8 text-gray-300" />
+                          <p className="text-sm text-gray-400">Click to upload image or video</p>
+                        </>
+                      )}
+                    </div>
+                    <input
+                      ref={broadcastFileRef}
+                      type="file"
+                      accept="image/*,video/*"
+                      className="hidden"
+                      onChange={handleBroadcastMediaChange}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Pet Categories */}
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <label className="text-sm font-bold text-gray-700">Select Pet Categories <span className="text-red-500">*</span></label>
+                        <button
+                          type="button"
+                          data-testid="button-select-all-pets"
+                          className="text-xs font-semibold text-orange-600 hover:text-orange-700 cursor-pointer"
+                          onClick={() =>
+                            setSelectedPets(
+                              selectedPets.length === PET_CATEGORIES.length ? [] : [...PET_CATEGORIES]
+                            )
+                          }
+                        >
+                          {selectedPets.length === PET_CATEGORIES.length ? "Deselect All" : "Select All"}
+                        </button>
+                      </div>
+                      <div className="bg-gray-50 border border-gray-200 rounded-xl p-3 space-y-2">
+                        {PET_CATEGORIES.map((pet) => (
+                          <label key={pet} className="flex items-center gap-2.5 cursor-pointer group" data-testid={`checkbox-pet-${pet.toLowerCase().replace(" ", "-")}`}>
+                            <div
+                              className={`w-4 h-4 rounded border flex items-center justify-center transition-colors flex-shrink-0 ${selectedPets.includes(pet) ? "bg-orange-500 border-orange-500" : "border-gray-300 group-hover:border-orange-400"}`}
+                              onClick={() =>
+                                setSelectedPets((prev) =>
+                                  prev.includes(pet) ? prev.filter((p) => p !== pet) : [...prev, pet]
+                                )
+                              }
+                            >
+                              {selectedPets.includes(pet) && <Check className="w-2.5 h-2.5 text-white" />}
+                            </div>
+                            <span className="text-sm text-gray-700 select-none">{pet}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Target Locations */}
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <label className="text-sm font-bold text-gray-700">Select Target Locations <span className="text-red-500">*</span></label>
+                        <button
+                          type="button"
+                          data-testid="button-select-all-locations"
+                          className="text-xs font-semibold text-orange-600 hover:text-orange-700 cursor-pointer"
+                          onClick={() =>
+                            setSelectedLocations(
+                              selectedLocations.length === TARGET_LOCATIONS.length ? [] : [...TARGET_LOCATIONS]
+                            )
+                          }
+                        >
+                          {selectedLocations.length === TARGET_LOCATIONS.length ? "Deselect All" : "Select All"}
+                        </button>
+                      </div>
+                      <div className="bg-gray-50 border border-gray-200 rounded-xl p-3 space-y-2">
+                        {TARGET_LOCATIONS.map((loc) => (
+                          <label key={loc} className="flex items-center gap-2.5 cursor-pointer group" data-testid={`checkbox-location-${loc.toLowerCase().replace(" ", "-")}`}>
+                            <div
+                              className={`w-4 h-4 rounded border flex items-center justify-center transition-colors flex-shrink-0 ${selectedLocations.includes(loc) ? "bg-orange-500 border-orange-500" : "border-gray-300 group-hover:border-orange-400"}`}
+                              onClick={() =>
+                                setSelectedLocations((prev) =>
+                                  prev.includes(loc) ? prev.filter((l) => l !== loc) : [...prev, loc]
+                                )
+                              }
+                            >
+                              {selectedLocations.includes(loc) && <Check className="w-2.5 h-2.5 text-white" />}
+                            </div>
+                            <span className="text-sm text-gray-700 select-none">{loc}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Summary & Broadcast Button */}
+                  {(selectedPets.length > 0 && selectedLocations.length > 0) && (
+                    <div className="bg-orange-50 border border-orange-200 rounded-xl px-4 py-3 text-sm text-orange-800">
+                      <span className="font-bold">Preview:</span> This will create{" "}
+                      <span className="font-bold">{selectedPets.length * selectedLocations.length}</span> announcement{selectedPets.length * selectedLocations.length !== 1 ? "s" : ""} across{" "}
+                      <span className="font-bold">{selectedLocations.length}</span> location{selectedLocations.length !== 1 ? "s" : ""} and{" "}
+                      <span className="font-bold">{selectedPets.length}</span> pet category/categories.
+                    </div>
+                  )}
+
+                  <Button
+                    data-testid="button-broadcast"
+                    className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold text-base h-12 cursor-pointer"
+                    onClick={handleBroadcast}
+                    disabled={isBroadcasting}
+                  >
+                    {isBroadcasting ? (
+                      <><Loader2 className="w-4 h-4 animate-spin mr-2" /> Broadcasting...</>
+                    ) : (
+                      <><Megaphone className="w-5 h-5 mr-2" /> Broadcast Now</>
+                    )}
+                  </Button>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       </main>

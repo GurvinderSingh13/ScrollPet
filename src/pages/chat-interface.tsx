@@ -339,6 +339,7 @@ export default function ChatInterface() {
     setIsNewsRoom(false);
   };
 
+  // UPDATED: Fetch Announcements (Includes pending posts if YOU wrote them)
   useEffect(() => {
     if (!isNewsRoom || activeDmUser || !userId) return;
 
@@ -348,9 +349,9 @@ export default function ChatInterface() {
         .select(`*, users:users!author_id(id, username, display_name, role)`)
         .eq("target_location", chatRoomLocation)
         .eq("target_pet", activePet)
-        .eq("status", "approved")
+        .or(`status.eq.approved,author_id.eq.${userId}`) // Show approved OR if I am the author
         .order("created_at", { ascending: false })
-        .limit(20);
+        .limit(30);
 
       if (!error && data) {
         setAnnouncements(data.reverse());
@@ -564,14 +565,7 @@ export default function ChatInterface() {
         const { error: uploadError } = await supabase.storage
           .from("chat-uploads")
           .upload(filePath, mediaFile);
-
-        if (uploadError) {
-          toast({
-            description: `Media Upload Error: ${uploadError.message}`,
-            variant: "destructive",
-          });
-          return false;
-        }
+        if (uploadError) return false;
         const { data: urlData } = supabase.storage
           .from("chat-uploads")
           .getPublicUrl(filePath);
@@ -592,7 +586,6 @@ export default function ChatInterface() {
           target_pet: activePet,
           status: postStatus,
         });
-
         if (error) throw error;
 
         if (postStatus === "pending") {
@@ -603,25 +596,28 @@ export default function ChatInterface() {
           });
         } else {
           toast({ description: "Announcement Published Live!" });
-          setAnnouncements((prev) => [
-            ...prev,
-            {
-              id: "temp",
-              content,
-              media_url: mediaUrl,
-              target_location: chatRoomLocation,
-              target_pet: activePet,
-              created_at: new Date().toISOString(),
-              status: "approved",
-              users: {
-                id: userId,
-                display_name: displayName,
-                role: userRole,
-                username: displayName,
-              },
-            },
-          ]);
         }
+
+        // Optimistically show the post in the feed immediately (so the user sees what they just did)
+        setAnnouncements((prev) => [
+          ...prev,
+          {
+            id: "temp-" + Date.now(),
+            content,
+            media_url: mediaUrl,
+            target_location: chatRoomLocation,
+            target_pet: activePet,
+            created_at: new Date().toISOString(),
+            status: postStatus,
+            users: {
+              id: userId,
+              display_name: displayName,
+              role: userRole,
+              username: displayName,
+            },
+          },
+        ]);
+
         return true;
       }
 
@@ -642,13 +638,12 @@ export default function ChatInterface() {
         insertData.breed = activeBreed;
 
       const { error } = await supabase.from("messages").insert(insertData);
-      if (error) throw error;
+      if (error) return false;
       return true;
-    } catch (error: any) {
+    } catch (error) {
       console.error("Error sending:", error);
-      // NEW: Added this toast to catch ANY silent database failures!
       toast({
-        description: `System Error: ${error.message || "Failed to process message."}`,
+        description: `System Error processing message.`,
         variant: "destructive",
       });
       return false;
@@ -743,6 +738,8 @@ export default function ChatInterface() {
               className="h-8 md:h-12 w-auto object-contain hover:opacity-90 transition-opacity"
             />
           </Link>
+
+          {/* RESTORED HEADER NAV LINKS */}
           <nav className="hidden md:flex items-center gap-8 bg-muted/50 px-6 py-2 rounded-full border border-border/50">
             <Link
               href="/"
@@ -756,7 +753,26 @@ export default function ChatInterface() {
             >
               Chat Rooms
             </Link>
+            <Link
+              href="/about"
+              className="text-sm font-semibold hover:text-primary transition-colors cursor-pointer"
+            >
+              About Us
+            </Link>
+            <Link
+              href="/faq"
+              className="text-sm font-semibold hover:text-primary transition-colors cursor-pointer"
+            >
+              FAQ
+            </Link>
+            <Link
+              href="/contact"
+              className="text-sm font-semibold hover:text-primary transition-colors cursor-pointer"
+            >
+              Contact Us
+            </Link>
           </nav>
+
           <div className="hidden md:flex items-center gap-4">
             {authLoading ? (
               <Button variant="ghost" disabled>
@@ -786,6 +802,8 @@ export default function ChatInterface() {
                       Profile Dashboard
                     </Link>
                   </DropdownMenuItem>
+
+                  {/* ADMIN DASHBOARD LINK RESTORED */}
                   {isModOrAbove && (
                     <DropdownMenuItem asChild>
                       <Link
@@ -796,6 +814,7 @@ export default function ChatInterface() {
                       </Link>
                     </DropdownMenuItem>
                   )}
+
                   <DropdownMenuItem
                     onClick={logout}
                     className="text-destructive cursor-pointer flex items-center font-medium"
@@ -1308,8 +1327,21 @@ export default function ChatInterface() {
                     announcements.map((post) => (
                       <div
                         key={post.id}
-                        className="max-w-2xl mx-auto bg-white border border-gray-100 rounded-xl shadow-sm overflow-hidden mb-6"
+                        className={cn(
+                          "max-w-2xl mx-auto bg-white border rounded-xl shadow-sm overflow-hidden mb-6",
+                          post.status === "pending"
+                            ? "border-amber-200 opacity-80"
+                            : "border-gray-100",
+                        )}
                       >
+                        {/* PENDING TAG FOR USERS */}
+                        {post.status === "pending" && (
+                          <div className="bg-amber-100 text-amber-800 text-xs font-bold px-3 py-1.5 flex items-center justify-center border-b border-amber-200 gap-2">
+                            <Clock className="w-3.5 h-3.5" /> Pending Admin
+                            Review (Only visible to you)
+                          </div>
+                        )}
+
                         <div className="p-4 flex items-center gap-3 border-b border-gray-50 bg-gray-50/50">
                           <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center text-amber-700 font-bold border border-amber-200">
                             {post.users?.display_name
