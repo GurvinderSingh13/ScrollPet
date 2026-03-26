@@ -260,6 +260,9 @@ export default function ChatInterface() {
     ? State.getStatesOfCountry(countryCode)
     : [];
 
+  const pinnedStates = countryStates.filter((s) => pinnedIds.includes(s.isoCode));
+  const unpinnedStates = countryStates.filter((s) => !pinnedIds.includes(s.isoCode));
+
   let chatRoomLocation = "global";
   if (activeLocation === "staff_lounge") chatRoomLocation = "staff_lounge";
   else if (activeLocation === "country" && countryCode)

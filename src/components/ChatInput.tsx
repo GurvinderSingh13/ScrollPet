@@ -251,7 +251,7 @@ export function ChatInput({
   };
 
   const handleSend = async () => {
-    if (isUploading || disabled) return;
+    if (isUploading) return;
 
     // Determine what to send
     if (audioPreview) {
