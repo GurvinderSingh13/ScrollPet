@@ -15,7 +15,8 @@ import FAQ from "@/pages/faq";
 import Profile from "@/components/Profile";
 import UserProfile from "@/pages/user-profile";
 import PublicProfile from "@/pages/public-profile";
-import AdminDashboard from "@/pages/admin-dashboard"; // <-- New import added here
+import AdminDashboard from "@/pages/admin-dashboard";
+import TermsOfService from "@/pages/terms";
 
 function Router() {
   return (
@@ -32,6 +33,7 @@ function Router() {
       <Route path="/profile/:username" component={PublicProfile} />
       <Route path="/admin" component={AdminDashboard} />
       <Route path="/privacy" component={PrivacyPolicy} />
+      <Route path="/terms" component={TermsOfService} />
       <Route component={NotFound} />
     </Switch>
   );
