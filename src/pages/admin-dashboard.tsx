@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -39,6 +39,11 @@ import {
   X,
   Upload,
   BarChart2,
+  Mic,
+  Image as ImageIcon,
+  Play,
+  Pause,
+  Square,
 } from "lucide-react";
 import logoImage from "@assets/Scrollpet_logo_1766997907297.png";
 import { toast } from "@/hooks/use-toast";
@@ -92,7 +97,18 @@ export default function AdminDashboard() {
 
   // Broadcast States
   const [broadcastText, setBroadcastText] = useState("");
-  const [broadcastMedia, setBroadcastMedia] = useState<File | null>(null);
+  // file media (image / video)
+  const [broadcastFile, setBroadcastFile] = useState<{ file: File; url: string; type: "image" | "video" } | null>(null);
+  // audio recording
+  const [broadcastAudio, setBroadcastAudio] = useState<{ blob: Blob; url: string; duration: number } | null>(null);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingTime, setRecordingTime] = useState(0);
+  const [isPlayingPreview, setIsPlayingPreview] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const recordingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   // multi-country
   const [includeGlobal, setIncludeGlobal] = useState(false);
   const [targetCountries, setTargetCountries] = useState<string[]>([]); // ISO codes
@@ -260,8 +276,78 @@ export default function AdminDashboard() {
     }
   };
 
+  const formatTime = (s: number) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, "0")}`;
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const validImages = ["image/jpeg", "image/png", "image/gif", "image/webp"];
+    const validVideos = ["video/mp4", "video/webm", "video/quicktime"];
+    if (!validImages.includes(file.type) && !validVideos.includes(file.type)) {
+      return toast({ description: "Select a valid image (JPG, PNG, GIF, WEBP) or video (MP4, WEBM, MOV).", variant: "destructive" });
+    }
+    if (file.size > 50 * 1024 * 1024) {
+      return toast({ description: "File must be under 50 MB.", variant: "destructive" });
+    }
+    setBroadcastFile({ file, url: URL.createObjectURL(file), type: validImages.includes(file.type) ? "image" : "video" });
+    setBroadcastAudio(null);
+    e.target.value = "";
+  };
+
+  const clearBroadcastFile = () => {
+    if (broadcastFile) URL.revokeObjectURL(broadcastFile.url);
+    setBroadcastFile(null);
+  };
+
+  const clearBroadcastAudio = () => {
+    if (broadcastAudio) URL.revokeObjectURL(broadcastAudio.url);
+    if (audioPlayerRef.current) { audioPlayerRef.current.pause(); setIsPlayingPreview(false); }
+    setBroadcastAudio(null);
+  };
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream, { mimeType: "audio/webm;codecs=opus" });
+      mediaRecorderRef.current = recorder;
+      audioChunksRef.current = [];
+      recorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunksRef.current.push(e.data); };
+      recorder.onstop = () => {
+        const blob = new Blob(audioChunksRef.current, { type: "audio/webm" });
+        setBroadcastAudio({ blob, url: URL.createObjectURL(blob), duration: recordingTime });
+        stream.getTracks().forEach((t) => t.stop());
+      };
+      recorder.start(100);
+      setIsRecording(true);
+      setRecordingTime(0);
+      recordingIntervalRef.current = setInterval(() => {
+        setRecordingTime((prev) => { if (prev >= 300) { stopRecording(); return prev; } return prev + 1; });
+      }, 1000);
+    } catch {
+      toast({ description: "Could not access microphone. Check permissions.", variant: "destructive" });
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+      if (recordingIntervalRef.current) { clearInterval(recordingIntervalRef.current); recordingIntervalRef.current = null; }
+    }
+  };
+
+  const togglePreviewPlayback = () => {
+    if (!broadcastAudio) return;
+    if (!audioPlayerRef.current) {
+      audioPlayerRef.current = new Audio(broadcastAudio.url);
+      audioPlayerRef.current.onended = () => setIsPlayingPreview(false);
+    }
+    if (isPlayingPreview) { audioPlayerRef.current.pause(); setIsPlayingPreview(false); }
+    else { audioPlayerRef.current.play(); setIsPlayingPreview(true); }
+  };
+
   const handleBroadcast = async () => {
-    if (!broadcastText.trim() && !broadcastMedia)
+    if (!broadcastText.trim() && !broadcastFile && !broadcastAudio)
       return toast({ description: "Add content to broadcast.", variant: "destructive" });
     if (targetPets.length === 0)
       return toast({ description: "Select at least one pet category.", variant: "destructive" });
@@ -271,13 +357,23 @@ export default function AdminDashboard() {
     setIsProcessing(true);
     try {
       let mediaUrl: string | null = null;
-      if (broadcastMedia) {
-        const filePath = `chat-media/${Date.now()}-${broadcastMedia.name}`;
-        const { data: up } = await supabase.storage.from("chat-uploads").upload(filePath, broadcastMedia);
-        if (up) {
-          const { data: urlData } = supabase.storage.from("chat-uploads").getPublicUrl(filePath);
-          mediaUrl = urlData.publicUrl;
-        }
+      let messageType: "text" | "image" | "video" | "audio" = "text";
+
+      if (broadcastFile) {
+        const ext = broadcastFile.file.name.split(".").pop() || "bin";
+        const filePath = `chat-media/${Date.now()}-broadcast.${ext}`;
+        const { error: upErr } = await supabase.storage.from("chat-uploads").upload(filePath, broadcastFile.file);
+        if (upErr) throw upErr;
+        const { data: urlData } = supabase.storage.from("chat-uploads").getPublicUrl(filePath);
+        mediaUrl = urlData.publicUrl;
+        messageType = broadcastFile.type;
+      } else if (broadcastAudio) {
+        const filePath = `chat-media/${Date.now()}-broadcast.webm`;
+        const { error: upErr } = await supabase.storage.from("chat-uploads").upload(filePath, broadcastAudio.blob);
+        if (upErr) throw upErr;
+        const { data: urlData } = supabase.storage.from("chat-uploads").getPublicUrl(filePath);
+        mediaUrl = urlData.publicUrl;
+        messageType = "audio";
       }
 
       // Build flat location list
@@ -293,7 +389,7 @@ export default function AdminDashboard() {
         }
       }
 
-      // Build flat pet+breed list: [{ pet, breed }]
+      // Build flat pet+breed list
       const petTargets: Array<{ pet: string; breed: string | null }> = [];
       for (const pet of targetPets) {
         const breeds = targetBreeds[pet] || [];
@@ -304,14 +400,15 @@ export default function AdminDashboard() {
         }
       }
 
-      // Cross product
+      // Cross product insert
       const inserts: any[] = [];
       for (const loc of locations) {
         for (const { pet, breed } of petTargets) {
           inserts.push({
             author_id: user?.id,
-            content: broadcastText,
+            content: broadcastText || (messageType === "audio" ? "🎤 Voice Broadcast" : "📎 Media Broadcast"),
             media_url: mediaUrl,
+            message_type: messageType,
             target_location: loc,
             target_pet: pet,
             target_breed: breed,
@@ -324,7 +421,8 @@ export default function AdminDashboard() {
       if (error) throw error;
       toast({ description: `✓ Broadcast sent to ${inserts.length} room${inserts.length !== 1 ? "s" : ""}!` });
       setBroadcastText("");
-      setBroadcastMedia(null);
+      clearBroadcastFile();
+      clearBroadcastAudio();
       setTargetPets([]);
       setTargetBreeds({});
       setTargetCountries([]);
@@ -417,15 +515,120 @@ export default function AdminDashboard() {
                   </div>
                 </div>
 
-                {/* Message */}
-                <div className="space-y-1.5">
-                  <label className="text-sm font-bold text-gray-700">Announcement Message <span className="text-red-500">*</span></label>
+                {/* Message + Media Input */}
+                <div className="space-y-3">
+                  <label className="text-sm font-bold text-gray-700">
+                    Announcement Content <span className="text-red-500">*</span>
+                    <span className="ml-2 font-normal text-gray-400 text-xs">(text, image, video, or voice — or combine)</span>
+                  </label>
+
                   <textarea
-                    className="w-full border border-gray-200 rounded-xl p-3 min-h-[90px] text-sm outline-none focus:ring-2 focus:ring-orange-400/30 bg-gray-50 resize-none"
-                    placeholder="Type your announcement here…"
+                    className="w-full border border-gray-200 rounded-xl p-3 min-h-[80px] text-sm outline-none focus:ring-2 focus:ring-orange-400/30 bg-gray-50 resize-none"
+                    placeholder="Type your announcement here… (optional if attaching media)"
                     value={broadcastText}
                     onChange={(e) => setBroadcastText(e.target.value)}
                   />
+
+                  {/* Media attach row */}
+                  <div className="flex items-center gap-3">
+                    {/* Hidden file input */}
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/jpeg,image/png,image/gif,image/webp,video/mp4,video/webm,video/quicktime"
+                      className="hidden"
+                      onChange={handleFileSelect}
+                    />
+
+                    {/* Image / Video button */}
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={!!broadcastAudio || isRecording}
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                    >
+                      <ImageIcon className="w-4 h-4 text-blue-500" />
+                      Image / Video
+                    </button>
+
+                    {/* Mic button */}
+                    {!isRecording && !broadcastAudio && (
+                      <button
+                        type="button"
+                        onClick={startRecording}
+                        disabled={!!broadcastFile}
+                        className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                      >
+                        <Mic className="w-4 h-4 text-orange-500" />
+                        Record Voice
+                      </button>
+                    )}
+
+                    {/* Recording indicator */}
+                    {isRecording && (
+                      <div className="flex items-center gap-3 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                        <span className="w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse" />
+                        <span className="text-sm font-medium text-red-600">Recording… {formatTime(recordingTime)}</span>
+                        <button
+                          type="button"
+                          onClick={stopRecording}
+                          className="ml-2 p-1.5 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
+                        >
+                          <Square className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* ── File preview ── */}
+                  {broadcastFile && (
+                    <div className="relative inline-block">
+                      <div className="rounded-xl overflow-hidden border border-gray-200 shadow-sm max-w-sm bg-gray-50">
+                        {broadcastFile.type === "image" ? (
+                          <img src={broadcastFile.url} alt="Preview" className="max-h-48 object-contain w-full" />
+                        ) : (
+                          <video src={broadcastFile.url} className="max-h-48 w-full" controls />
+                        )}
+                        <div className="px-3 py-1.5 text-xs text-gray-500 flex items-center justify-between">
+                          <span className="font-medium truncate max-w-[200px]">{broadcastFile.file.name}</span>
+                          <span className="ml-2 uppercase text-[10px] bg-gray-100 px-1.5 py-0.5 rounded font-bold text-gray-600">{broadcastFile.type}</span>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={clearBroadcastFile}
+                        className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center shadow-md hover:bg-red-600 transition-colors"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  )}
+
+                  {/* ── Audio preview ── */}
+                  {broadcastAudio && !isRecording && (
+                    <div className="flex items-center gap-3 bg-orange-50 border border-orange-200 rounded-xl px-4 py-3 max-w-sm">
+                      <button
+                        type="button"
+                        onClick={togglePreviewPlayback}
+                        className="w-9 h-9 flex items-center justify-center bg-orange-500 text-white rounded-full hover:bg-orange-600 transition-colors shrink-0"
+                      >
+                        {isPlayingPreview ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 ml-0.5" />}
+                      </button>
+                      <div className="flex-1 min-w-0">
+                        <div className="h-1 bg-orange-200 rounded-full w-full">
+                          <div className="h-1 bg-orange-500 rounded-full w-0" />
+                        </div>
+                        <p className="text-xs text-orange-700 mt-1 font-medium">🎤 Voice broadcast · {formatTime(broadcastAudio.duration)}</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={clearBroadcastAudio}
+                        className="w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 transition-colors shrink-0"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 {/* 4-column targeting grid */}
