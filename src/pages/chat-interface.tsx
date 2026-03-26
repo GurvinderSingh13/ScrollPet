@@ -246,6 +246,8 @@ export default function ChatInterface() {
     "staff",
     "admin",
   ].includes(userRole);
+
+  // THIS IS THE FIX FOR THE 0 COOLDOWN BUG! (Using ??)
   const cooldownHours = dbUser?.news_cooldown_hours ?? 24;
 
   const effectiveCountryName =
@@ -687,7 +689,7 @@ export default function ChatInterface() {
           content ||
           (messageType === "audio" ? "🎤 Voice message" : "📎 Media"),
         message_type: messageType,
-        media_url: mediaUrl,
+        mediaUrl: mediaUrl,
         media_duration: mediaDuration || null,
         receiver_id: activeDmUser ? activeDmUser.id : null,
       };
@@ -739,12 +741,14 @@ export default function ChatInterface() {
         else if (banDuration === "1y") now.setFullYear(now.getFullYear() + 1);
         expiresAt = now.toISOString();
       }
-      const { error: banError } = await supabase.from("bans").insert({
-        user_id: userToBan.id,
-        banned_by: user.id,
-        reason: `Direct ban issued from Chat Room by Moderation.`,
-        expires_at: expiresAt,
-      });
+      const { error: banError } = await supabase
+        .from("bans")
+        .insert({
+          user_id: userToBan.id,
+          banned_by: user.id,
+          reason: `Direct ban issued from Chat Room by Moderation.`,
+          expires_at: expiresAt,
+        });
       if (banError) throw banError;
       toast({ description: `Ban issued successfully for ${banDuration}.` });
       setIsBanModalOpen(false);
