@@ -74,6 +74,7 @@ export default function UserProfile() {
   const [newShowcaseImages, setNewShowcaseImages] = useState<File[]>([]);
   const [newVideoFile, setNewVideoFile] = useState<File | null>(null);
 
+  const [activeTab, setActiveTab] = useState<"my-pets" | "account-settings">("my-pets");
   const [isEditProfileModalOpen, setIsEditProfileModalOpen] = useState(false);
   const [editProfileForm, setEditProfileForm] = useState({
     country: "",
@@ -631,15 +632,21 @@ export default function UserProfile() {
                   </Link>
 
                   <Button
-                    onClick={openEditProfile}
+                    onClick={() => { setActiveTab("my-pets"); openEditProfile(); }}
                     variant="outline"
                     className="w-full justify-start cursor-pointer hover:bg-primary/5 hover:text-primary transition-colors"
                   >
                     <Edit3 className="mr-2 h-4 w-4" /> Edit Profile
                   </Button>
                   <Button
-                    variant="outline"
-                    className="w-full justify-start cursor-pointer hover:bg-primary/5 hover:text-primary transition-colors"
+                    variant={activeTab === "account-settings" ? "default" : "outline"}
+                    onClick={() => setActiveTab("account-settings")}
+                    className={cn(
+                      "w-full justify-start cursor-pointer transition-colors",
+                      activeTab === "account-settings"
+                        ? "bg-[#007699] hover:bg-[#005a75] text-white"
+                        : "hover:bg-primary/5 hover:text-primary"
+                    )}
                   >
                     <Settings className="mr-2 h-4 w-4" /> Account Settings
                   </Button>
@@ -658,6 +665,69 @@ export default function UserProfile() {
           </div>
 
           <div className="w-full md:w-2/3 space-y-8">
+            {activeTab === "account-settings" ? (
+              <>
+                <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">Account Settings</h1>
+
+                {/* Account info */}
+                <Card className="shadow-sm">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base font-bold text-gray-800">Account Information</CardTitle>
+                    <CardDescription>Your login details and profile identity.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-3 text-sm">
+                    <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                      <span className="text-gray-500 font-medium">Username</span>
+                      <span className="font-semibold text-gray-800">{user?.username || "—"}</span>
+                    </div>
+                    <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                      <span className="text-gray-500 font-medium">Email</span>
+                      <span className="font-semibold text-gray-800">{user?.email || "—"}</span>
+                    </div>
+                    <div className="flex justify-between items-center py-2">
+                      <span className="text-gray-500 font-medium">Location</span>
+                      <span className="font-semibold text-gray-800">
+                        {[dbUser?.state, dbUser?.country].filter(Boolean).join(", ") || "Not set"}
+                      </span>
+                    </div>
+                  </CardContent>
+                  <CardFooter className="pt-0">
+                    <Button
+                      onClick={openEditProfile}
+                      variant="outline"
+                      size="sm"
+                      className="rounded-full border-[#007699] text-[#007699] hover:bg-[#007699]/5 cursor-pointer"
+                    >
+                      <Edit3 className="w-3.5 h-3.5 mr-1.5" /> Edit Profile Info
+                    </Button>
+                  </CardFooter>
+                </Card>
+
+                {/* Compact Danger Zone */}
+                <div className="rounded-lg border border-red-200 bg-white p-4 flex items-center justify-between gap-4">
+                  <div>
+                    <p className="text-sm font-bold text-red-700 flex items-center gap-1.5">
+                      <AlertTriangle className="w-4 h-4" /> Danger Zone
+                    </p>
+                    <p className="text-xs text-gray-500 mt-0.5">Permanently delete your account and all data.</p>
+                  </div>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => {
+                      setDeleteAccountConfirmText("");
+                      setIsDeleteAccountDialogOpen(true);
+                    }}
+                    className="shrink-0 bg-red-600 hover:bg-red-700 text-white rounded-full cursor-pointer"
+                    data-testid="button-delete-account"
+                  >
+                    <Trash2 className="w-3.5 h-3.5 mr-1.5" />
+                    Delete Account
+                  </Button>
+                </div>
+              </>
+            ) : (
+            <>
             <div className="flex items-center justify-between">
               <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">
                 My Pets
@@ -767,28 +837,8 @@ export default function UserProfile() {
                 </CardContent>
               </Card>
             )}
-
-            {/* Danger Zone */}
-            <div className="rounded-xl border-2 border-red-200 bg-red-50/40 p-6">
-              <h2 className="text-lg font-bold text-red-700 mb-1 flex items-center gap-2">
-                <AlertTriangle className="w-5 h-5" /> Danger Zone
-              </h2>
-              <p className="text-sm text-red-600/80 mb-5">
-                Once you delete your account, all your data is permanently removed. This cannot be undone.
-              </p>
-              <Button
-                variant="destructive"
-                onClick={() => {
-                  setDeleteAccountConfirmText("");
-                  setIsDeleteAccountDialogOpen(true);
-                }}
-                className="bg-red-600 hover:bg-red-700 text-white rounded-full px-6 cursor-pointer"
-                data-testid="button-delete-account"
-              >
-                <Trash2 className="w-4 h-4 mr-2" />
-                Delete Account
-              </Button>
-            </div>
+            </>
+            )}
           </div>
         </div>
       </main>
