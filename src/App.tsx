@@ -30,10 +30,9 @@ function Router() {
       <Route path="/profile" component={Profile} />
       <Route path="/user-profile" component={UserProfile} />
       <Route path="/profile/:username" component={PublicProfile} />
-      <Route path="/admin" component={AdminDashboard} />{" "}
-      {/* <-- New route added here */}
-      <Route component={NotFound} />
+      <Route path="/admin" component={AdminDashboard} />
       <Route path="/privacy" component={PrivacyPolicy} />
+      <Route component={NotFound} />
     </Switch>
   );
 }
