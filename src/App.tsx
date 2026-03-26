@@ -17,6 +17,7 @@ import UserProfile from "@/pages/user-profile";
 import PublicProfile from "@/pages/public-profile";
 import AdminDashboard from "@/pages/admin-dashboard";
 import TermsOfService from "@/pages/terms";
+import CookiesPolicy from "@/pages/cookies";
 
 function Router() {
   return (
@@ -34,6 +35,7 @@ function Router() {
       <Route path="/admin" component={AdminDashboard} />
       <Route path="/privacy" component={PrivacyPolicy} />
       <Route path="/terms" component={TermsOfService} />
+      <Route path="/cookies" component={CookiesPolicy} />
       <Route component={NotFound} />
     </Switch>
   );
