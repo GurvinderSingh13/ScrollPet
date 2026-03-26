@@ -1,3 +1,4 @@
+import PrivacyPolicy from "@/pages/privacy";
 import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -32,6 +33,7 @@ function Router() {
       <Route path="/admin" component={AdminDashboard} />{" "}
       {/* <-- New route added here */}
       <Route component={NotFound} />
+      <Route path="/privacy" component={PrivacyPolicy} />
     </Switch>
   );
 }
