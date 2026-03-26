@@ -93,7 +93,24 @@ export default function TermsOfService() {
           </p>
 
           <h2 className="text-xl font-bold text-[#00789c] mt-8 mb-4 border-b pb-2">
-            5. Third-Party Links & Affiliates
+            5. Peer-to-Peer Transactions and Pet Sales
+          </h2>
+          <p>
+            ScrollPet acts solely as a communication platform. We do not broker,
+            verify, or facilitate any sales, adoptions, or trades of animals or
+            goods between users. If you choose to engage in a transaction with
+            another user, you do so entirely at your own risk.
+          </p>
+          <p className="mt-4 font-bold">
+            ScrollPet explicitly disclaims any liability for scams, financial
+            loss, the health or condition of any traded animal, or any disputes
+            arising from peer-to-peer transactions. We strongly advise users to
+            exercise extreme caution and verify the identity and legitimacy of
+            any party before exchanging money or pets.
+          </p>
+
+          <h2 className="text-xl font-bold text-[#00789c] mt-8 mb-4 border-b pb-2">
+            6. Third-Party Links & Affiliates
           </h2>
           <p>
             The platform (particularly the News Rooms) may contain links to
@@ -104,7 +121,7 @@ export default function TermsOfService() {
           </p>
 
           <h2 className="text-xl font-bold text-[#00789c] mt-8 mb-4 border-b pb-2">
-            6. Changes to Terms
+            7. Changes to Terms
           </h2>
           <p>
             We reserve the right to modify these terms at any time. We will
@@ -115,7 +132,7 @@ export default function TermsOfService() {
           </p>
 
           <h2 className="text-xl font-bold text-[#00789c] mt-8 mb-4 border-b pb-2">
-            7. Contact Us
+            8. Contact Us
           </h2>
           <p>
             If you have any questions regarding these Terms, please contact us

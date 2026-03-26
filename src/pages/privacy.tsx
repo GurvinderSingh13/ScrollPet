@@ -62,6 +62,16 @@ export default function PrivacyPolicy() {
             </li>
           </ul>
 
+          <ul className="list-disc pl-6 mb-4 space-y-2">
+            <li>
+              <strong>Third-Party Logins:</strong> If you choose to register
+              using a third-party account (like Google, Apple, or Facebook), we
+              will receive basic profile information (such as your name and
+              email address) permitted by that provider to create and
+              authenticate your ScrollPet account.
+            </li>
+          </ul>
+
           <h2 className="text-xl font-bold text-[#00789c] mt-8 mb-4 border-b pb-2">
             2. How We Use Your Information
           </h2>
