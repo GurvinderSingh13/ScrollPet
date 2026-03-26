@@ -85,11 +85,16 @@ export default function UserProfile() {
   const [openCountry, setOpenCountry] = useState(false);
   const [openState, setOpenState] = useState(false);
 
-  // Delete Confirmation States
+  // Pet Delete Confirmation States
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [deleteConfirmationText, setDeleteConfirmationText] = useState("");
   const [passwordConfirm, setPasswordConfirm] = useState("");
   const [isVerifyingDelete, setIsVerifyingDelete] = useState(false);
+
+  // Account Deletion States
+  const [isDeleteAccountDialogOpen, setIsDeleteAccountDialogOpen] = useState(false);
+  const [deleteAccountConfirmText, setDeleteAccountConfirmText] = useState("");
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
 
   const countries = Country.getAllCountries();
   const states = editProfileForm.country
@@ -388,6 +393,27 @@ export default function UserProfile() {
       });
     } finally {
       setIsVerifyingDelete(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!user?.id || deleteAccountConfirmText !== "DELETE") return;
+    setIsDeletingAccount(true);
+    try {
+      const { error: dbError } = await supabase
+        .from("users")
+        .delete()
+        .eq("id", user.id);
+      if (dbError) throw dbError;
+
+      await logout();
+      window.location.href = "/";
+    } catch (err: any) {
+      toast({
+        description: err.message || "Failed to delete account. Please try again.",
+        variant: "destructive",
+      });
+      setIsDeletingAccount(false);
     }
   };
 
@@ -741,6 +767,28 @@ export default function UserProfile() {
                 </CardContent>
               </Card>
             )}
+
+            {/* Danger Zone */}
+            <div className="rounded-xl border-2 border-red-200 bg-red-50/40 p-6">
+              <h2 className="text-lg font-bold text-red-700 mb-1 flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5" /> Danger Zone
+              </h2>
+              <p className="text-sm text-red-600/80 mb-5">
+                Once you delete your account, all your data is permanently removed. This cannot be undone.
+              </p>
+              <Button
+                variant="destructive"
+                onClick={() => {
+                  setDeleteAccountConfirmText("");
+                  setIsDeleteAccountDialogOpen(true);
+                }}
+                className="bg-red-600 hover:bg-red-700 text-white rounded-full px-6 cursor-pointer"
+                data-testid="button-delete-account"
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                Delete Account
+              </Button>
+            </div>
           </div>
         </div>
       </main>
@@ -1255,6 +1303,79 @@ export default function UserProfile() {
               className="w-full sm:w-auto cursor-pointer bg-[#007699] hover:bg-[#005a75] text-white rounded-full px-8"
             >
               {isSavingProfile ? "Saving..." : "Save Changes"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Account Deletion Dialog */}
+      <Dialog
+        open={isDeleteAccountDialogOpen}
+        onOpenChange={(open) => {
+          if (!isDeletingAccount) {
+            setIsDeleteAccountDialogOpen(open);
+            if (!open) setDeleteAccountConfirmText("");
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-[420px]">
+          <div className="flex items-start gap-3 mb-2">
+            <div className="h-10 w-10 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+              <AlertTriangle className="w-5 h-5 text-red-600" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-gray-900">Delete Account</h2>
+              <p className="text-sm text-gray-500 mt-1">
+                Are you sure? This action is permanent and will delete all your messages, announcements, and profile data.
+              </p>
+            </div>
+          </div>
+
+          <div className="bg-red-50 border border-red-200 rounded-lg p-3 my-2 text-sm text-red-700">
+            This <strong>cannot be undone</strong>. Your account and all associated data will be permanently erased.
+          </div>
+
+          <div className="space-y-2 mt-2">
+            <label className="text-sm font-bold text-gray-700">
+              Type <span className="font-mono bg-gray-100 px-1.5 py-0.5 rounded text-red-600">DELETE</span> to confirm:
+            </label>
+            <input
+              type="text"
+              placeholder="DELETE"
+              value={deleteAccountConfirmText}
+              onChange={(e) => setDeleteAccountConfirmText(e.target.value)}
+              className="w-full bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition"
+              data-testid="input-delete-account-confirm"
+              autoComplete="off"
+            />
+          </div>
+
+          <div className="flex justify-end gap-3 mt-4 pt-4 border-t border-gray-100">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsDeleteAccountDialogOpen(false);
+                setDeleteAccountConfirmText("");
+              }}
+              disabled={isDeletingAccount}
+              className="cursor-pointer"
+              data-testid="button-cancel-delete-account"
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteAccount}
+              disabled={deleteAccountConfirmText !== "DELETE" || isDeletingAccount}
+              className="bg-red-600 hover:bg-red-700 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              data-testid="button-confirm-delete-account"
+            >
+              {isDeletingAccount ? (
+                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+              ) : (
+                <Trash2 className="w-4 h-4 mr-2" />
+              )}
+              {isDeletingAccount ? "Deleting…" : "Delete My Account"}
             </Button>
           </div>
         </DialogContent>
