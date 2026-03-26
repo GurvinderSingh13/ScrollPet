@@ -15,7 +15,6 @@ export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
 
   const handleGoogleLogin = async () => {
@@ -156,32 +155,11 @@ export default function Login() {
               </div>
             )}
 
-            {/* Legal checkbox */}
-            <label className="flex items-start gap-3 cursor-pointer select-none" data-testid="label-terms-agree">
-              <input
-                type="checkbox"
-                checked={agreedToTerms}
-                onChange={(e) => setAgreedToTerms(e.target.checked)}
-                className="mt-0.5 h-4 w-4 rounded border-gray-300 accent-[#FF6600] cursor-pointer shrink-0"
-                data-testid="checkbox-terms"
-              />
-              <span className="text-sm text-gray-500 leading-snug">
-                I agree to the{" "}
-                <Link href="/terms">
-                  <span className="font-semibold text-[#FF6600] hover:underline cursor-pointer underline-offset-4">Terms of Service</span>
-                </Link>
-                {" "}and{" "}
-                <Link href="/privacy">
-                  <span className="font-semibold text-[#FF6600] hover:underline cursor-pointer underline-offset-4">Privacy Policy</span>
-                </Link>
-              </span>
-            </label>
-
             <div className="pt-2 flex justify-center">
               <Button 
                 type="submit" 
                 className="w-48 py-6 rounded-full text-lg font-bold bg-[#FF6600] hover:bg-[#FF6600]/90 text-white shadow-md hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                disabled={isLoading || !agreedToTerms}
+                disabled={isLoading}
                 data-testid="button-login"
               >
                 {isLoading ? "Logging in..." : "Log In"}
