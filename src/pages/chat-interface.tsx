@@ -117,27 +117,6 @@ const canBanTarget = (myRole: string, targetRole: string) => {
   return false;
 };
 
-const getAvailableDurations = (role: string) => {
-  const base = [
-    { label: "6 Hours", value: "6h" },
-    { label: "12 Hours", value: "12h" },
-    { label: "24 Hours", value: "24h" },
-  ];
-  if (role === "moderator") return base;
-  const superMod = [
-    ...base,
-    { label: "3 Days", value: "3d" },
-    { label: "7 Days", value: "7d" },
-  ];
-  if (role === "super_moderator") return superMod;
-  return [
-    ...superMod,
-    { label: "30 Days", value: "30d" },
-    { label: "1 Year", value: "1y" },
-    { label: "Permanent", value: "permanent" },
-  ];
-};
-
 const PawIcon = ({ className }: { className?: string }) => (
   <svg
     className={className}
@@ -186,6 +165,7 @@ export default function ChatInterface() {
     role?: string;
   } | null>(null);
   const [banDuration, setBanDuration] = useState("24h");
+  const [banScope, setBanScope] = useState("global");
   const [isProcessingBan, setIsProcessingBan] = useState(false);
 
   const [isNewsRoom, setIsNewsRoom] = useState(false);
@@ -221,23 +201,35 @@ export default function ChatInterface() {
     enabled: !!userId,
   });
 
-  const { data: myBan } = useQuery({
+  const { data: myBans } = useQuery({
     queryKey: ["my-ban-status", userId],
     queryFn: async () => {
-      if (!userId) return null;
+      if (!userId) return [];
       const { data, error } = await supabase
         .from("bans")
         .select("*")
         .eq("user_id", userId)
         .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .single();
+        .order("created_at", { ascending: false });
       if (error && error.code !== "PGRST116") throw error;
-      return data || null;
+      return data || [];
     },
     enabled: !!userId,
   });
+
+  const isCurrentlyBanned = myBans?.some((ban: any) => {
+    // Global ban
+    if (!ban.target_location && !ban.target_pet && !ban.target_breed) return true;
+    
+    // Room specific ban match
+    if (
+      ban.target_location === chatRoomLocation &&
+      ban.target_pet === activePet &&
+      (ban.target_breed === activeBreed || ban.target_breed === null)
+    ) return true;
+    
+    return false;
+  }) || false;
 
   const userRole = dbUser?.role || "user";
   const isModOrAbove = [
@@ -247,7 +239,6 @@ export default function ChatInterface() {
     "admin",
   ].includes(userRole);
 
-  // THIS IS THE FIX FOR THE 0 COOLDOWN BUG! (Using ??)
   const cooldownHours = dbUser?.news_cooldown_hours ?? 24;
 
   const effectiveCountryName =
@@ -425,21 +416,21 @@ export default function ChatInterface() {
           receiverId: row.receiver_id,
           user: userData
             ? {
-                id: userData.id,
-                username: userData.username || "",
-                displayName: userData.display_name || userData.username || "",
-                state: userData.state || "",
-                country: userData.country || "",
-                role: userData.role || "user",
-              }
+              id: userData.id,
+              username: userData.username || "",
+              displayName: userData.display_name || userData.username || "",
+              state: userData.state || "",
+              country: userData.country || "",
+              role: userData.role || "user",
+            }
             : {
-                id: row.user_id,
-                username: "Unknown",
-                displayName: "Unknown",
-                state: "",
-                country: "",
-                role: "user",
-              },
+              id: row.user_id,
+              username: "Unknown",
+              displayName: "Unknown",
+              state: "",
+              country: "",
+              role: "user",
+            },
         };
       });
       setMessages(mapped.reverse());
@@ -559,6 +550,26 @@ export default function ChatInterface() {
     }
   };
 
+  // --- NEW DELETE MESSAGE FUNCTION ---
+  const handleDeleteMessage = async (messageId: string) => {
+    try {
+      const { error } = await supabase
+        .from("messages")
+        .delete()
+        .eq("id", messageId)
+        .eq("user_id", userId); // Security check
+
+      if (error) throw error;
+
+      // Remove from screen
+      setMessages((prev) => prev.filter((msg) => msg.id !== messageId));
+      toast({ description: "Message unsent." });
+    } catch (err: any) {
+      toast({ description: "Could not unsend message.", variant: "destructive" });
+    }
+  };
+  // -----------------------------------
+
   const handleSendMessage = async (
     content: string,
     messageType: string = "text",
@@ -567,9 +578,9 @@ export default function ChatInterface() {
   ): Promise<boolean> => {
     if (!isConnected && !isNewsRoom) return false;
 
-    if (myBan) {
+    if (isCurrentlyBanned) {
       toast({
-        description: "You are currently banned from sending messages.",
+        description: "You are currently banned from sending messages in this room or globally.",
         variant: "destructive",
       });
       return false;
@@ -744,12 +755,21 @@ export default function ChatInterface() {
         else if (banDuration === "1y") now.setFullYear(now.getFullYear() + 1);
         expiresAt = now.toISOString();
       }
-      const { error: banError } = await supabase.from("bans").insert({
+
+      const insertPayload: any = {
         user_id: userToBan.id,
         banned_by: user.id,
         reason: `Direct ban issued from Chat Room by Moderation.`,
         expires_at: expiresAt,
-      });
+      };
+
+      if (banScope === "room") {
+        insertPayload.target_location = chatRoomLocation;
+        insertPayload.target_pet = activePet;
+        insertPayload.target_breed = activeBreed || null;
+      }
+
+      const { error: banError } = await supabase.from("bans").insert(insertPayload);
       if (banError) throw banError;
       toast({ description: `Ban issued successfully for ${banDuration}.` });
       setIsBanModalOpen(false);
@@ -779,9 +799,9 @@ export default function ChatInterface() {
   };
   const currentDistricts =
     activeLocation !== "global" &&
-    activeLocation !== "country" &&
-    activeLocation !== "staff_lounge" &&
-    countryCode
+      activeLocation !== "country" &&
+      activeLocation !== "staff_lounge" &&
+      countryCode
       ? City.getCitiesOfState(countryCode, activeLocation)
       : [];
 
@@ -830,63 +850,96 @@ export default function ChatInterface() {
             </Link>
           </nav>
 
-          <div className="hidden md:flex items-center gap-4">
-            {authLoading ? (
-              <Button variant="ghost" disabled>
-                ...
-              </Button>
-            ) : isAuthenticated ? (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button className="h-10 w-10 rounded-full border border-border bg-muted flex items-center justify-center overflow-hidden hover:ring-2 hover:ring-primary/50 transition-all cursor-pointer">
-                    {user?.id ? (
-                      <img
-                        src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.id}`}
-                        alt="User"
-                        className="h-full w-full object-cover"
-                      />
-                    ) : (
-                      <User className="h-5 w-5 text-muted-foreground" />
-                    )}
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56 mt-2">
-                  <DropdownMenuItem asChild>
-                    <Link
-                      href="/user-profile"
-                      className="w-full cursor-pointer flex items-center"
-                    >
-                      Profile Dashboard
-                    </Link>
-                  </DropdownMenuItem>
-                  {isModOrAbove && (
+          <div className="flex items-center gap-4">
+            <div className="hidden md:flex items-center gap-4">
+              {authLoading ? (
+                <Button variant="ghost" disabled>
+                  ...
+                </Button>
+              ) : isAuthenticated ? (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button className="h-10 w-10 rounded-full border border-border bg-muted flex items-center justify-center overflow-hidden hover:ring-2 hover:ring-primary/50 transition-all cursor-pointer">
+                      {user?.id ? (
+                        <img
+                          src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.id}`}
+                          alt="User"
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <User className="h-5 w-5 text-muted-foreground" />
+                      )}
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56 mt-2">
                     <DropdownMenuItem asChild>
                       <Link
-                        href="/admin"
-                        className="w-full cursor-pointer flex items-center text-[#007699] font-bold"
+                        href="/user-profile"
+                        className="w-full cursor-pointer flex items-center"
                       >
-                        Moderation Dashboard
+                        Profile Dashboard
                       </Link>
                     </DropdownMenuItem>
-                  )}
-                  <DropdownMenuItem
-                    onClick={logout}
-                    className="text-destructive cursor-pointer flex items-center font-medium"
-                  >
-                    Log Out
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            ) : (
-              <Button
-                onClick={() => (window.location.href = "/login")}
-                className="font-bold cursor-pointer rounded-full px-6"
-              >
-                Login
-              </Button>
-            )}
+                    {isModOrAbove && (
+                      <DropdownMenuItem asChild>
+                        <Link
+                          href="/admin"
+                          className="w-full cursor-pointer flex items-center text-[#007699] font-bold"
+                        >
+                          Moderation Dashboard
+                        </Link>
+                      </DropdownMenuItem>
+                    )}
+                    <DropdownMenuItem
+                      onClick={logout}
+                      className="text-destructive cursor-pointer flex items-center font-medium"
+                    >
+                      Log Out
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              ) : (
+                <Button
+                  onClick={() => (window.location.href = "/login")}
+                  className="font-bold cursor-pointer rounded-full px-6"
+                >
+                  Login
+                </Button>
+              )}
+            </div>
+            
+            <button
+              className="md:hidden p-2 text-foreground cursor-pointer"
+              onClick={() => setIsMenuOpen(!isMenuOpen)}
+            >
+              {isMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+            </button>
           </div>
         </div>
+
+        {isMenuOpen && (
+          <div className="md:hidden absolute top-full left-0 right-0 bg-background border-b border-border/40 shadow-lg p-4 flex flex-col gap-4 z-40">
+            <Link href="/" onClick={() => setIsMenuOpen(false)} className="text-foreground/80 hover:text-primary transition-colors py-2 font-medium">Home</Link>
+            <Link href="/chat" onClick={() => setIsMenuOpen(false)} className="text-primary font-medium py-2">Chat Rooms</Link>
+            <Link href="/about" onClick={() => setIsMenuOpen(false)} className="text-foreground/80 hover:text-primary transition-colors py-2 font-medium">About Us</Link>
+            <Link href="/faq" onClick={() => setIsMenuOpen(false)} className="text-foreground/80 hover:text-primary transition-colors py-2 font-medium">FAQ</Link>
+            <Link href="/contact" onClick={() => setIsMenuOpen(false)} className="text-foreground/80 hover:text-primary transition-colors py-2 font-medium">Contact Us</Link>
+            
+            <div className="pt-4 border-t border-border/40 mt-2 flex flex-col gap-2">
+              {!authLoading && isAuthenticated ? (
+                <>
+                  <Link href="/user-profile" onClick={() => setIsMenuOpen(false)} className="text-foreground font-medium py-2 px-2 hover:bg-muted rounded-md">Profile Dashboard</Link>
+                  {isModOrAbove && (
+                    <Link href="/admin" onClick={() => setIsMenuOpen(false)} className="text-[#007699] font-bold py-2 px-2 hover:bg-muted rounded-md">Moderation Dashboard</Link>
+                  )}
+                  <button onClick={() => { logout(); setIsMenuOpen(false); }} className="text-destructive font-medium py-2 px-2 text-left hover:bg-muted rounded-md">Log Out</button>
+                </>
+              ) : (
+                <Button onClick={() => window.location.href = "/login"} className="w-full font-bold">Login</Button>
+              )}
+            </div>
+          </div>
+        )}
       </header>
 
       {sidebarView === "public" && (
@@ -930,10 +983,8 @@ export default function ChatInterface() {
       <div className="flex-1 flex overflow-hidden relative">
         <aside
           className={cn(
-            "bg-[#F5F7F9] border-r overflow-hidden flex flex-col w-full md:w-80 absolute md:relative z-10 h-full transition-transform duration-300",
-            mobileView === "list"
-              ? "translate-x-0"
-              : "-translate-x-full md:translate-x-0",
+            "bg-[#F5F7F9] border-r overflow-hidden flex-col w-full md:w-80 relative z-10 h-full",
+            mobileView === "list" ? "flex" : "hidden md:flex"
           )}
         >
           <div className="bg-[#007699] text-white px-4 py-3 shadow-md flex-none">
@@ -957,7 +1008,7 @@ export default function ChatInterface() {
                     {currentBreeds.length > 0 && !activeDmUser && (
                       <Select
                         value={activeBreed || "__all__"}
-                        onValueChange={(value) =>
+                        onValueChange={(value: string) =>
                           setActiveBreed(value === "__all__" ? null : value)
                         }
                       >
@@ -966,7 +1017,7 @@ export default function ChatInterface() {
                         </SelectTrigger>
                         <SelectContent className="max-h-60">
                           <SelectItem value="__all__">All Breeds</SelectItem>
-                          {currentBreeds.map((breed) => (
+                          {currentBreeds.map((breed: any) => (
                             <SelectItem key={breed.id} value={breed.id}>
                               {breed.name}
                             </SelectItem>
@@ -1160,6 +1211,16 @@ export default function ChatInterface() {
                                 <span className="text-sm">{loc.name}</span>
                               </div>
                             </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                togglePin(loc.isoCode);
+                              }}
+                              className="p-3 shrink-0 cursor-pointer rounded-lg transition-all opacity-50 hover:opacity-100 hover:bg-orange-50"
+                              title="Unpin state"
+                            >
+                              <PawIcon className="w-4 h-4 text-orange-500" />
+                            </button>
                           </div>
                         ))}
                       </>
@@ -1184,6 +1245,16 @@ export default function ChatInterface() {
                           <div className="flex items-center gap-3">
                             <span className="text-sm">{loc.name}</span>
                           </div>
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            togglePin(loc.isoCode);
+                          }}
+                          className="p-3 shrink-0 cursor-pointer rounded-lg transition-all opacity-50 hover:opacity-100 hover:bg-gray-100"
+                          title="Pin state"
+                        >
+                          <PawIcon className="w-4 h-4 text-gray-500 hover:text-orange-500" />
                         </button>
                       </div>
                     ))}
@@ -1240,10 +1311,8 @@ export default function ChatInterface() {
 
         <main
           className={cn(
-            "flex-1 flex flex-col bg-white relative w-full h-full absolute md:relative transition-transform duration-300",
-            mobileView === "chat"
-              ? "translate-x-0"
-              : "translate-x-full md:translate-x-0",
+            "flex-1 flex-col bg-white w-full h-full relative",
+            mobileView === "chat" ? "flex" : "hidden md:flex"
           )}
         >
           {sidebarView === "private" && !activeDmUser ? (
@@ -1267,14 +1336,17 @@ export default function ChatInterface() {
                       : "bg-[#007699]",
                 )}
               >
-                <div className="flex items-center gap-3 flex-shrink-0">
-                  <div className="md:hidden">
+                <div className="flex items-center gap-3 flex-1 min-w-0">
+                  <div className="md:hidden shrink-0">
+                    {/* --- MOBILE BACK BUTTON FIX --- */}
                     <button
                       onClick={() => setMobileView("list")}
-                      className="p-1 mr-1 hover:bg-white/10 rounded-full transition-colors"
+                      type="button"
+                      className="p-1 mr-1 hover:bg-white/10 rounded-full transition-colors cursor-pointer"
                     >
                       <ArrowLeft className="w-6 h-6" />
                     </button>
+                    {/* ------------------------------ */}
                   </div>
                   <h2 className="font-bold text-xl truncate whitespace-nowrap">
                     {getHeaderDisplayName()}
@@ -1287,7 +1359,7 @@ export default function ChatInterface() {
                       <div className="flex-shrink-0 ml-2">
                         <Select
                           value={activeDistrict || "__all__"}
-                          onValueChange={(value) =>
+                          onValueChange={(value: string) =>
                             setActiveDistrict(
                               value === "__all__" ? null : value,
                             )
@@ -1311,7 +1383,10 @@ export default function ChatInterface() {
                       </div>
                     )}
                 </div>
-                <div className="flex items-center gap-1 flex-shrink-0 ml-auto">
+                <div className="flex items-center gap-1 flex-shrink-0 ml-auto pl-2">
+                  <Link href="/community-guidelines" className="p-2 hover:bg-white/10 rounded-full transition-colors text-white cursor-pointer" title="Community Guidelines">
+                    <BookOpen className="w-5 h-5" />
+                  </Link>
                   {!activeDmUser && activeLocation !== "staff_lounge" && (
                     <button
                       onClick={() => setIsNewsRoom(!isNewsRoom)}
@@ -1388,7 +1463,7 @@ export default function ChatInterface() {
                             </p>
                             <p className="text-[10px] text-gray-500 uppercase tracking-wide">
                               {post.users?.role === "admin" ||
-                              post.users?.role === "staff"
+                                post.users?.role === "staff"
                                 ? "📢 Official Staff"
                                 : "🐾 Community Event"}
                             </p>
@@ -1420,8 +1495,9 @@ export default function ChatInterface() {
                       displayName={displayName}
                       currentUserRole={userRole}
                       onUserClick={handleUserClick}
-                      onReplyClick={(name) => setReplyToUser(`@${name} `)}
+                      onReplyClick={(name: string) => setReplyToUser(`@${name} `)}
                       onBanClick={() => handleOpenDirectBan(msg.user)}
+                      onDeleteClick={handleDeleteMessage} // <-- DELETE FUNCTION PASSED HERE
                     />
                   ))
                 )}
@@ -1438,6 +1514,60 @@ export default function ChatInterface() {
           )}
         </main>
       </div>
+
+      <Dialog open={isBanModalOpen} onOpenChange={setIsBanModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Issue Ban for @{userToBan?.displayName}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Ban Scope</label>
+              <Select value={banScope} onValueChange={setBanScope}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select ban scope" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="global">Global Ban (Entire Platform)</SelectItem>
+                  <SelectItem value="room">Current Room Only</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Ban Duration</label>
+              <Select value={banDuration} onValueChange={setBanDuration}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select duration" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="6h">6 Hours</SelectItem>
+                  <SelectItem value="12h">12 Hours</SelectItem>
+                  <SelectItem value="24h">24 Hours</SelectItem>
+                  <SelectItem value="3d">3 Days</SelectItem>
+                  <SelectItem value="7d">7 Days</SelectItem>
+                  <SelectItem value="30d">30 Days</SelectItem>
+                  <SelectItem value="1y">1 Year</SelectItem>
+                  <SelectItem value="permanent">Permanent</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="flex justify-end gap-3 mt-4">
+            <Button variant="outline" onClick={() => setIsBanModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleIssueDirectBan}
+              disabled={isProcessingBan}
+            >
+              {isProcessingBan ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Ban className="w-4 h-4 mr-2" />}
+              Issue Ban
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -176,7 +176,7 @@ export default function Signup() {
               placeholder="Username" 
               required 
               value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setUsername(e.target.value)}
               data-testid="input-username"
               className="rounded-full border border-gray-200 bg-white py-6 px-6 text-base placeholder:text-gray-400 focus:border-primary/50 focus:ring-0 transition-all shadow-sm"
             />
@@ -186,7 +186,7 @@ export default function Signup() {
               placeholder="Email Address" 
               required 
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
               data-testid="input-email"
               className="rounded-full border border-gray-200 bg-white py-6 px-6 text-base placeholder:text-gray-400 focus:border-primary/50 focus:ring-0 transition-all shadow-sm"
             />
@@ -292,7 +292,7 @@ export default function Signup() {
               placeholder="Enter Password" 
               required 
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
               data-testid="input-password"
               className="rounded-full border border-gray-200 bg-white py-6 px-6 text-base placeholder:text-gray-400 focus:border-primary/50 focus:ring-0 transition-all shadow-sm"
             />
@@ -302,7 +302,7 @@ export default function Signup() {
               placeholder="Confirm Password" 
               required 
               value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setConfirmPassword(e.target.value)}
               data-testid="input-confirm-password"
               className="rounded-full border border-gray-200 bg-white py-6 px-6 text-base placeholder:text-gray-400 focus:border-primary/50 focus:ring-0 transition-all shadow-sm"
             />
@@ -390,64 +390,69 @@ export default function Signup() {
       </main>
 
       {/* Footer */}
-      <footer className="bg-gray-950 text-gray-300 py-20 border-t border-gray-900 relative z-10">
-        <div className="container px-6 mx-auto">
-          <div className="grid md:grid-cols-12 gap-12 mb-16">
-            <div className="col-span-12 md:col-span-4">
+      <footer className="bg-gray-950 text-gray-300 py-16 border-t border-gray-900 relative z-10">
+        <div className="container px-4 md:px-6 mx-auto">
+          <div className="flex flex-col md:grid md:grid-cols-12 gap-10 md:gap-12 mb-12">
+            <div className="col-span-12 md:col-span-4 flex flex-col items-center text-center md:items-start md:text-left">
               <Link href="/" className="inline-block mb-6 opacity-90 hover:opacity-100 transition-opacity">
-                 <img 
+                <img 
                   src={logoImage} 
                   alt="ScrollPet Logo" 
                   className="h-10 w-auto object-contain brightness-0 invert opacity-90"
                 />
               </Link>
-              <p className="text-gray-400 mb-6 leading-relaxed">
+              <p className="text-gray-400 mb-8 leading-relaxed max-w-sm">
                 Connecting pet lovers worldwide in a safe, trusted environment. Join us in building the most positive pet community on the internet.
               </p>
-              <div className="flex gap-4">
+              <div className="flex gap-4 justify-center md:justify-start w-full">
                 {/* Social placeholders */}
-                {[1,2,3].map(i => (
-                  <div key={i} className="h-10 w-10 rounded-full bg-gray-900 flex items-center justify-center hover:bg-primary hover:text-white transition-colors cursor-pointer">
-                    <div className="w-5 h-5 bg-current rounded-sm opacity-50"></div>
-                  </div>
+                {[
+                  { icon: "X", link: "https://x.com/scrollpet" },
+                  { icon: "in", link: "https://linkedin.com/company/scrollpet" },
+                  { icon: "f", link: "https://facebook.com/scrollpet" }
+                ].map((social, i) => (
+                  <a key={i} href={social.link} target="_blank" rel="noopener noreferrer" className="h-10 w-10 rounded-full bg-gray-900 flex items-center justify-center hover:bg-primary hover:text-white transition-colors cursor-pointer font-bold">
+                    {social.icon}
+                  </a>
                 ))}
               </div>
             </div>
             
-            <div className="col-span-6 md:col-span-2 md:col-start-6">
-              <h4 className="font-bold text-white mb-6 text-lg">Platform</h4>
-              <ul className="space-y-3">
-                <li><Link href="/" className="hover:text-primary transition-colors cursor-pointer">Home</Link></li>
-                <li><Link href="/chat" className="hover:text-primary transition-colors cursor-pointer">Chat Rooms</Link></li>
-                <li><Link href="/login" className="hover:text-primary transition-colors cursor-pointer">Login</Link></li>
-                <li><Link href="/signup" className="hover:text-primary transition-colors cursor-pointer text-primary">Sign Up</Link></li>
-              </ul>
-            </div>
+            <div className="flex gap-8 justify-center md:col-span-8 md:grid md:grid-cols-3 md:gap-8">
+              <div className="flex flex-col items-center md:items-start text-center md:text-left">
+                <h4 className="font-bold text-white mb-6 text-lg">Platform</h4>
+                <ul className="space-y-4">
+                  <li><Link href="/" className="hover:text-primary transition-colors cursor-pointer text-gray-400 hover:text-white text-base">Home</Link></li>
+                  <li><Link href="/chat" className="hover:text-primary transition-colors cursor-pointer text-gray-400 hover:text-white text-base">Chat Rooms</Link></li>
+                  <li><Link href="/login" className="hover:text-primary transition-colors cursor-pointer text-gray-400 hover:text-white text-base">Login</Link></li>
+                  <li><Link href="/signup" className="hover:text-primary transition-colors cursor-pointer text-primary text-base">Sign Up</Link></li>
+                </ul>
+              </div>
 
-            <div className="col-span-6 md:col-span-2">
-              <h4 className="font-bold text-white mb-6 text-lg">Company</h4>
-              <ul className="space-y-3">
-                <li><Link href="/about" className="hover:text-primary transition-colors cursor-pointer">About Us</Link></li>
-                <li><Link href="/contact" className="hover:text-primary transition-colors cursor-pointer">Contact Us</Link></li>
-                <li><Link href="/careers" className="hover:text-primary transition-colors cursor-pointer">Careers</Link></li>
-                <li><Link href="/press" className="hover:text-primary transition-colors cursor-pointer">Press</Link></li>
-              </ul>
-            </div>
+              <div className="hidden md:flex md:flex-col items-center md:items-start text-center md:text-left">
+                <h4 className="font-bold text-white mb-6 text-lg">Company</h4>
+                <ul className="space-y-4">
+                  <li><Link href="/about" className="hover:text-primary transition-colors cursor-pointer text-gray-400 hover:text-white text-base">About Us</Link></li>
+                  <li><Link href="/contact" className="hover:text-primary transition-colors cursor-pointer text-gray-400 hover:text-white text-base">Contact Us</Link></li>
+                  <li><Link href="/careers" className="hover:text-primary transition-colors cursor-pointer text-gray-400 hover:text-white text-base">Careers</Link></li>
+                  <li><Link href="/press" className="hover:text-primary transition-colors cursor-pointer text-gray-400 hover:text-white text-base">Press</Link></li>
+                </ul>
+              </div>
 
-            <div className="col-span-6 md:col-span-2">
-              <h4 className="font-bold text-white mb-6 text-lg">Legal</h4>
-              <ul className="space-y-3">
-                <li><Link href="/privacy" className="hover:text-primary transition-colors cursor-pointer">Privacy Policy</Link></li>
-                <li><Link href="/terms" className="hover:text-primary transition-colors cursor-pointer">Terms of Service</Link></li>
-                <li><Link href="/cookies" className="hover:text-primary transition-colors cursor-pointer">Cookie Policy</Link></li>
-                <li><Link href="/community-guidelines" className="hover:text-primary transition-colors cursor-pointer">Community Guidelines</Link></li>
-              </ul>
+              <div className="flex flex-col items-center md:items-start text-center md:text-left">
+                <h4 className="font-bold text-white mb-6 text-lg">Legal</h4>
+                <ul className="space-y-4">
+                  <li><Link href="/privacy" className="hover:text-primary transition-colors cursor-pointer text-gray-400 hover:text-white text-base">Privacy Policy</Link></li>
+                  <li><Link href="/terms" className="hover:text-primary transition-colors cursor-pointer text-gray-400 hover:text-white text-base">Terms of Service</Link></li>
+                  <li><Link href="/community-guidelines" className="hover:text-primary transition-colors cursor-pointer text-gray-400 hover:text-white text-base">Guidelines</Link></li>
+                </ul>
+              </div>
             </div>
           </div>
           
-          <div className="pt-8 border-t border-gray-900 flex flex-col md:flex-row items-center justify-between text-sm text-gray-500 gap-4">
+          <div className="pt-8 border-t border-gray-900 flex flex-col md:flex-row items-center justify-between text-sm text-gray-500 gap-4 text-center md:text-left">
             <div>© {new Date().getFullYear()} ScrollPet. All rights reserved.</div>
-            <div className="flex gap-8">
+            <div className="flex gap-4 sm:gap-8 flex-wrap justify-center">
               <span>Built for pet lovers 🐾</span>
             </div>
           </div>

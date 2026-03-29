@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Play, Pause, X, ChevronDown, Loader2, Ban } from "lucide-react";
+import { Play, Pause, X, ChevronDown, Loader2, Ban, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   DropdownMenu,
@@ -42,6 +42,7 @@ interface MessageBubbleProps {
   onUserClick?: (userId: string, userName: string) => void;
   onReplyClick?: (userName: string) => void;
   onBanClick?: () => void;
+  onDeleteClick?: (messageId: string) => void;
 }
 
 const REPORT_REASONS = [
@@ -62,6 +63,7 @@ export function MessageBubble({
   onUserClick,
   onReplyClick,
   onBanClick,
+  onDeleteClick,
 }: MessageBubbleProps) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [showFullImage, setShowFullImage] = useState(false);
@@ -243,6 +245,18 @@ export function MessageBubble({
         )}
 
         <div className="group relative flex items-start gap-2">
+
+          {/* Delete button for own messages (Fixed for mobile) */}
+          {isOwnMessage && onDeleteClick && (
+            <button
+              onClick={() => onDeleteClick(message.id)}
+              className="md:opacity-0 md:group-hover:opacity-100 opacity-100 transition-opacity p-2 mt-1 text-gray-400 hover:bg-gray-100 hover:text-red-500 rounded-full focus:opacity-100 outline-none cursor-pointer"
+              title="Unsend message"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          )}
+
           <div
             className={cn(
               "px-4 py-3 text-[15px] shadow-sm leading-relaxed",
@@ -251,7 +265,7 @@ export function MessageBubble({
                 : "bg-[#F3F4F6] text-gray-800 rounded-2xl rounded-tl-sm",
               (message.messageType === "image" ||
                 message.messageType === "video") &&
-                "p-2",
+              "p-2",
             )}
           >
             {renderContent()}
@@ -260,7 +274,8 @@ export function MessageBubble({
           {!isOwnMessage && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 mt-1 text-gray-400 hover:bg-gray-200 hover:text-gray-700 rounded-full focus:opacity-100 outline-none cursor-pointer">
+                {/* Dropdown Menu button for other's messages (Fixed for mobile) */}
+                <button className="md:opacity-0 md:group-hover:opacity-100 opacity-100 transition-opacity p-2 mt-1 text-gray-400 hover:bg-gray-200 hover:text-gray-700 rounded-full focus:opacity-100 outline-none cursor-pointer">
                   <ChevronDown className="w-4 h-4" />
                 </button>
               </DropdownMenuTrigger>
@@ -289,7 +304,7 @@ export function MessageBubble({
                   Report User
                 </DropdownMenuItem>
 
-                {/* NEW: Direct Ban option for Admins/Mods */}
+                {/* Direct Ban option for Admins/Mods */}
                 {isModOrAbove && (
                   <DropdownMenuItem
                     className="cursor-pointer text-red-700 font-bold hover:bg-red-100 focus:bg-red-200 px-3 py-2 border-t border-red-100 mt-1"

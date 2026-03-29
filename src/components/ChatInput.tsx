@@ -365,10 +365,10 @@ export function ChatInput({
       {/* Input Area */}
       <div className="flex items-center gap-2 max-w-4xl mx-auto bg-white border rounded-full px-2 py-2 shadow-sm focus-within:ring-2 focus-within:ring-[#007699]/20 transition-all hover:border-gray-300">
         {/* Emoji Button */}
-        <div className="relative" ref={emojiPickerRef}>
+        <div className="relative shrink-0" ref={emojiPickerRef}>
           <button
             onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-            className="p-2.5 hover:bg-gray-100 rounded-full text-gray-500 transition-colors"
+            className="p-2.5 hover:bg-gray-100 rounded-full text-gray-500 transition-colors shrink-0"
             data-testid="button-emoji"
           >
             <Smile className="w-6 h-6" />
@@ -384,7 +384,7 @@ export function ChatInput({
         {/* Attachment Button */}
         <button
           onClick={() => fileInputRef.current?.click()}
-          className="p-2.5 hover:bg-gray-100 rounded-full text-gray-500 transition-colors"
+          className="p-2.5 hover:bg-gray-100 rounded-full text-gray-500 transition-colors shrink-0"
           data-testid="button-attachment"
         >
           <ImageIcon className="w-6 h-6" />
@@ -402,7 +402,7 @@ export function ChatInput({
           ref={inputRef}
           type="text"
           placeholder="Type a message..."
-          className="flex-1 bg-transparent border-none focus:outline-none text-gray-700 placeholder:text-gray-400 h-10 px-2 text-base"
+          className="flex-1 min-w-0 bg-transparent border-none focus:outline-none text-gray-700 placeholder:text-gray-400 h-10 px-2 text-base"
           value={message}
           onChange={(e) => setMessage(e.target.value)}
           onKeyDown={(e) => {
@@ -416,13 +416,13 @@ export function ChatInput({
 
         {/* Send/Mic Button */}
         {isUploading ? (
-          <div className="p-2.5 rounded-full bg-gray-100">
+          <div className="p-2.5 rounded-full bg-gray-100 shrink-0">
             <Loader2 className="w-5 h-5 text-gray-500 animate-spin" />
           </div>
         ) : showMic ? (
           <button
             onClick={startRecording}
-            className="p-2.5 rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 transition-colors"
+            className="p-2.5 rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 transition-colors shrink-0"
             disabled={!isConnected}
             data-testid="button-mic"
           >
@@ -431,7 +431,7 @@ export function ChatInput({
         ) : (
           <button
             onClick={handleSend}
-            className="p-2.5 rounded-full bg-[#007699] text-white hover:bg-[#007699]/90 transition-all shadow-sm"
+            className="p-2.5 rounded-full bg-[#007699] text-white hover:bg-[#007699]/90 transition-all shadow-sm shrink-0"
             disabled={!isConnected || isUploading}
             data-testid="button-send"
           >

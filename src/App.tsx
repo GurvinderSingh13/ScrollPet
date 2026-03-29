@@ -18,7 +18,9 @@ import PublicProfile from "@/pages/public-profile";
 import AdminDashboard from "@/pages/admin-dashboard";
 import TermsOfService from "@/pages/terms";
 import CookiesPolicy from "@/pages/cookies";
-
+import About from "@/pages/about";
+import ContactUs from "@/pages/contact";
+import UpdatePassword from "@/pages/update-password";
 function Router() {
   return (
     <Switch>
@@ -36,6 +38,9 @@ function Router() {
       <Route path="/privacy" component={PrivacyPolicy} />
       <Route path="/terms" component={TermsOfService} />
       <Route path="/cookies" component={CookiesPolicy} />
+      <Route path="/about" component={About} />
+      <Route path="/contact" component={ContactUs} />
+      <Route path="/update-password" component={UpdatePassword} />
       <Route component={NotFound} />
     </Switch>
   );

@@ -1,6 +1,6 @@
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
-import { motion } from "framer-motion";
+import { motion, useInView } from "framer-motion";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,20 +18,94 @@ import {
   ArrowRight,
   User,
   Shield,
+  Globe,
+  Sparkles,
+  Star,
+  Zap,
+  MapPin,
+  Megaphone,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import heroImage from "@assets/generated_images/happy_community_of_pet_lovers_in_a_park.png";
 import introImage from "@assets/generated_images/minimalist_pet_chat_concept_illustration.png";
 import logoImage from "@assets/Scrollpet_logo_1766997907297.png";
+
+import dogImg from "@assets/stock_images/happy_dog_portrait_o_6e5075a4.jpg";
+import catImg from "@assets/stock_images/ginger_cat_sitting_f_07d19cb3.jpg";
+import fishImg from "@assets/stock_images/goldfish_in_a_bowl_o_1769c4d6.jpg";
+import birdImg from "@assets/stock_images/colorful_parrot_bird_78491bbe.jpg";
+import rabbitImg from "@assets/stock_images/cute_white_rabbit_po_8b3eec97.jpg";
+import hamsterImg from "@assets/stock_images/cute_hamster_portrai_97a17a6a.jpg";
+import turtleImg from "@assets/stock_images/turtle_close_up_port_f8acb4e1.jpg";
+import guineaPigImg from "@assets/stock_images/guinea_pig_portrait_48d4dfd3.jpg";
+import horseImg from "@assets/stock_images/horse_portrait_in_na_95b7a90d.jpg";
+
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 
+const PET_AVATARS = [
+  { name: "Dogs", image: dogImg, emoji: "🐕" },
+  { name: "Cats", image: catImg, emoji: "🐱" },
+  { name: "Fish", image: fishImg, emoji: "🐠" },
+  { name: "Birds", image: birdImg, emoji: "🦜" },
+  { name: "Rabbits", image: rabbitImg, emoji: "🐰" },
+  { name: "Hamsters", image: hamsterImg, emoji: "🐹" },
+  { name: "Turtles", image: turtleImg, emoji: "🐢" },
+  { name: "Guinea Pigs", image: guineaPigImg, emoji: "🐹" },
+  { name: "Horses", image: horseImg, emoji: "🐴" },
+];
+
+const TESTIMONIALS = [
+  {
+    name: "Sarah M.",
+    pet: "Golden Retriever Owner",
+    text: "I found my dog's best playdate buddy through ScrollPet! The local chat rooms made it so easy to connect with other retriever owners in my area.",
+    avatar: "sarah-m",
+    rating: 5,
+  },
+  {
+    name: "James T.",
+    pet: "Cat Dad × 3",
+    text: "Finally, a community that gets it. No drama, no toxicity — just fellow cat lovers sharing tips and adorable photos. My kittens are thriving thanks to advice I got here!",
+    avatar: "james-t",
+    rating: 5,
+  },
+  {
+    name: "Priya K.",
+    pet: "Parrot Enthusiast",
+    text: "The breed-specific rooms are a game changer. I've learned more about my macaw's diet in one week on ScrollPet than in months of random Googling.",
+    avatar: "priya-k",
+    rating: 5,
+  },
+];
+
+function AnimatedCounter({ end, duration = 2000, suffix = "" }: { end: number; duration?: number; suffix?: string }) {
+  const [count, setCount] = useState(0);
+  const ref = useRef<HTMLSpanElement>(null);
+  const isInView = useInView(ref, { once: true });
+
+  useEffect(() => {
+    if (!isInView) return;
+    let startTime: number;
+    const animate = (timestamp: number) => {
+      if (!startTime) startTime = timestamp;
+      const progress = Math.min((timestamp - startTime) / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setCount(Math.floor(eased * end));
+      if (progress < 1) requestAnimationFrame(animate);
+    };
+    requestAnimationFrame(animate);
+  }, [isInView, end, duration]);
+
+  return <span ref={ref}>{count.toLocaleString()}{suffix}</span>;
+}
+
 export default function Home() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { user, isLoading, isAuthenticated, logout } = useAuth();
+  const [activePetIndex, setActivePetIndex] = useState(0);
 
-  // Check the user's role in the database to see if they get the Admin button
   const { data: dbUser } = useQuery({
     queryKey: ["db-user-home", user?.id],
     queryFn: async () => {
@@ -51,24 +125,36 @@ export default function Home() {
     dbUser &&
     ["moderator", "super_moderator", "staff", "admin"].includes(dbUser.role);
 
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setActivePetIndex((prev) => (prev + 1) % PET_AVATARS.length);
+    }, 3000);
+    return () => clearInterval(interval);
+  }, []);
+
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: {
       opacity: 1,
       transition: {
-        staggerChildren: 0.1,
-        delayChildren: 0.2,
+        staggerChildren: 0.12,
+        delayChildren: 0.15,
       },
     },
   };
 
   const itemVariants = {
-    hidden: { y: 20, opacity: 0 },
+    hidden: { y: 24, opacity: 0 },
     visible: {
       y: 0,
       opacity: 1,
-      transition: { type: "spring", stiffness: 50 } as const,
+      transition: { type: "spring", stiffness: 60, damping: 14 } as const,
     },
+  };
+
+  const fadeUp = {
+    hidden: { y: 30, opacity: 0 },
+    visible: { y: 0, opacity: 1, transition: { duration: 0.6, ease: "easeOut" } },
   };
 
   return (
@@ -84,55 +170,23 @@ export default function Home() {
             />
           </Link>
 
-          {/* Desktop Nav */}
           <nav className="hidden md:flex items-center gap-8 bg-muted/50 px-6 py-2 rounded-full border border-border/50">
-            <Link
-              href="/"
-              className="text-sm font-semibold hover:text-primary transition-colors cursor-pointer"
-            >
-              Home
-            </Link>
-            <Link
-              href="/chat"
-              className="text-sm font-semibold hover:text-primary transition-colors cursor-pointer"
-            >
-              Chat Rooms
-            </Link>
-            <Link
-              href="/about"
-              className="text-sm font-semibold hover:text-primary transition-colors cursor-pointer"
-            >
-              About Us
-            </Link>
-            <Link
-              href="/faq"
-              className="text-sm font-semibold hover:text-primary transition-colors cursor-pointer"
-            >
-              FAQ
-            </Link>
-            <Link
-              href="/contact"
-              className="text-sm font-semibold hover:text-primary transition-colors cursor-pointer"
-            >
-              Contact Us
-            </Link>
+            <Link href="/" className="text-sm font-semibold hover:text-primary transition-colors cursor-pointer">Home</Link>
+            <Link href="/chat" className="text-sm font-semibold hover:text-primary transition-colors cursor-pointer">Chat Rooms</Link>
+            <Link href="/about" className="text-sm font-semibold hover:text-primary transition-colors cursor-pointer">About Us</Link>
+            <Link href="/faq" className="text-sm font-semibold hover:text-primary transition-colors cursor-pointer">FAQ</Link>
+            <Link href="/contact" className="text-sm font-semibold hover:text-primary transition-colors cursor-pointer">Contact Us</Link>
           </nav>
 
           <div className="hidden md:flex items-center gap-4">
             {isLoading ? (
-              <Button variant="ghost" disabled>
-                ...
-              </Button>
+              <Button variant="ghost" disabled>...</Button>
             ) : isAuthenticated ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button className="h-10 w-10 rounded-full border border-border bg-muted flex items-center justify-center overflow-hidden hover:ring-2 hover:ring-primary/50 transition-all cursor-pointer">
                     {user?.id ? (
-                      <img
-                        src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.id}`}
-                        alt="User Avatar"
-                        className="h-full w-full object-cover"
-                      />
+                      <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.id}`} alt="User Avatar" className="h-full w-full object-cover" />
                     ) : (
                       <User className="h-5 w-5 text-muted-foreground" />
                     )}
@@ -140,205 +194,162 @@ export default function Home() {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56 mt-2">
                   <div className="px-3 py-2 border-b border-border/50 mb-1">
-                    <p className="font-medium text-sm text-foreground truncate">
-                      {user?.displayName || user?.username || "User"}
-                    </p>
-                    <p className="text-xs text-muted-foreground truncate">
-                      {user?.email}
-                    </p>
+                    <p className="font-medium text-sm text-foreground truncate">{user?.displayName || user?.username || "User"}</p>
+                    <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
                   </div>
-
                   <DropdownMenuItem asChild>
-                    <Link
-                      href="/user-profile"
-                      className="w-full cursor-pointer flex items-center"
-                    >
-                      Profile Dashboard
-                    </Link>
+                    <Link href="/user-profile" className="w-full cursor-pointer flex items-center">Profile Dashboard</Link>
                   </DropdownMenuItem>
-
-                  {/* NEW: Moderation Dashboard Link */}
                   {isModOrAbove && (
                     <DropdownMenuItem asChild>
-                      <Link
-                        href="/admin"
-                        className="w-full cursor-pointer flex items-center text-[#007699] font-bold"
-                      >
+                      <Link href="/admin" className="w-full cursor-pointer flex items-center text-[#007699] font-bold">
                         <Shield className="w-4 h-4 mr-2" /> Moderation Dashboard
                       </Link>
                     </DropdownMenuItem>
                   )}
-
-                  <DropdownMenuItem
-                    onClick={logout}
-                    className="text-destructive cursor-pointer flex items-center font-medium border-t border-border/50 mt-1"
-                  >
-                    Log Out
-                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={logout} className="text-destructive cursor-pointer flex items-center font-medium border-t border-border/50 mt-1">Log Out</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             ) : (
-              <Button
-                onClick={() => (window.location.href = "/login")}
-                className="font-bold cursor-pointer rounded-full px-6"
-              >
-                Login
-              </Button>
+              <Button onClick={() => (window.location.href = "/login")} className="font-bold cursor-pointer rounded-full px-6">Login</Button>
             )}
           </div>
 
-          {/* Mobile Menu Toggle */}
-          <button
-            className="md:hidden cursor-pointer p-2 hover:bg-muted rounded-full transition-colors"
-            onClick={() => setIsMenuOpen(!isMenuOpen)}
-          >
+          <button className="md:hidden cursor-pointer p-2 hover:bg-muted rounded-full transition-colors" onClick={() => setIsMenuOpen(!isMenuOpen)}>
             {isMenuOpen ? <X /> : <Menu />}
           </button>
         </div>
 
-        {/* Mobile Nav */}
         {isMenuOpen && (
           <div className="md:hidden border-t p-4 space-y-4 bg-background animate-in slide-in-from-top-5 shadow-2xl">
-            <Link
-              href="/"
-              className="block text-base font-semibold py-3 px-4 rounded-lg hover:bg-muted cursor-pointer"
-            >
-              Home
-            </Link>
-            <Link
-              href="/chat"
-              className="block text-base font-semibold py-3 px-4 rounded-lg hover:bg-muted cursor-pointer"
-            >
-              Chat Rooms
-            </Link>
-            <Link
-              href="/about"
-              className="block text-base font-semibold py-3 px-4 rounded-lg hover:bg-muted cursor-pointer"
-            >
-              About Us
-            </Link>
-            <Link
-              href="/faq"
-              className="block text-base font-semibold py-3 px-4 rounded-lg hover:bg-muted cursor-pointer"
-            >
-              FAQ
-            </Link>
-            <Link
-              href="/contact"
-              className="block text-base font-semibold py-3 px-4 rounded-lg hover:bg-muted cursor-pointer"
-            >
-              Contact Us
-            </Link>
+            <Link href="/" className="block text-base font-semibold py-3 px-4 rounded-lg hover:bg-muted cursor-pointer">Home</Link>
+            <Link href="/chat" className="block text-base font-semibold py-3 px-4 rounded-lg hover:bg-muted cursor-pointer">Chat Rooms</Link>
+            <Link href="/about" className="block text-base font-semibold py-3 px-4 rounded-lg hover:bg-muted cursor-pointer">About Us</Link>
+            <Link href="/faq" className="block text-base font-semibold py-3 px-4 rounded-lg hover:bg-muted cursor-pointer">FAQ</Link>
+            <Link href="/contact" className="block text-base font-semibold py-3 px-4 rounded-lg hover:bg-muted cursor-pointer">Contact Us</Link>
             {isLoading ? (
-              <Button
-                className="w-full mt-4 cursor-pointer rounded-full py-6 text-lg"
-                disabled
-              >
-                ...
-              </Button>
+              <Button className="w-full mt-4 cursor-pointer rounded-full py-6 text-lg" disabled>...</Button>
             ) : isAuthenticated ? (
               <>
-                <Link
-                  href="/user-profile"
-                  className="block text-base font-semibold py-3 px-4 rounded-lg hover:bg-muted cursor-pointer text-primary"
-                >
-                  Profile Dashboard
-                </Link>
-
-                {/* Mobile Admin Link */}
+                <Link href="/user-profile" className="block text-base font-semibold py-3 px-4 rounded-lg hover:bg-muted cursor-pointer text-primary">Profile Dashboard</Link>
                 {isModOrAbove && (
-                  <Link
-                    href="/admin"
-                    className="block text-base font-bold py-3 px-4 rounded-lg hover:bg-muted cursor-pointer text-[#007699]"
-                  >
-                    Moderation Dashboard
-                  </Link>
+                  <Link href="/admin" className="block text-base font-bold py-3 px-4 rounded-lg hover:bg-muted cursor-pointer text-[#007699]">Moderation Dashboard</Link>
                 )}
-
-                <Button
-                  className="w-full mt-4 cursor-pointer rounded-full py-6 text-lg"
-                  variant="destructive"
-                  onClick={logout}
-                >
-                  Log Out
-                </Button>
+                <Button className="w-full mt-4 cursor-pointer rounded-full py-6 text-lg" variant="destructive" onClick={logout}>Log Out</Button>
               </>
             ) : (
-              <Button
-                className="w-full mt-4 cursor-pointer rounded-full py-6 text-lg"
-                onClick={() => (window.location.href = "/login")}
-              >
-                Login
-              </Button>
+              <Button className="w-full mt-4 cursor-pointer rounded-full py-6 text-lg" onClick={() => (window.location.href = "/login")}>Login</Button>
             )}
           </div>
         )}
       </header>
 
       <main>
-        {/* 1. Hero Section */}
-        <section className="relative pt-16 pb-24 lg:pt-24 lg:pb-32 overflow-hidden">
+        {/* ═══════════════════════════════════════════════ */}
+        {/* 1. HERO SECTION */}
+        {/* ═══════════════════════════════════════════════ */}
+        <section className="relative pt-12 pb-20 lg:pt-20 lg:pb-28 overflow-hidden">
+          {/* Decorative background elements */}
+          <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-gradient-to-bl from-primary/8 via-secondary/5 to-transparent rounded-full blur-3xl -z-10" />
+          <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-gradient-to-tr from-secondary/8 via-primary/5 to-transparent rounded-full blur-3xl -z-10" />
+
           <div className="container px-6 mx-auto">
-            <div className="grid lg:grid-cols-2 gap-16 items-center">
+            <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
               <motion.div
                 initial={{ opacity: 0, x: -30 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.6, ease: "easeOut" }}
                 className="max-w-2xl"
               >
-                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary font-bold text-sm mb-6 border border-primary/20">
-                  <span className="relative flex h-2 w-2">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+                {/* Live badge */}
+                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-primary/10 to-secondary/10 text-primary font-bold text-sm mb-6 border border-primary/20">
+                  <span className="relative flex h-2.5 w-2.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-500 opacity-75" />
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500" />
                   </span>
-                  Join 10,000+ Pet Lovers
+                  <span className="text-foreground/80">Pet lovers are chatting right now — jump in!</span>
                 </div>
-                <h1 className="text-5xl lg:text-7xl font-extrabold font-heading leading-tight mb-8 tracking-tight text-foreground">
-                  Where Pets Find Their{" "}
-                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-secondary">
-                    People
+
+                <h1 className="text-4xl sm:text-5xl lg:text-7xl font-extrabold font-heading leading-[1.1] mb-6 tracking-tight text-foreground">
+                  Your Pet's Community{" "}
+                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary via-[#009bb8] to-secondary">
+                    Starts Here
                   </span>
                 </h1>
-                <p className="text-lg lg:text-xl text-muted-foreground mb-10 leading-relaxed font-medium">
-                  A safe, friendly community built around trust and care.
-                  Connect with other owners, share stories, and find the support
-                  you need.
+
+                <p className="text-lg lg:text-xl text-muted-foreground mb-8 leading-relaxed font-medium max-w-xl">
+                  Join thousands of passionate pet owners sharing advice, swapping stories, and forming real friendships — organized by pet type, breed, and your own neighbourhood.
                 </p>
-                <div className="flex flex-col sm:flex-row gap-4">
+
+                <div className="flex flex-col sm:flex-row gap-4 mb-10">
                   {isAuthenticated ? (
                     <Link href="/chat">
                       <Button
                         size="lg"
-                        className="text-lg px-8 py-7 rounded-full shadow-xl shadow-primary/20 hover:shadow-2xl hover:shadow-primary/30 transition-all cursor-pointer"
+                        className="text-lg px-8 py-7 rounded-full shadow-xl shadow-primary/20 hover:shadow-2xl hover:shadow-primary/30 hover:scale-[1.02] transition-all cursor-pointer group"
                       >
-                        Go to Chat Rooms
-                        <ArrowRight className="ml-2 h-5 w-5" />
+                        Enter Chat Rooms
+                        <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
                       </Button>
                     </Link>
                   ) : (
                     <Button
                       size="lg"
-                      className="text-lg px-8 py-7 rounded-full shadow-xl shadow-primary/20 hover:shadow-2xl hover:shadow-primary/30 transition-all cursor-pointer"
-                      onClick={() => (window.location.href = "/api/login")}
+                      className="text-lg px-8 py-7 rounded-full shadow-xl shadow-primary/20 hover:shadow-2xl hover:shadow-primary/30 hover:scale-[1.02] transition-all cursor-pointer group"
+                      onClick={() => (window.location.href = "/signup")}
                     >
-                      Join the Community
-                      <ArrowRight className="ml-2 h-5 w-5" />
+                      <Sparkles className="mr-2 h-5 w-5" />
+                      Create Your Free Account
+                      <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
                     </Button>
                   )}
-                  <Button
-                    variant="outline"
-                    size="lg"
-                    className="text-lg px-8 py-7 rounded-full border-2 hover:bg-muted transition-all cursor-pointer"
-                  >
-                    Learn More
-                  </Button>
+                  <Link href="/community-guidelines">
+                    <Button
+                      variant="outline"
+                      size="lg"
+                      className="text-lg px-8 py-7 rounded-full border-2 hover:bg-muted transition-all cursor-pointer"
+                    >
+                      Community Guidelines
+                    </Button>
+                  </Link>
+                </div>
+
+                {/* Scrolling pet avatars */}
+                <div className="flex items-center gap-4">
+                  <div className="flex -space-x-3">
+                    {PET_AVATARS.slice(0, 5).map((pet, i) => (
+                      <motion.div
+                        key={pet.name}
+                        initial={{ scale: 0, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        transition={{ delay: 0.6 + i * 0.1 }}
+                        className="h-11 w-11 rounded-full border-[3px] border-background overflow-hidden shadow-sm"
+                      >
+                        <img src={pet.image} alt={pet.name} className="w-full h-full object-cover" />
+                      </motion.div>
+                    ))}
+                    <motion.div
+                      initial={{ scale: 0, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      transition={{ delay: 1.1 }}
+                      className="h-11 w-11 rounded-full border-[3px] border-background bg-primary flex items-center justify-center shadow-sm"
+                    >
+                      <span className="text-white text-xs font-bold">+4</span>
+                    </motion.div>
+                  </div>
+                  <div className="text-sm">
+                    <p className="font-bold text-foreground">9 pet categories</p>
+                    <p className="text-muted-foreground">Dogs, cats, birds & more</p>
+                  </div>
                 </div>
               </motion.div>
+
+              {/* Hero image */}
               <motion.div
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ duration: 0.8, delay: 0.1 }}
-                className="relative"
+                className="relative hidden lg:block"
               >
                 <div className="relative rounded-[2.5rem] overflow-hidden shadow-2xl ring-8 ring-background aspect-[4/3] group">
                   <img
@@ -346,379 +357,561 @@ export default function Home() {
                     alt="Happy people with pets in a park"
                     className="object-cover w-full h-full transform transition-transform duration-700 group-hover:scale-105"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-tr from-black/40 via-transparent to-transparent"></div>
+                  <div className="absolute inset-0 bg-gradient-to-tr from-black/40 via-transparent to-transparent" />
 
-                  {/* Floating Card */}
+                  {/* Floating engagement card */}
                   <motion.div
                     initial={{ y: 20, opacity: 0 }}
                     animate={{ y: 0, opacity: 1 }}
-                    transition={{ delay: 0.6 }}
-                    className="absolute bottom-6 left-6 right-6 bg-background/95 backdrop-blur p-4 rounded-2xl shadow-lg border border-border/50 hidden sm:block"
+                    transition={{ delay: 0.8, type: "spring", stiffness: 60 }}
+                    className="absolute bottom-6 left-6 right-6 bg-background/95 backdrop-blur-sm p-4 rounded-2xl shadow-lg border border-border/50"
                   >
                     <div className="flex items-center gap-4">
                       <div className="flex -space-x-3">
                         {[1, 2, 3, 4].map((i) => (
-                          <div
-                            key={i}
-                            className="h-10 w-10 rounded-full bg-muted border-2 border-background flex items-center justify-center text-xs font-bold text-muted-foreground overflow-hidden"
-                          >
-                            <img
-                              src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${i}`}
-                              alt="Avatar"
-                            />
+                          <div key={i} className="h-10 w-10 rounded-full bg-muted border-2 border-background overflow-hidden">
+                            <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${i + 10}`} alt="Avatar" />
                           </div>
                         ))}
                       </div>
                       <div className="text-sm">
-                        <p className="font-bold text-foreground">
-                          Active Community
+                        <p className="font-bold text-foreground flex items-center gap-1.5">
+                          <span className="inline-block w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                          Active Right Now
                         </p>
-                        <p className="text-muted-foreground">
-                          Join local meetups today
-                        </p>
+                        <p className="text-muted-foreground">Chatting about puppies in Global Room</p>
                       </div>
                     </div>
                   </motion.div>
                 </div>
 
-                {/* Decorative blob */}
-                <div className="absolute -z-10 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[110%] h-[110%] bg-gradient-to-tr from-primary/20 to-secondary/20 rounded-full blur-3xl opacity-60"></div>
+                {/* Floating notification bubble - top right */}
+                <motion.div
+                  initial={{ x: 40, opacity: 0 }}
+                  animate={{ x: 0, opacity: 1 }}
+                  transition={{ delay: 1.2, type: "spring" }}
+                  className="absolute -top-4 -right-4 bg-secondary text-white px-4 py-2.5 rounded-2xl rounded-br-md shadow-lg text-sm font-bold"
+                >
+                  <span className="flex items-center gap-1.5">🐾 New message in Dog Room!</span>
+                </motion.div>
+
+                {/* Background glow */}
+                <div className="absolute -z-10 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[110%] h-[110%] bg-gradient-to-tr from-primary/15 to-secondary/15 rounded-full blur-3xl opacity-60" />
               </motion.div>
             </div>
           </div>
         </section>
 
-        {/* 2. What Is ScrollPet? */}
-        <section className="py-24 bg-muted/40 relative">
-          <div className="absolute top-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-border to-transparent"></div>
-          <div className="container px-6 mx-auto">
-            <div className="grid lg:grid-cols-2 gap-20 items-center">
-              <div className="order-2 lg:order-1 relative">
-                <div className="absolute -z-10 inset-4 bg-secondary/20 rounded-full blur-3xl"></div>
-                <img
-                  src={introImage}
-                  alt="Pet chat concept"
-                  className="w-full max-w-lg mx-auto drop-shadow-2xl rounded-2xl"
-                />
-              </div>
-              <div className="order-1 lg:order-2">
-                <span className="inline-block px-4 py-1.5 rounded-full bg-secondary text-white font-bold text-xs uppercase tracking-wider mb-6 shadow-lg shadow-secondary/20">
-                  Our Mission
-                </span>
-                <h2 className="text-4xl lg:text-5xl font-extrabold mb-8 tracking-tight">
-                  What is <span className="text-primary">ScrollPet</span>?
-                </h2>
-                <p className="text-xl text-muted-foreground mb-8 leading-relaxed font-medium">
-                  ScrollPet isn't just another social network. It's a
-                  purpose-built haven for pet owners who value meaningful
-                  connections over mindless scrolling.
-                </p>
-                <div className="space-y-6">
-                  {[
-                    {
-                      title: "Connect by Category",
-                      desc: "Find your tribe based on pet type, breed, or interest.",
-                    },
-                    {
-                      title: "Respectful Discussion",
-                      desc: "A moderated space where kindness comes first.",
-                    },
-                    {
-                      title: "Trusted Information",
-                      desc: "Learn from experienced owners and verified experts.",
-                    },
-                  ].map((item, i) => (
-                    <div key={i} className="flex gap-4 group">
-                      <div className="h-12 w-12 rounded-2xl bg-white border border-border shadow-sm flex items-center justify-center text-primary shrink-0 group-hover:bg-primary group-hover:text-white transition-colors duration-300">
-                        <Heart
-                          size={20}
-                          fill="currentColor"
-                          className="opacity-80"
-                        />
-                      </div>
-                      <div>
-                        <h3 className="font-bold text-lg mb-1">{item.title}</h3>
-                        <p className="text-muted-foreground">{item.desc}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
+        {/* ═══════════════════════════════════════════════ */}
+        {/* 2. LIVE STATS BAR */}
+        {/* ═══════════════════════════════════════════════ */}
+        <section className="py-8 bg-gradient-to-r from-primary via-[#008fb3] to-primary relative overflow-hidden">
+          <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-[0.04]" />
+          <div className="container px-6 mx-auto relative z-10">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8 text-center text-white">
+              {[
+                { value: 10000, suffix: "+", label: "Pet Lovers", icon: Users },
+                { value: 9, suffix: "", label: "Pet Categories", icon: PawPrint },
+                { value: 195, suffix: "+", label: "Countries", icon: Globe },
+                { value: 24, suffix: "/7", label: "Moderation", icon: ShieldCheck },
+              ].map((stat, i) => (
+                <motion.div
+                  key={i}
+                  initial={{ y: 20, opacity: 0 }}
+                  whileInView={{ y: 0, opacity: 1 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: i * 0.1 }}
+                  className="flex flex-col items-center gap-1"
+                >
+                  <stat.icon className="w-6 h-6 text-white/70 mb-1" />
+                  <div className="text-2xl md:text-3xl font-extrabold">
+                    <AnimatedCounter end={stat.value} suffix={stat.suffix} />
+                  </div>
+                  <p className="text-white/80 text-sm font-medium">{stat.label}</p>
+                </motion.div>
+              ))}
             </div>
           </div>
         </section>
 
-        {/* 3. How It Works */}
-        <section className="py-32">
+        {/* ═══════════════════════════════════════════════ */}
+        {/* 3. PET CATEGORIES SHOWCASE */}
+        {/* ═══════════════════════════════════════════════ */}
+        <section className="py-20 lg:py-28">
           <div className="container px-6 mx-auto">
-            <div className="text-center max-w-3xl mx-auto mb-20">
-              <h2 className="text-4xl lg:text-5xl font-extrabold mb-6 tracking-tight">
-                How It Works
+            <motion.div
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true }}
+              variants={fadeUp}
+              className="text-center max-w-3xl mx-auto mb-14"
+            >
+              <span className="inline-block px-4 py-1.5 rounded-full bg-secondary/10 text-secondary font-bold text-xs uppercase tracking-wider mb-6 border border-secondary/20">
+                Find Your Tribe
+              </span>
+              <h2 className="text-4xl lg:text-5xl font-extrabold mb-5 tracking-tight">
+                A Room for <span className="text-primary">Every Pet</span>
               </h2>
-              <p className="text-xl text-muted-foreground">
-                Join our thriving community in four simple steps and start
-                connecting immediately.
+              <p className="text-xl text-muted-foreground font-medium">
+                Whether you have a playful pup or a majestic macaw, there's a dedicated community waiting for you. Pick your pet and start chatting.
               </p>
-            </div>
+            </motion.div>
 
             <motion.div
               variants={containerVariants}
               initial="hidden"
               whileInView="visible"
               viewport={{ once: true }}
-              className="grid md:grid-cols-4 gap-8"
+              className="grid grid-cols-3 sm:grid-cols-5 lg:grid-cols-9 gap-4 md:gap-6"
+            >
+              {PET_AVATARS.map((pet, i) => (
+                <motion.div
+                  key={pet.name}
+                  variants={itemVariants}
+                  whileHover={{ y: -8, scale: 1.05 }}
+                  className="flex flex-col items-center gap-3 cursor-pointer group"
+                >
+                  <div className={`w-16 h-16 md:w-20 md:h-20 rounded-full overflow-hidden border-[3px] shadow-md transition-all duration-300 ${
+                    activePetIndex === i
+                      ? "border-secondary ring-4 ring-secondary/20 scale-110"
+                      : "border-border group-hover:border-primary group-hover:ring-4 group-hover:ring-primary/20"
+                  }`}>
+                    <img src={pet.image} alt={pet.name} className="w-full h-full object-cover" />
+                  </div>
+                  <span className="text-xs md:text-sm font-bold text-foreground/80 group-hover:text-primary transition-colors">
+                    {pet.emoji} {pet.name}
+                  </span>
+                </motion.div>
+              ))}
+            </motion.div>
+
+            <motion.div
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true }}
+              variants={fadeUp}
+              className="text-center mt-12"
+            >
+              <Link href={isAuthenticated ? "/chat" : "/signup"}>
+                <Button size="lg" className="rounded-full px-10 py-6 text-lg font-bold shadow-lg shadow-primary/20 hover:shadow-xl hover:scale-[1.02] transition-all cursor-pointer group">
+                  {isAuthenticated ? "Jump Into Chat" : "Sign Up & Start Chatting"}
+                  <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
+                </Button>
+              </Link>
+            </motion.div>
+          </div>
+        </section>
+
+        {/* ═══════════════════════════════════════════════ */}
+        {/* 4. WHAT IS SCROLLPET? */}
+        {/* ═══════════════════════════════════════════════ */}
+        <section className="py-20 lg:py-28 bg-muted/40 relative">
+          <div className="absolute top-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-border to-transparent" />
+          <div className="container px-6 mx-auto">
+            <div className="grid lg:grid-cols-2 gap-16 lg:gap-20 items-center">
+              <div className="order-2 lg:order-1 relative">
+                <div className="absolute -z-10 inset-4 bg-secondary/15 rounded-full blur-3xl" />
+                <img
+                  src={introImage}
+                  alt="Pet chat concept"
+                  className="w-full max-w-lg mx-auto drop-shadow-2xl rounded-2xl"
+                />
+              </div>
+              <motion.div
+                initial="hidden"
+                whileInView="visible"
+                viewport={{ once: true }}
+                variants={containerVariants}
+                className="order-1 lg:order-2"
+              >
+                <motion.span variants={itemVariants} className="inline-block px-4 py-1.5 rounded-full bg-secondary text-white font-bold text-xs uppercase tracking-wider mb-6 shadow-lg shadow-secondary/20">
+                  Why ScrollPet?
+                </motion.span>
+                <motion.h2 variants={itemVariants} className="text-4xl lg:text-5xl font-extrabold mb-6 tracking-tight">
+                  More Than a Chat App —{" "}
+                  <span className="text-primary">It's Home</span>
+                </motion.h2>
+                <motion.p variants={itemVariants} className="text-xl text-muted-foreground mb-10 leading-relaxed font-medium">
+                  ScrollPet is purpose-built for pet lovers who crave genuine connections, not endless feeds. Every feature is designed to help you learn, share, and belong.
+                </motion.p>
+                <div className="space-y-6">
+                  {[
+                    {
+                      icon: PawPrint,
+                      title: "Organized by Pet & Breed",
+                      desc: "Dog owners chat with dog owners. Cat parents connect with cat parents. No noise, just relevance.",
+                    },
+                    {
+                      icon: MapPin,
+                      title: "Local & Global Rooms",
+                      desc: "Find pet owners in your city or go global. Discover local meetups, vets, and walking buddies.",
+                    },
+                    {
+                      icon: Megaphone,
+                      title: "Built-In News Room",
+                      desc: "Stay updated with community announcements, events, and tips from fellow pet enthusiasts.",
+                    },
+                    {
+                      icon: ShieldCheck,
+                      title: "Safe & Moderated",
+                      desc: "Our dedicated mod team keeps things friendly 24/7. Kindness is the rule, not the exception.",
+                    },
+                  ].map((item, i) => (
+                    <motion.div key={i} variants={itemVariants} className="flex gap-4 group">
+                      <div className="h-12 w-12 rounded-2xl bg-white border border-border shadow-sm flex items-center justify-center text-primary shrink-0 group-hover:bg-primary group-hover:text-white transition-colors duration-300">
+                        <item.icon size={20} strokeWidth={2} />
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-lg mb-1">{item.title}</h3>
+                        <p className="text-muted-foreground leading-relaxed">{item.desc}</p>
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+              </motion.div>
+            </div>
+          </div>
+        </section>
+
+        {/* ═══════════════════════════════════════════════ */}
+        {/* 5. HOW IT WORKS */}
+        {/* ═══════════════════════════════════════════════ */}
+        <section className="py-20 lg:py-28">
+          <div className="container px-6 mx-auto">
+            <motion.div
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true }}
+              variants={fadeUp}
+              className="text-center max-w-3xl mx-auto mb-16"
+            >
+              <h2 className="text-4xl lg:text-5xl font-extrabold mb-5 tracking-tight">
+                Ready in <span className="text-secondary">60 Seconds</span>
+              </h2>
+              <p className="text-xl text-muted-foreground font-medium">
+                No forms to fill, no hoops to jump through. Get from sign-up to chatting in four quick steps.
+              </p>
+            </motion.div>
+
+            <motion.div
+              variants={containerVariants}
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true }}
+              className="grid md:grid-cols-4 gap-6 lg:gap-8"
             >
               {[
                 {
-                  icon: Users,
-                  title: "Sign Up",
-                  desc: "Create your free account in seconds",
+                  icon: Zap,
+                  step: "01",
+                  title: "Sign Up Free",
+                  desc: "Create your account with email or social login — takes seconds, costs nothing.",
+                  color: "from-primary to-[#009bb8]",
                 },
                 {
                   icon: PawPrint,
-                  title: "Choose Category",
-                  desc: "Select your pet type or breed",
+                  step: "02",
+                  title: "Pick Your Pet",
+                  desc: "Select your pet category and breed. We'll match you to the right rooms instantly.",
+                  color: "from-[#009bb8] to-secondary",
                 },
                 {
                   icon: MessageCircle,
-                  title: "Join Chat Rooms",
-                  desc: "Enter local or global discussions",
+                  step: "03",
+                  title: "Join a Room",
+                  desc: "Enter your local or global chat room and say hello. Everyone's friendly here!",
+                  color: "from-secondary to-[#ff8833]",
                 },
                 {
                   icon: Heart,
-                  title: "Connect",
-                  desc: "Learn and grow with others",
+                  step: "04",
+                  title: "Make Friends",
+                  desc: "Share stories, ask questions, DM new friends, and grow with the community.",
+                  color: "from-[#ff8833] to-primary",
                 },
               ].map((step, i) => (
                 <motion.div
                   key={i}
                   variants={itemVariants}
-                  className="relative p-8 rounded-3xl bg-card border border-border/50 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 text-center group z-10"
+                  className="relative p-8 rounded-3xl bg-card border border-border/50 shadow-sm hover:shadow-xl hover:-translate-y-2 transition-all duration-300 text-center group z-10 overflow-hidden"
                 >
-                  <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary to-secondary transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left"></div>
-                  <div className="h-20 w-20 mx-auto bg-muted rounded-full flex items-center justify-center text-primary mb-6 group-hover:bg-primary group-hover:text-white transition-colors duration-300">
-                    <step.icon size={36} strokeWidth={1.5} />
+                  <div className={`absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r ${step.color} transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500 origin-left`} />
+                  <div className="text-xs font-extrabold text-primary/40 mb-4 tracking-widest uppercase">{step.step}</div>
+                  <div className="h-16 w-16 mx-auto bg-muted rounded-2xl flex items-center justify-center text-primary mb-5 group-hover:bg-primary group-hover:text-white transition-colors duration-300">
+                    <step.icon size={30} strokeWidth={1.5} />
                   </div>
                   <h3 className="text-xl font-bold mb-3">{step.title}</h3>
-                  <p className="text-muted-foreground leading-relaxed">
-                    {step.desc}
-                  </p>
+                  <p className="text-muted-foreground leading-relaxed text-sm">{step.desc}</p>
                 </motion.div>
               ))}
             </motion.div>
           </div>
         </section>
 
-        {/* 4. Community & Safety */}
-        <section className="py-24 bg-primary relative overflow-hidden text-white">
-          <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
-          <div className="absolute -top-24 -right-24 w-96 h-96 bg-secondary rounded-full blur-3xl opacity-20"></div>
-          <div className="absolute -bottom-24 -left-24 w-96 h-96 bg-secondary rounded-full blur-3xl opacity-20"></div>
+        {/* ═══════════════════════════════════════════════ */}
+        {/* 6. TESTIMONIALS */}
+        {/* ═══════════════════════════════════════════════ */}
+        <section className="py-20 lg:py-28 bg-muted/30 relative">
+          <div className="absolute top-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-border to-transparent" />
+          <div className="container px-6 mx-auto">
+            <motion.div
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true }}
+              variants={fadeUp}
+              className="text-center max-w-3xl mx-auto mb-14"
+            >
+              <span className="inline-block px-4 py-1.5 rounded-full bg-primary/10 text-primary font-bold text-xs uppercase tracking-wider mb-6 border border-primary/20">
+                Loved by Pet Owners
+              </span>
+              <h2 className="text-4xl lg:text-5xl font-extrabold mb-5 tracking-tight">
+                Hear From Our <span className="text-primary">Community</span>
+              </h2>
+              <p className="text-xl text-muted-foreground font-medium">
+                Real stories from real pet lovers who found their people on ScrollPet.
+              </p>
+            </motion.div>
 
-          <div className="container px-6 mx-auto relative z-10">
-            <div className="grid lg:grid-cols-2 gap-12 items-center">
-              <div>
-                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 backdrop-blur border border-white/20 text-white font-bold text-sm mb-6">
-                  <ShieldCheck className="h-4 w-4" />
-                  Safety First
-                </div>
-                <h2 className="text-4xl lg:text-6xl font-extrabold mb-6 tracking-tight">
-                  Safe, Secure, and <br />
-                  Moderated
-                </h2>
-                <p className="text-xl text-primary-foreground/90 max-w-xl mb-10 font-medium">
-                  We take safety seriously. Our community is built on trust,
-                  with tools to ensure respectful interactions for everyone.
-                </p>
-                <Button
-                  size="lg"
-                  variant="secondary"
-                  className="bg-white text-primary hover:bg-white/90 rounded-full px-8 py-6 text-lg font-bold shadow-xl border-none cursor-pointer"
+            <motion.div
+              variants={containerVariants}
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true }}
+              className="grid md:grid-cols-3 gap-6 lg:gap-8"
+            >
+              {TESTIMONIALS.map((t, i) => (
+                <motion.div
+                  key={i}
+                  variants={itemVariants}
+                  className="bg-card p-8 rounded-3xl border border-border/50 shadow-sm hover:shadow-lg transition-all duration-300 group"
                 >
-                  Read Community Guidelines
-                </Button>
-              </div>
-
-              <div className="grid sm:grid-cols-2 gap-4">
-                {[
-                  { title: "Moderated Chat", desc: "24/7 active moderation" },
-                  {
-                    title: "Verified Users",
-                    desc: "Identity verification badges",
-                  },
-                  {
-                    title: "Reporting Tools",
-                    desc: "Easy to use report system",
-                  },
-                  { title: "Safe Content", desc: "Strict anti-spam filters" },
-                ].map((feature, i) => (
-                  <div
-                    key={i}
-                    className="bg-white/10 backdrop-blur-md p-6 rounded-2xl border border-white/10 hover:bg-white/20 transition-colors"
-                  >
-                    <h3 className="font-bold text-xl mb-2">{feature.title}</h3>
-                    <p className="text-white/70">{feature.desc}</p>
+                  <div className="flex gap-1 mb-4">
+                    {Array.from({ length: t.rating }).map((_, j) => (
+                      <Star key={j} className="w-5 h-5 fill-secondary text-secondary" />
+                    ))}
                   </div>
+                  <p className="text-foreground/80 leading-relaxed mb-6 italic">"{t.text}"</p>
+                  <div className="flex items-center gap-3 pt-4 border-t border-border/50">
+                    <div className="h-11 w-11 rounded-full bg-muted border border-border overflow-hidden">
+                      <img
+                        src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${t.avatar}`}
+                        alt={t.name}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                    <div>
+                      <p className="font-bold text-sm">{t.name}</p>
+                      <p className="text-muted-foreground text-xs">{t.pet}</p>
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </motion.div>
+          </div>
+        </section>
+
+        {/* ═══════════════════════════════════════════════ */}
+        {/* 7. SAFETY & COMMUNITY */}
+        {/* ═══════════════════════════════════════════════ */}
+        <section className="py-20 lg:py-28 bg-primary relative overflow-hidden text-white">
+          <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-[0.06]" />
+          <div className="absolute -top-32 -right-32 w-[500px] h-[500px] bg-secondary rounded-full blur-[120px] opacity-15" />
+          <div className="absolute -bottom-32 -left-32 w-[500px] h-[500px] bg-secondary rounded-full blur-[120px] opacity-15" />
+
+          <div className="container px-4 md:px-8 mx-auto relative z-10">
+            <div className="flex flex-col gap-y-8 lg:grid lg:grid-cols-2 lg:gap-16 items-center">
+              <motion.div
+                initial="hidden"
+                whileInView="visible"
+                viewport={{ once: true }}
+                variants={containerVariants}
+                className="w-full px-6 py-4 flex flex-col items-center text-center lg:items-start lg:text-left lg:px-0 lg:py-0"
+              >
+                <motion.div variants={itemVariants} className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 backdrop-blur border border-white/20 text-white font-bold text-sm mb-6">
+                  <ShieldCheck className="h-4 w-4" />
+                  Your Safety is Our Priority
+                </motion.div>
+                <motion.h2 variants={itemVariants} className="text-3xl sm:text-4xl md:text-5xl font-extrabold mb-6 tracking-tight leading-tight w-full">
+                  A Community Built
+                  <br />on <span className="text-secondary">Trust & Respect</span>
+                </motion.h2>
+                <motion.p variants={itemVariants} className="text-sm md:text-base text-primary-foreground/85 max-w-md md:max-w-xl mb-8 font-medium leading-relaxed">
+                  Every conversation is backed by active moderation, clear guidelines, and a zero-tolerance policy for harassment. We're here for the pets — and for each other.
+                </motion.p>
+                <motion.div variants={itemVariants}>
+                  <Link href="/community-guidelines">
+                    <Button
+                      size="lg"
+                      variant="secondary"
+                      className="w-[90%] sm:w-auto bg-white text-primary hover:bg-white/90 rounded-full px-6 py-4 sm:px-8 sm:py-6 text-[15px] sm:text-lg font-bold shadow-xl border-none cursor-pointer hover:scale-[1.02] transition-all flex items-center justify-center group"
+                    >
+                      Read Our Community Guidelines
+                      <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
+                    </Button>
+                  </Link>
+                </motion.div>
+              </motion.div>
+
+              <motion.div
+                variants={containerVariants}
+                initial="hidden"
+                whileInView="visible"
+                viewport={{ once: true }}
+                className="flex flex-col gap-y-6 sm:grid sm:grid-cols-2 sm:gap-4"
+              >
+                {[
+                  { icon: Shield, title: "24/7 Moderation", desc: "Our dedicated team monitors every room around the clock" },
+                  { icon: Users, title: "Verified Members", desc: "Identity verification for a safer, more trusted community" },
+                  { icon: ShieldCheck, title: "Easy Reporting", desc: "One-tap reporting keeps the community clean and kind" },
+                  { icon: Heart, title: "Zero Tolerance", desc: "Harassment, spam and abuse are met with swift action" },
+                ].map((feature, i) => (
+                  <motion.div
+                    key={i}
+                    variants={itemVariants}
+                    className="bg-white/10 backdrop-blur-md p-6 rounded-2xl border border-white/10 hover:bg-white/20 transition-all duration-300 group"
+                  >
+                    <feature.icon className="w-8 h-8 mb-3 text-white/80 group-hover:text-secondary transition-colors" />
+                    <h3 className="font-bold text-lg mb-2">{feature.title}</h3>
+                    <p className="text-white/70 text-sm leading-relaxed">{feature.desc}</p>
+                  </motion.div>
                 ))}
-              </div>
+              </motion.div>
             </div>
           </div>
         </section>
 
-        {/* 5. Footer */}
-        <footer className="bg-gray-950 text-gray-300 py-20 border-t border-gray-900">
+        {/* ═══════════════════════════════════════════════ */}
+        {/* 8. FINAL CTA */}
+        {/* ═══════════════════════════════════════════════ */}
+        <section className="py-20 lg:py-28 relative overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-secondary/5 -z-10" />
           <div className="container px-6 mx-auto">
-            <div className="grid md:grid-cols-12 gap-12 mb-16">
+            <motion.div
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true }}
+              variants={fadeUp}
+              className="max-w-3xl mx-auto text-center"
+            >
+              <div className="text-5xl mb-6">🐕 🐱 🐠 🦜 🐰</div>
+              <h2 className="text-4xl lg:text-5xl font-extrabold mb-6 tracking-tight">
+                Your Pet Deserves a{" "}
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-secondary">
+                  Great Community
+                </span>
+              </h2>
+              <p className="text-xl text-muted-foreground mb-10 font-medium max-w-2xl mx-auto">
+                Stop scrolling alone. Join ScrollPet today and become part of the friendliest, most helpful pet community on the internet. It's free, it's fun, and your furry friend will thank you.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                {isAuthenticated ? (
+                  <Link href="/chat">
+                    <Button size="lg" className="text-lg px-10 py-7 rounded-full shadow-xl shadow-primary/20 hover:shadow-2xl hover:scale-[1.02] transition-all cursor-pointer group">
+                      Enter the Chat Rooms
+                      <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
+                    </Button>
+                  </Link>
+                ) : (
+                  <Button
+                    size="lg"
+                    className="text-lg px-10 py-7 rounded-full shadow-xl shadow-primary/20 hover:shadow-2xl hover:scale-[1.02] transition-all cursor-pointer group"
+                    onClick={() => (window.location.href = "/signup")}
+                  >
+                    <Sparkles className="mr-2 h-5 w-5" />
+                    Join ScrollPet — It's Free
+                    <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
+                  </Button>
+                )}
+              </div>
+            </motion.div>
+          </div>
+        </section>
+
+        {/* ═══════════════════════════════════════════════ */}
+        {/* 9. FOOTER */}
+        {/* ═══════════════════════════════════════════════ */}
+        <footer className="bg-gray-950 text-gray-300 pt-20 pb-10 border-t border-gray-900">
+          <div className="container px-6 mx-auto">
+            <div className="flex flex-col gap-y-10 md:grid md:grid-cols-12 md:gap-12 mb-16">
               <div className="col-span-12 md:col-span-4">
-                <Link
-                  href="/"
-                  className="inline-block mb-6 opacity-90 hover:opacity-100 transition-opacity"
-                >
-                  <img
-                    src={logoImage}
-                    alt="ScrollPet Logo"
-                    className="h-10 w-auto object-contain brightness-0 invert opacity-90"
-                  />
+                <Link href="/" className="inline-block mb-6 opacity-90 hover:opacity-100 transition-opacity">
+                  <img src={logoImage} alt="ScrollPet Logo" className="h-10 w-auto object-contain brightness-0 invert opacity-90" />
                 </Link>
                 <p className="text-gray-400 mb-6 leading-relaxed">
-                  Connecting pet lovers worldwide in a safe, trusted
-                  environment. Join us in building the most positive pet
-                  community on the internet.
+                  Connecting pet lovers worldwide in a safe, trusted environment. Join us in building the most positive pet community on the internet.
                 </p>
-                <div className="flex gap-4">
-                  {/* Social placeholders */}
-                  {[1, 2, 3].map((i) => (
-                    <div
-                      key={i}
-                      className="h-10 w-10 rounded-full bg-gray-900 flex items-center justify-center hover:bg-primary hover:text-white transition-colors cursor-pointer"
-                    >
-                      <div className="w-5 h-5 bg-current rounded-sm opacity-50"></div>
-                    </div>
-                  ))}
+                <div className="flex gap-3">
+                  {/* Social Icons */}
+                  <a
+                    href="https://www.instagram.com/scrollpet.com_/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="h-10 w-10 rounded-full bg-gray-900 flex items-center justify-center hover:bg-gradient-to-tr hover:from-[#f09433] hover:via-[#dc2743] hover:to-[#bc1888] transition-all cursor-pointer group"
+                    aria-label="Instagram"
+                  >
+                    <svg className="w-5 h-5 text-gray-400 group-hover:text-white transition-colors" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
+                    </svg>
+                  </a>
+                  <a
+                    href="https://x.com/Scrollpets"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="h-10 w-10 rounded-full bg-gray-900 flex items-center justify-center hover:bg-black transition-colors cursor-pointer group"
+                    aria-label="X (Twitter)"
+                  >
+                    <svg className="w-5 h-5 text-gray-400 group-hover:text-white transition-colors" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+                    </svg>
+                  </a>
+                  <a
+                    href="https://www.linkedin.com/company/scrollpet/?viewAsMember=true"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="h-10 w-10 rounded-full bg-gray-900 flex items-center justify-center hover:bg-[#0A66C2] transition-colors cursor-pointer group"
+                    aria-label="LinkedIn"
+                  >
+                    <svg className="w-5 h-5 text-gray-400 group-hover:text-white transition-colors" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/>
+                    </svg>
+                  </a>
                 </div>
               </div>
 
               <div className="col-span-6 md:col-span-2 md:col-start-6">
                 <h4 className="font-bold text-white mb-6 text-lg">Platform</h4>
                 <ul className="space-y-3">
-                  <li>
-                    <Link
-                      href="/"
-                      className="hover:text-primary transition-colors cursor-pointer"
-                    >
-                      Home
-                    </Link>
-                  </li>
-                  <li>
-                    <Link
-                      href="/chat"
-                      className="hover:text-primary transition-colors cursor-pointer"
-                    >
-                      Chat Rooms
-                    </Link>
-                  </li>
-                  <li>
-                    <Link
-                      href="/login"
-                      className="hover:text-primary transition-colors cursor-pointer"
-                    >
-                      Login
-                    </Link>
-                  </li>
-                  <li>
-                    <Link
-                      href="/signup"
-                      className="hover:text-primary transition-colors cursor-pointer"
-                    >
-                      Sign Up
-                    </Link>
-                  </li>
+                  <li><Link href="/" className="hover:text-primary transition-colors cursor-pointer">Home</Link></li>
+                  <li><Link href="/chat" className="hover:text-primary transition-colors cursor-pointer">Chat Rooms</Link></li>
+                  <li><Link href="/login" className="hover:text-primary transition-colors cursor-pointer">Login</Link></li>
+                  <li><Link href="/signup" className="hover:text-primary transition-colors cursor-pointer">Sign Up</Link></li>
                 </ul>
               </div>
 
               <div className="col-span-6 md:col-span-2">
                 <h4 className="font-bold text-white mb-6 text-lg">Company</h4>
                 <ul className="space-y-3">
-                  <li>
-                    <Link
-                      href="/about"
-                      className="hover:text-primary transition-colors cursor-pointer"
-                    >
-                      About Us
-                    </Link>
-                  </li>
-                  <li>
-                    <Link
-                      href="/contact"
-                      className="hover:text-primary transition-colors cursor-pointer"
-                    >
-                      Contact Us
-                    </Link>
-                  </li>
-                  <li>
-                    <Link
-                      href="/careers"
-                      className="hover:text-primary transition-colors cursor-pointer"
-                    >
-                      Careers
-                    </Link>
-                  </li>
-                  <li>
-                    <Link
-                      href="/press"
-                      className="hover:text-primary transition-colors cursor-pointer"
-                    >
-                      Press
-                    </Link>
-                  </li>
+                  <li><Link href="/about" className="hover:text-primary transition-colors cursor-pointer">About Us</Link></li>
+                  <li><Link href="/contact" className="hover:text-primary transition-colors cursor-pointer">Contact Us</Link></li>
+                  <li><Link href="/faq" className="hover:text-primary transition-colors cursor-pointer">FAQ</Link></li>
                 </ul>
               </div>
 
               <div className="col-span-6 md:col-span-2">
                 <h4 className="font-bold text-white mb-6 text-lg">Legal</h4>
                 <ul className="space-y-3">
-                  <li>
-                    <Link
-                      href="/privacy"
-                      className="hover:text-primary transition-colors cursor-pointer"
-                    >
-                      Privacy Policy
-                    </Link>
-                  </li>
-                  <li>
-                    <Link
-                      href="/terms"
-                      className="hover:text-primary transition-colors cursor-pointer"
-                    >
-                      Terms of Service
-                    </Link>
-                  </li>
-                  <li>
-                    <Link
-                      href="/cookies"
-                      className="hover:text-primary transition-colors cursor-pointer"
-                    >
-                      Cookie Policy
-                    </Link>
-                  </li>
-                  <li>
-                    <Link
-                      href="/community-guidelines"
-                      className="hover:text-primary transition-colors cursor-pointer"
-                    >
-                      Community Guidelines
-                    </Link>
-                  </li>
+                  <li><Link href="/privacy" className="hover:text-primary transition-colors cursor-pointer">Privacy Policy</Link></li>
+                  <li><Link href="/terms" className="hover:text-primary transition-colors cursor-pointer">Terms of Service</Link></li>
+                  <li><Link href="/cookies" className="hover:text-primary transition-colors cursor-pointer">Cookie Policy</Link></li>
+                  <li><Link href="/community-guidelines" className="hover:text-primary transition-colors cursor-pointer">Community Guidelines</Link></li>
                 </ul>
               </div>
             </div>
 
             <div className="pt-8 border-t border-gray-900 flex flex-col md:flex-row items-center justify-between text-sm text-gray-500 gap-4">
-              <div>
-                © {new Date().getFullYear()} ScrollPet. All rights reserved.
-              </div>
+              <div>© {new Date().getFullYear()} ScrollPet. All rights reserved.</div>
               <div className="flex gap-8">
-                <span>Built for pet lovers 🐾</span>
+                <span>Made with ❤️ for pet lovers everywhere 🐾</span>
               </div>
             </div>
           </div>
