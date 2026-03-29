@@ -703,7 +703,7 @@ export default function ChatInterface() {
           content ||
           (messageType === "audio" ? "🎤 Voice message" : "📎 Media"),
         message_type: messageType,
-        mediaUrl: mediaUrl,
+        media_url: mediaUrl,
         media_duration: mediaDuration || null,
         receiver_id: activeDmUser ? activeDmUser.id : null,
       };
@@ -715,8 +715,10 @@ export default function ChatInterface() {
       if (error) throw error;
       return true;
     } catch (error: any) {
+      console.error("Message send error:", error);
       toast({
-        description: `System Error processing message.`,
+        title: "Error Sending Message",
+        description: error?.message || "System Error processing message.",
         variant: "destructive",
       });
       return false;
