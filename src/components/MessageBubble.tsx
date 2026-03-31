@@ -304,14 +304,22 @@ export function MessageBubble({
                   Report User
                 </DropdownMenuItem>
 
-                {/* Direct Ban option for Admins/Mods */}
+                {/* Direct Ban/Delete option for Admins/Mods */}
                 {isModOrAbove && (
-                  <DropdownMenuItem
-                    className="cursor-pointer text-red-700 font-bold hover:bg-red-100 focus:bg-red-200 px-3 py-2 border-t border-red-100 mt-1"
-                    onClick={onBanClick}
-                  >
-                    <Ban className="w-4 h-4 mr-2" /> Ban User
-                  </DropdownMenuItem>
+                  <>
+                    <DropdownMenuItem
+                      className="cursor-pointer text-red-700 font-bold hover:bg-red-100 focus:bg-red-200 px-3 py-2 border-t border-red-100 mt-1"
+                      onClick={() => onDeleteClick?.(message.id)}
+                    >
+                      <Trash2 className="w-4 h-4 mr-2" /> Delete Message
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      className="cursor-pointer text-red-700 font-bold hover:bg-red-100 focus:bg-red-200 px-3 py-2 mt-1"
+                      onClick={onBanClick}
+                    >
+                      <Ban className="w-4 h-4 mr-2" /> Ban User
+                    </DropdownMenuItem>
+                  </>
                 )}
               </DropdownMenuContent>
             </DropdownMenu>

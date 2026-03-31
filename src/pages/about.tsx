@@ -171,7 +171,14 @@ export default function AboutUs() {
                                 <DropdownMenuTrigger asChild>
                                     <button className="h-10 w-10 rounded-full border border-border bg-muted flex items-center justify-center overflow-hidden hover:ring-2 hover:ring-primary/50 transition-all cursor-pointer">
                                         {user?.id
-                                            ? <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user.id}`} alt="Avatar" className="h-full w-full object-cover" />
+                                            ? <img 
+                                                src={user?.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.id}`} 
+                                                alt="Avatar" 
+                                                className="h-full w-full object-cover" 
+                                                onError={(e) => {
+                                                  e.currentTarget.src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.id}`;
+                                                }}
+                                              />
                                             : <User className="h-5 w-5 text-muted-foreground" />}
                                     </button>
                                 </DropdownMenuTrigger>

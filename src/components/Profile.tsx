@@ -6,7 +6,7 @@ import {
   Cat,
   Bird,
   MapPin,
-  Calendar,
+  Calendar as CalendarIcon,
   Sparkles,
   Heart,
   ArrowLeft,
@@ -14,6 +14,9 @@ import {
   Image as ImageIcon,
   Video as VideoIcon,
 } from "lucide-react";
+
+import { format } from "date-fns";
+import { cn } from "@/lib/utils";
 
 import {
   Card,
@@ -158,7 +161,9 @@ export default function Profile({ onClose }: ProfileProps) {
   const [category, setCategory] = useState("");
   const [breed, setBreed] = useState("");
   const [gender, setGender] = useState("");
-  const [dob, setDob] = useState("");
+  const [birthDay, setBirthDay] = useState("");
+  const [birthMonth, setBirthMonth] = useState("");
+  const [birthYear, setBirthYear] = useState("");
   const [location, setLocation] = useState("");
 
   // Media States
@@ -219,7 +224,7 @@ export default function Profile({ onClose }: ProfileProps) {
       return;
     }
 
-    if (!petName || !category || !breed || !gender || !dob || !location) {
+    if (!petName || !category || !breed || !gender || !birthDay || !birthMonth || !birthYear || !location) {
       setError("Please fill out all required text fields.");
       return;
     }
@@ -251,7 +256,7 @@ export default function Profile({ onClose }: ProfileProps) {
         type: category,
         breed: breed,
         gender: gender,
-        dob: dob,
+        dob: `${birthYear}-${birthMonth}-${birthDay}`,
         location: location,
         image_url: profileUrl,
         showcase_image_1: showcase1,
@@ -461,17 +466,46 @@ export default function Profile({ onClose }: ProfileProps) {
               className="space-y-2"
             >
               <Label htmlFor="dob" className="flex items-center gap-1.5">
-                <Calendar className="h-3.5 w-3.5 text-[#007699]" /> Date of
+                <CalendarIcon className="h-3.5 w-3.5 text-[#007699]" /> Date of
                 Birth
               </Label>
-              <Input
-                id="dob"
-                type="date"
-                value={dob}
-                onChange={(e) => setDob(e.target.value)}
-                className="h-10 bg-gray-50"
-                max={new Date().toISOString().split("T")[0]}
-              />
+              <div className="flex gap-2 w-full">
+                <select
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  value={birthDay}
+                  onChange={(e) => setBirthDay(e.target.value)}
+                >
+                  <option value="" disabled>Day</option>
+                  {Array.from({ length: 31 }, (_, i) => String(i + 1).padStart(2, '0')).map(d => (
+                    <option key={d} value={d}>{d}</option>
+                  ))}
+                </select>
+                <select
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  value={birthMonth}
+                  onChange={(e) => setBirthMonth(e.target.value)}
+                >
+                  <option value="" disabled>Month</option>
+                  {[
+                    { value: '01', label: 'Jan' }, { value: '02', label: 'Feb' }, { value: '03', label: 'Mar' },
+                    { value: '04', label: 'Apr' }, { value: '05', label: 'May' }, { value: '06', label: 'Jun' },
+                    { value: '07', label: 'Jul' }, { value: '08', label: 'Aug' }, { value: '09', label: 'Sep' },
+                    { value: '10', label: 'Oct' }, { value: '11', label: 'Nov' }, { value: '12', label: 'Dec' }
+                  ].map(m => (
+                    <option key={m.value} value={m.value}>{m.label}</option>
+                  ))}
+                </select>
+                <select
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  value={birthYear}
+                  onChange={(e) => setBirthYear(e.target.value)}
+                >
+                  <option value="" disabled>Year</option>
+                  {Array.from({ length: new Date().getFullYear() - 1980 + 1 }, (_, i) => String(new Date().getFullYear() - i)).map(y => (
+                    <option key={y} value={y}>{y}</option>
+                  ))}
+                </select>
+              </div>
             </motion.div>
           </div>
 

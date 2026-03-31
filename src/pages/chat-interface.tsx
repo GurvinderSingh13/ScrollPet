@@ -63,6 +63,8 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
+import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 
 import dogImg from "@assets/stock_images/happy_dog_portrait_o_6e5075a4.jpg";
 import catImg from "@assets/stock_images/ginger_cat_sitting_f_07d19cb3.jpg";
@@ -133,14 +135,19 @@ const PawIcon = ({ className }: { className?: string }) => (
 );
 
 export default function ChatInterface() {
-  const [activePet, setActivePet] = useState("dog");
-  const [activeBreed, setActiveBreed] = useState<string | null>(null);
-  const [activeLocation, setActiveLocation] = useState("global");
-  const [activeDistrict, setActiveDistrict] = useState<string | null>(null);
+  const [activePet, setActivePet] = useState(() => sessionStorage.getItem("activePet") || "dog");
+  const [activeBreed, setActiveBreed] = useState<string | null>(() => sessionStorage.getItem("activeBreed") || null);
+  const [activeLocation, setActiveLocation] = useState(() => sessionStorage.getItem("activeLocation") || "global");
+  const [activeDistrict, setActiveDistrict] = useState<string | null>(() => sessionStorage.getItem("activeDistrict") || null);
   const [activeDmUser, setActiveDmUser] = useState<{
     id: string;
     name: string;
   } | null>(null);
+
+  useEffect(() => { sessionStorage.setItem("activePet", activePet); }, [activePet]);
+  useEffect(() => { if (activeBreed) sessionStorage.setItem("activeBreed", activeBreed); else sessionStorage.removeItem("activeBreed"); }, [activeBreed]);
+  useEffect(() => { sessionStorage.setItem("activeLocation", activeLocation); }, [activeLocation]);
+  useEffect(() => { if (activeDistrict) sessionStorage.setItem("activeDistrict", activeDistrict); else sessionStorage.removeItem("activeDistrict"); }, [activeDistrict]);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { user, isLoading: authLoading, isAuthenticated, logout } = useAuth();
   const [, setLocation] = useLocation();
@@ -167,6 +174,8 @@ export default function ChatInterface() {
   const [banDuration, setBanDuration] = useState("24h");
   const [banScope, setBanScope] = useState("global");
   const [isProcessingBan, setIsProcessingBan] = useState(false);
+  const [shouldDeleteMessages, setShouldDeleteMessages] = useState(false);
+  const [selectedBanRooms, setSelectedBanRooms] = useState<Array<{location: string, petType: string, breed: string | null}>>([]);
 
   const [isNewsRoom, setIsNewsRoom] = useState(false);
   const [announcements, setAnnouncements] = useState<any[]>([]);
@@ -272,6 +281,9 @@ export default function ChatInterface() {
   useEffect(() => {
     const tLoc = sessionStorage.getItem("teleport_location");
     const tPet = sessionStorage.getItem("teleport_pet");
+    const tDmId = sessionStorage.getItem("teleport_dm_user_id");
+    const tDmName = sessionStorage.getItem("teleport_dm_user_name");
+
     if (tLoc) {
       if (tPet) setActivePet(tPet);
       if (tLoc === "global" || tLoc === "staff_lounge") {
@@ -297,16 +309,35 @@ export default function ChatInterface() {
       sessionStorage.removeItem("teleport_pet");
       setSidebarView("public");
       setMobileView("chat");
+    } else if (tDmId && tDmName) {
+      // Auto-load direct message routing
+      setActiveDmUser({ id: tDmId, name: tDmName });
+      setIsNewsRoom(false);
+      setSidebarView("private");
+      setMobileView("chat");
+      sessionStorage.removeItem("teleport_dm_user_id");
+      sessionStorage.removeItem("teleport_dm_user_name");
     }
   }, []);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, announcements]);
+  const isFirstPetRender = useRef(true);
   useEffect(() => {
+    if (isFirstPetRender.current) {
+      isFirstPetRender.current = false;
+      return;
+    }
     setActiveBreed(null);
   }, [activePet]);
+
+  const isFirstLocRender = useRef(true);
   useEffect(() => {
+    if (isFirstLocRender.current) {
+      isFirstLocRender.current = false;
+      return;
+    }
     setActiveDistrict(null);
   }, [activeLocation]);
 
@@ -553,19 +584,19 @@ export default function ChatInterface() {
   // --- NEW DELETE MESSAGE FUNCTION ---
   const handleDeleteMessage = async (messageId: string) => {
     try {
-      const { error } = await supabase
-        .from("messages")
-        .delete()
-        .eq("id", messageId)
-        .eq("user_id", userId); // Security check
+      let query = supabase.from("messages").delete().eq("id", messageId);
+      if (!isModOrAbove) {
+        query = query.eq("user_id", userId); // Security check
+      }
+      const { error } = await query;
 
       if (error) throw error;
 
       // Remove from screen
       setMessages((prev) => prev.filter((msg) => msg.id !== messageId));
-      toast({ description: "Message unsent." });
+      toast({ description: isModOrAbove ? "Message deleted." : "Message unsent." });
     } catch (err: any) {
-      toast({ description: "Could not unsend message.", variant: "destructive" });
+      toast({ description: "Could not delete message.", variant: "destructive" });
     }
   };
   // -----------------------------------
@@ -711,8 +742,48 @@ export default function ChatInterface() {
       if (activeBreed && !activeDmUser && chatRoomLocation !== "staff_lounge")
         insertData.breed = activeBreed;
 
-      const { error } = await supabase.from("messages").insert(insertData);
+      const { data: insertedMsg, error } = await supabase.from("messages").insert(insertData).select(`*, users:users!user_id(id, username, display_name, state, country, role)`).single();
       if (error) throw error;
+      
+      if (insertedMsg) {
+        const userData = insertedMsg.users || insertedMsg.users_messages_user_id_fkey;
+        const formattedMsg = {
+          id: insertedMsg.id,
+          userId: insertedMsg.user_id,
+          petType: insertedMsg.pet_type,
+          location: insertedMsg.location,
+          content: insertedMsg.content,
+          messageType: insertedMsg.message_type,
+          mediaUrl: insertedMsg.media_url,
+          mediaDuration: insertedMsg.media_duration,
+          createdAt: insertedMsg.created_at,
+          receiverId: insertedMsg.receiver_id,
+          user: userData
+            ? {
+              id: userData.id,
+              username: userData.username || "",
+              displayName: userData.display_name || userData.username || "",
+              state: userData.state || "",
+              country: userData.country || "",
+              role: userData.role || "user",
+            }
+            : {
+              id: insertedMsg.user_id,
+              username: displayName,
+              displayName: displayName,
+              state: "",
+              country: "",
+              role: userRole,
+            },
+        };
+        // Optimistic UI update
+        // Check if the message is already added via websocket to prevent duplicates
+        setMessages((prev) => {
+          if (prev.some(m => m.id === formattedMsg.id)) return prev;
+          return [...prev, formattedMsg];
+        });
+      }
+
       return true;
     } catch (error: any) {
       console.error("Message send error:", error);
@@ -738,6 +809,8 @@ export default function ChatInterface() {
       return;
     }
     setUserToBan(targetUser);
+    setSelectedBanRooms([{ location: chatRoomLocation, petType: activePet, breed: activeBreed || null }]);
+    setShouldDeleteMessages(false);
     setIsBanModalOpen(true);
   };
 
@@ -758,21 +831,45 @@ export default function ChatInterface() {
         expiresAt = now.toISOString();
       }
 
-      const insertPayload: any = {
-        user_id: userToBan.id,
-        banned_by: user.id,
-        reason: `Direct ban issued from Chat Room by Moderation.`,
-        expires_at: expiresAt,
-      };
-
-      if (banScope === "room") {
-        insertPayload.target_location = chatRoomLocation;
-        insertPayload.target_pet = activePet;
-        insertPayload.target_breed = activeBreed || null;
+      if (banScope === "room" && selectedBanRooms.length > 0) {
+        for (const room of selectedBanRooms) {
+          const insertPayload: any = {
+            user_id: userToBan.id,
+            banned_by: user.id,
+            reason: `Direct ban issued from Chat Room by Moderation.`,
+            expires_at: expiresAt,
+            target_location: room.location,
+            target_pet: room.petType,
+            target_breed: room.breed || null,
+          };
+          const { error: banError } = await supabase.from("bans").insert(insertPayload);
+          if (banError) throw banError;
+        }
+      } else {
+        const insertPayload: any = {
+           user_id: userToBan.id,
+           banned_by: user.id,
+           reason: `Direct ban issued from Chat Room by Moderation.`,
+           expires_at: expiresAt,
+        };
+        const { error: banError } = await supabase.from("bans").insert(insertPayload);
+        if (banError) throw banError;
       }
 
-      const { error: banError } = await supabase.from("bans").insert(insertPayload);
-      if (banError) throw banError;
+      if (shouldDeleteMessages) {
+        if (banScope === "global") {
+          await supabase.from("messages").delete().eq("user_id", userToBan.id);
+          setMessages((prev) => prev.filter((m) => m.userId !== userToBan?.id));
+        } else {
+          for (const room of selectedBanRooms) {
+             let query = supabase.from("messages").delete().eq("user_id", userToBan.id)
+                .eq("location", room.location).eq("pet_type", room.petType);
+             if (room.breed) query = query.eq("breed", room.breed);
+             await query;
+          }
+          setMessages((prev) => prev.filter((m) => m.userId !== userToBan?.id));
+        }
+      }
       toast({ description: `Ban issued successfully for ${banDuration}.` });
       setIsBanModalOpen(false);
       setUserToBan(null);
@@ -864,9 +961,12 @@ export default function ChatInterface() {
                     <button className="h-10 w-10 rounded-full border border-border bg-muted flex items-center justify-center overflow-hidden hover:ring-2 hover:ring-primary/50 transition-all cursor-pointer">
                       {user?.id ? (
                         <img
-                          src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.id}`}
+                          src={user?.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.id}`}
                           alt="User"
                           className="h-full w-full object-cover"
+                          onError={(e) => {
+                            e.currentTarget.src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.id}`;
+                          }}
                         />
                       ) : (
                         <User className="h-5 w-5 text-muted-foreground" />
@@ -1412,10 +1512,33 @@ export default function ChatInterface() {
 
               <div
                 className={cn(
-                  "flex-1 overflow-y-auto p-4 space-y-6 pt-6 scroll-smooth",
+                  "flex-1 overflow-y-auto p-4 space-y-6 pt-6 scroll-smooth relative",
                   isNewsRoom && "bg-amber-50/30",
                 )}
               >
+                {/* --- DYNAMIC WATERMARK --- */}
+                <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden flex flex-col items-center">
+                  <div className="sticky top-1/2 -translate-y-1/2 flex flex-col items-center justify-center w-full text-center uppercase tracking-widest font-extrabold text-gray-200 select-none opacity-40">
+                    {chatRoomLocation === "global" && !isNewsRoom ? (
+                      <span className="text-4xl md:text-7xl">Global Chat</span>
+                    ) : isNewsRoom ? (
+                      <span className="text-4xl md:text-7xl text-amber-200">News Room</span>
+                    ) : activeDmUser ? (
+                      <span className="text-4xl md:text-7xl">Direct Message</span>
+                    ) : chatRoomLocation === "staff_lounge" ? (
+                      <span className="text-4xl md:text-7xl">Staff Lounge</span>
+                    ) : (
+                      <>
+                        <span className="text-2xl md:text-4xl opacity-80">{activePetData?.name || activePet}</span>
+                        {activeBreed && <span className="text-5xl md:text-7xl mt-1">{activeBreed}</span>}
+                        <span className="text-lg md:text-2xl opacity-60 mt-3 max-w-2xl px-4 truncate">
+                          {chatRoomLocation.replace(/^(country|state|city):/, '').replace(/:/g, ' • ')}
+                        </span>
+                      </>
+                    )}
+                  </div>
+                </div>
+                {/* ------------------------- */}
                 {isNewsRoom ? (
                   announcements.length === 0 ? (
                     <div className="text-center text-gray-400 py-10">
@@ -1429,7 +1552,7 @@ export default function ChatInterface() {
                       <div
                         key={post.id}
                         className={cn(
-                          "max-w-2xl mx-auto bg-white border rounded-xl shadow-sm overflow-hidden mb-6",
+                          "max-w-2xl mx-auto bg-white border rounded-xl shadow-sm overflow-hidden mb-6 relative z-10",
                           post.status === "pending"
                             ? "border-amber-200 opacity-80"
                             : "border-gray-100",
@@ -1490,17 +1613,18 @@ export default function ChatInterface() {
                   )
                 ) : (
                   messages.map((msg) => (
-                    <MessageBubble
-                      key={msg.id}
-                      message={msg}
-                      isOwnMessage={msg.userId === userId}
-                      displayName={displayName}
-                      currentUserRole={userRole}
-                      onUserClick={handleUserClick}
-                      onReplyClick={(name: string) => setReplyToUser(`@${name} `)}
-                      onBanClick={() => handleOpenDirectBan(msg.user)}
-                      onDeleteClick={handleDeleteMessage} // <-- DELETE FUNCTION PASSED HERE
-                    />
+                    <div key={msg.id} className="relative z-10">
+                      <MessageBubble
+                        message={msg}
+                        isOwnMessage={msg.userId === userId}
+                        displayName={displayName}
+                        currentUserRole={userRole}
+                        onUserClick={handleUserClick}
+                        onReplyClick={(name: string) => setReplyToUser(`@${name} `)}
+                        onBanClick={() => handleOpenDirectBan(msg.user)}
+                        onDeleteClick={handleDeleteMessage}
+                      />
+                    </div>
                   ))
                 )}
                 <div ref={messagesEndRef} />
@@ -1531,12 +1655,93 @@ export default function ChatInterface() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="global">Global Ban (Entire Platform)</SelectItem>
-                  <SelectItem value="room">Current Room Only</SelectItem>
+                  <SelectItem value="room">Specific Rooms</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             
-            <div className="space-y-2">
+            {banScope === "room" && (
+              <div className="space-y-2 mt-2 border border-gray-100 p-2 rounded relative">
+                 <label className="text-xs font-semibold text-gray-700">Rooms to Ban From</label>
+                 {selectedBanRooms.map((room, idx) => (
+                   <div key={idx} className="flex items-center gap-2 mb-2">
+                     <Input
+                       value={room.location}
+                       onChange={(e: any) => {
+                         const newRooms = [...selectedBanRooms];
+                         newRooms[idx].location = e.target.value;
+                         setSelectedBanRooms(newRooms);
+                       }}
+                       placeholder="Location"
+                       className="text-xs h-8"
+                     />
+                     <Input
+                       value={room.petType}
+                       onChange={(e: any) => {
+                         const newRooms = [...selectedBanRooms];
+                         newRooms[idx].petType = e.target.value;
+                         setSelectedBanRooms(newRooms);
+                       }}
+                       placeholder="Pet"
+                       className="text-xs h-8"
+                     />
+                     <Input
+                       value={room.breed || ""}
+                       onChange={(e: any) => {
+                         const newRooms = [...selectedBanRooms];
+                         newRooms[idx].breed = e.target.value || null;
+                         setSelectedBanRooms(newRooms);
+                       }}
+                       placeholder="Breed (opt)"
+                       className="text-xs h-8"
+                     />
+                     {selectedBanRooms.length > 1 && (
+                       <Button
+                         variant="ghost"
+                         size="sm"
+                         className="px-2 h-8"
+                         onClick={() => {
+                           const newRooms = [...selectedBanRooms];
+                           newRooms.splice(idx, 1);
+                           setSelectedBanRooms(newRooms);
+                         }}
+                       >
+                         <X className="w-4 h-4 text-red-500" />
+                       </Button>
+                     )}
+                   </div>
+                 ))}
+                 <Button
+                   variant="outline"
+                   size="sm"
+                   className="w-full text-xs h-8"
+                   onClick={() =>
+                     setSelectedBanRooms([
+                       ...selectedBanRooms,
+                       { location: chatRoomLocation, petType: activePet, breed: activeBreed || null },
+                     ])
+                   }
+                 >
+                   + Add Room
+                 </Button>
+              </div>
+            )}
+            
+            <div className="flex flex-row items-center space-x-2 mt-4">
+              <Checkbox
+                id="deleteMessages"
+                checked={shouldDeleteMessages}
+                onCheckedChange={(c: any) => setShouldDeleteMessages(!!c)}
+              />
+              <label
+                htmlFor="deleteMessages"
+                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+              >
+                Delete all messages from this user in the banned rooms
+              </label>
+            </div>
+
+            <div className="space-y-2 mt-4">
               <label className="text-sm font-medium">Ban Duration</label>
               <Select value={banDuration} onValueChange={setBanDuration}>
                 <SelectTrigger>

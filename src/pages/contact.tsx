@@ -1,4 +1,4 @@
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -7,6 +7,7 @@ import {
     Mail,
     MapPin,
     MessageCircle,
+    MessageSquare,
     Send,
     Sparkles,
     CheckCircle2,
@@ -60,10 +61,10 @@ const SUBJECT_OPTIONS = [
 
 const QUICK_LINKS = [
     {
-        icon: MessageCircle,
-        title: "Community Chat",
-        desc: "Get real-time help from the community.",
-        href: "/chat",
+        icon: MessageSquare,
+        title: "Message Admin",
+        desc: "Message the Scrollpet admin directly.",
+        href: "/chat-rooms",
         gradient: "from-[#FF6600] to-[#ff8833]",
     },
     {
@@ -83,6 +84,7 @@ const QUICK_LINKS = [
 ];
 
 export default function ContactUs() {
+    const [, setLocation] = useLocation();
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [selectedCategory, setSelectedCategory] = useState("General Inquiry");
     const [customSubject, setCustomSubject] = useState("");
@@ -197,9 +199,12 @@ export default function ContactUs() {
                                     <button className="h-10 w-10 rounded-full border border-border bg-muted flex items-center justify-center overflow-hidden hover:ring-2 hover:ring-primary/50 transition-all cursor-pointer">
                                         {user?.id ? (
                                             <img
-                                                src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user.id}`}
+                                                src={user?.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.id}`}
                                                 alt="Avatar"
                                                 className="h-full w-full object-cover"
+                                                onError={(e) => {
+                                                  e.currentTarget.src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.id}`;
+                                                }}
                                             />
                                         ) : (
                                             <User className="h-5 w-5 text-muted-foreground" />
@@ -317,25 +322,47 @@ export default function ContactUs() {
                                 variants={stagger}
                                 className="grid sm:grid-cols-3 gap-4 max-w-3xl mx-auto"
                             >
-                                {QUICK_LINKS.map((ql, i) => (
-                                    <motion.div key={i} variants={cardItem}>
-                                        <Link href={ql.href}>
-                                            <div className="group bg-card p-5 rounded-2xl border border-border/50 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 cursor-pointer text-left">
-                                                <div
-                                                    className={`w-10 h-10 rounded-xl bg-gradient-to-br ${ql.gradient} flex items-center justify-center mb-3 group-hover:scale-110 transition-transform`}
-                                                >
-                                                    <ql.icon className="w-5 h-5 text-white" />
-                                                </div>
-                                                <h3 className="font-bold text-sm mb-1">
-                                                    {ql.title}
-                                                </h3>
-                                                <p className="text-xs text-muted-foreground leading-snug">
-                                                    {ql.desc}
-                                                </p>
+                                {QUICK_LINKS.map((ql, i) => {
+                                    const isMessageAdmin = ql.title === "Message Admin";
+                                    const cardContent = (
+                                        <div className="h-full group bg-card p-5 rounded-2xl border border-border/50 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 cursor-pointer text-left">
+                                            <div
+                                                className={`w-10 h-10 rounded-xl bg-gradient-to-br ${ql.gradient} flex items-center justify-center mb-3 group-hover:scale-110 transition-transform`}
+                                            >
+                                                <ql.icon className="w-5 h-5 text-white" />
                                             </div>
-                                        </Link>
-                                    </motion.div>
-                                ))}
+                                            <h3 className="font-bold text-sm mb-1">
+                                                {ql.title}
+                                            </h3>
+                                            <p className="text-xs text-muted-foreground leading-snug">
+                                                {ql.desc}
+                                            </p>
+                                        </div>
+                                    );
+
+                                    return (
+                                        <motion.div key={i} variants={cardItem} className="h-full">
+                                            {isMessageAdmin ? (
+                                                <div 
+                                                    className="block h-full cursor-pointer" 
+                                                    onClick={() => {
+                                                        if (!isAuthenticated) {
+                                                            setLocation('/login');
+                                                        } else {
+                                                            setLocation('/profile/Scrollpet');
+                                                        }
+                                                    }}
+                                                >
+                                                    {cardContent}
+                                                </div>
+                                            ) : (
+                                                <Link href={ql.href} className="block h-full">
+                                                    {cardContent}
+                                                </Link>
+                                            )}
+                                        </motion.div>
+                                    );
+                                })}
                             </motion.div>
                         </motion.div>
                     </div>

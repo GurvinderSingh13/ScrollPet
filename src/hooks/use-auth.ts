@@ -6,6 +6,7 @@ export interface AuthUser {
   username: string;
   email: string;
   displayName: string | null;
+  avatarUrl?: string;
 }
 
 async function fetchUser(): Promise<AuthUser | null> {
@@ -18,11 +19,23 @@ async function fetchUser(): Promise<AuthUser | null> {
   const user = session.user;
   const meta = user.user_metadata || {};
 
+  // Fetch the latest user profile directly to get the current avatar URL
+  const { data: dbUser, error } = await supabase
+    .from("users")
+    .select("profile_image_url, avatar_url")
+    .eq("id", user.id)
+    .single();
+
+  if (error) {
+    console.error("useAuth fetching dbUser error:", error);
+  }
+
   return {
     id: user.id,
     username: meta.username || meta.display_name || user.email || "",
     email: user.email || "",
     displayName: meta.display_name || meta.username || null,
+    avatarUrl: dbUser?.profile_image_url || dbUser?.avatar_url || meta.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.id}`,
   };
 }
 
@@ -36,7 +49,7 @@ export function useAuth() {
     queryKey: ["supabase-auth-user"],
     queryFn: fetchUser,
     retry: false,
-    staleTime: 1000 * 60 * 5,
+    staleTime: 0,
   });
 
   const logoutMutation = useMutation({
