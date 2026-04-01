@@ -67,28 +67,7 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { format, isToday, isYesterday } from "date-fns";
 
-import dogImg from "@assets/stock_images/happy_dog_portrait_o_6e5075a4.jpg";
-import catImg from "@assets/stock_images/ginger_cat_sitting_f_07d19cb3.jpg";
-import fishImg from "@assets/stock_images/goldfish_in_a_bowl_o_1769c4d6.jpg";
-import birdImg from "@assets/stock_images/colorful_parrot_bird_78491bbe.jpg";
-import rabbitImg from "@assets/stock_images/cute_white_rabbit_po_8b3eec97.jpg";
-import hamsterImg from "@assets/stock_images/cute_hamster_portrai_97a17a6a.jpg";
-import turtleImg from "@assets/stock_images/turtle_close_up_port_f8acb4e1.jpg";
-import guineaPigImg from "@assets/stock_images/guinea_pig_portrait_48d4dfd3.jpg";
-import horseImg from "@assets/stock_images/horse_portrait_in_na_95b7a90d.jpg";
-
-const PETS = [
-  { id: "dog", name: "Dog", image: dogImg },
-  { id: "cat", name: "Cat", image: catImg },
-  { id: "fish", name: "Fish", image: fishImg },
-  { id: "bird", name: "Bird", image: birdImg },
-  { id: "rabbit", name: "Rabbit", image: rabbitImg },
-  { id: "hamster", name: "Hamster", image: hamsterImg },
-  { id: "turtle", name: "Turtle", image: turtleImg },
-  { id: "guinea-pig", name: "Guinea Pig", image: guineaPigImg },
-  { id: "horse", name: "Horse", image: horseImg },
-  { id: "other", name: "Other", isIcon: true },
-];
+import { PawPrint } from "lucide-react";
 
 function usePinnedStates() {
   const [pinnedIds, setPinnedIds] = useState<string[]>(() => {
@@ -209,6 +188,19 @@ export default function ChatInterface() {
       return data;
     },
     enabled: !!userId,
+  });
+
+  // Fetch categories dynamically from Supabase
+  const { data: dbCategories = [] } = useQuery({
+    queryKey: ["chat-categories"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("categories")
+        .select("*")
+        .order("name", { ascending: true });
+      if (error) throw error;
+      return data || [];
+    },
   });
 
   const { data: myBans } = useQuery({
@@ -350,7 +342,7 @@ export default function ChatInterface() {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  const activePetData = PETS.find((p) => p.id === activePet);
+  const activePetData = dbCategories.find((c: any) => c.name?.toLowerCase() === activePet?.toLowerCase()) || null;
 
   const handleLocationClick = (locId: string) => {
     setActiveLocation(locId);
@@ -1048,37 +1040,62 @@ export default function ChatInterface() {
       {sidebarView === "public" && (
         <div className="flex-none bg-white border-b z-20 shadow-sm">
           <div className="flex items-center justify-start md:justify-center gap-3 md:gap-4 p-2 md:p-4 overflow-x-auto no-scrollbar bg-white">
-            {PETS.map((pet) => (
+            {dbCategories.map((cat: any) => (
               <button
-                key={pet.id}
+                key={cat.id}
                 onClick={() => {
-                  setActivePet(pet.id);
+                  setActivePet(cat.name?.toLowerCase() || cat.id);
                   setIsNewsRoom(false);
                 }}
                 className={cn(
-                  "flex-none relative rounded-full p-0.5 md:p-1 transition-all duration-200",
-                  activePet === pet.id
+                  "flex-none relative rounded-full p-0.5 md:p-1 transition-all duration-200 cursor-pointer",
+                  activePet === (cat.name?.toLowerCase() || cat.id)
                     ? "ring-2 ring-primary ring-offset-2 scale-105"
                     : "opacity-70 hover:opacity-100 hover:scale-105",
                 )}
               >
                 <div className="w-10 h-10 md:w-12 md:h-12 rounded-full overflow-hidden bg-gray-100 shadow-sm">
-                  {pet.isIcon ? (
-                    <div className="w-full h-full flex items-center justify-center bg-white border-2 border-[#007699]">
-                      <div className="text-[#007699] font-bold text-[10px] md:text-xs">
-                        Other
-                      </div>
-                    </div>
-                  ) : (
+                  {cat.image_url ? (
                     <img
-                      src={pet.image}
-                      alt={pet.name}
+                      src={cat.image_url}
+                      alt={cat.name}
                       className="w-full h-full object-cover"
+                      onError={(e: any) => {
+                        e.currentTarget.style.display = 'none';
+                        if (e.currentTarget.nextSibling) e.currentTarget.nextSibling.style.display = 'flex';
+                      }}
                     />
-                  )}
+                  ) : null}
+                  <div
+                    className="w-full h-full items-center justify-center bg-white border-2 border-[#007699]"
+                    style={{ display: cat.image_url ? 'none' : 'flex' }}
+                  >
+                    <PawPrint className="w-5 h-5 text-[#007699]" fill="currentColor" />
+                  </div>
                 </div>
               </button>
             ))}
+            {/* "Other" catch-all */}
+            <button
+              onClick={() => {
+                setActivePet("other");
+                setIsNewsRoom(false);
+              }}
+              className={cn(
+                "flex-none relative rounded-full p-0.5 md:p-1 transition-all duration-200 cursor-pointer",
+                activePet === "other"
+                  ? "ring-2 ring-primary ring-offset-2 scale-105"
+                  : "opacity-70 hover:opacity-100 hover:scale-105",
+              )}
+            >
+              <div className="w-10 h-10 md:w-12 md:h-12 rounded-full overflow-hidden bg-gray-100 shadow-sm">
+                <div className="w-full h-full flex items-center justify-center bg-white border-2 border-[#007699]">
+                  <div className="text-[#007699] font-bold text-[10px] md:text-xs">
+                    Other
+                  </div>
+                </div>
+              </div>
+            </button>
           </div>
         </div>
       )}
@@ -1096,16 +1113,16 @@ export default function ChatInterface() {
                 {sidebarView === "public" ? (
                   <div className="flex items-center gap-2">
                     <div className="w-8 h-8 rounded-full overflow-hidden border-2 border-white/50 bg-white shrink-0">
-                      {activePetData?.isIcon ? (
-                        <div className="w-full h-full flex items-center justify-center bg-white text-[#007699] font-bold text-[10px]">
-                          Other
-                        </div>
-                      ) : (
+                      {activePetData?.image_url ? (
                         <img
-                          src={activePetData?.image}
-                          alt={activePetData?.name}
+                          src={activePetData.image_url}
+                          alt={activePetData.name}
                           className="w-full h-full object-cover"
                         />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center bg-white text-[#007699]">
+                          <PawPrint className="w-4 h-4" fill="currentColor" />
+                        </div>
                       )}
                     </div>
                     {currentBreeds.length > 0 && !activeDmUser && (
