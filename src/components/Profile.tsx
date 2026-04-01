@@ -37,7 +37,7 @@ import {
 } from "@/components/ui/select";
 import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/lib/supabase";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 const categoryIcons: Record<string, React.ReactNode> = {
   dog: <Dog className="h-4 w-4" />,
@@ -46,112 +46,15 @@ const categoryIcons: Record<string, React.ReactNode> = {
   other: <PawPrint className="h-4 w-4" />,
 };
 
-const FALLBACK_CATEGORY_BREEDS: Record<string, string[]> = {
-  dog: [
-    "Labrador Retriever",
-    "German Shepherd",
-    "Golden Retriever",
-    "French Bulldog",
-    "Poodle",
-    "Beagle",
-    "Rottweiler",
-    "Bulldog",
-    "Dachshund",
-    "Siberian Husky",
-    "Mixed/Other",
-  ],
-  cat: [
-    "Persian",
-    "Maine Coon",
-    "Siamese",
-    "Ragdoll",
-    "Bengal",
-    "Sphynx",
-    "British Shorthair",
-    "Scottish Fold",
-    "Abyssinian",
-    "Mixed/Other",
-  ],
-  bird: [
-    "Parakeet",
-    "Cockatiel",
-    "Macaw",
-    "Canary",
-    "Finch",
-    "Cockatoo",
-    "African Grey",
-    "Lovebird",
-    "Other",
-  ],
-  fish: [
-    "Betta",
-    "Goldfish",
-    "Guppy",
-    "Tetra",
-    "Angelfish",
-    "Corydoras",
-    "Oscar",
-    "Molly",
-    "Pleco",
-    "Other",
-  ],
-  rabbit: [
-    "Holland Lop",
-    "Mini Rex",
-    "Netherland Dwarf",
-    "Lionhead",
-    "Flemish Giant",
-    "New Zealand",
-    "Other",
-  ],
-  hamster: [
-    "Syrian",
-    "Roborovski",
-    "Campbell's Dwarf",
-    "Winter White",
-    "Chinese",
-    "Other",
-  ],
-  turtle: [
-    "Red-Eared Slider",
-    "Box Turtle",
-    "Painted Turtle",
-    "Russian Tortoise",
-    "Sulcata Tortoise",
-    "Other",
-  ],
-  "guinea-pig": [
-    "American",
-    "Abyssinian",
-    "Peruvian",
-    "Silkie",
-    "Teddy",
-    "Skinny Pig",
-    "Other",
-  ],
-  horse: [
-    "Arabian",
-    "Quarter Horse",
-    "Thoroughbred",
-    "Appaloosa",
-    "Paint",
-    "Clydesdale",
-    "Morgan",
-    "Friesian",
-    "Pony",
-    "Other",
-  ],
-};
-
 interface DbCategory {
-  id: number;
+  id: string;
   name: string;
 }
 
 interface DbBreed {
-  id: number;
+  id: string;
   name: string;
-  category_id: number;
+  category_id: string;
 }
 
 const fadeUp = {
@@ -189,29 +92,39 @@ export default function Profile({ onClose }: ProfileProps) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
-  // Dynamic categories & breeds from Supabase
-  const [dbCategories, setDbCategories] = useState<DbCategory[]>([]);
-  const [dbBreeds, setDbBreeds] = useState<DbBreed[]>([]);
-  const [usingDynamic, setUsingDynamic] = useState(false);
+  // Dynamic categories from Supabase
+  const { data: dbCategories = [] } = useQuery({
+    queryKey: ["pet-categories"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("categories")
+        .select("*")
+        .order("name", { ascending: true });
+      if (error) throw error;
+      return (data || []) as DbCategory[];
+    },
+  });
 
-  useEffect(() => {
-    const fetchCatalog = async () => {
-      try {
-        const [catRes, breedRes] = await Promise.all([
-          supabase.from("categories").select("*").order("name", { ascending: true }),
-          supabase.from("breeds").select("*").order("name", { ascending: true }),
-        ]);
-        if (catRes.data && catRes.data.length > 0) {
-          setDbCategories(catRes.data);
-          setDbBreeds(breedRes.data || []);
-          setUsingDynamic(true);
-        }
-      } catch {
-        // Silently fall back to static data
-      }
-    };
-    fetchCatalog();
-  }, []);
+  // Find the selected category object to get its proper ID
+  const selectedCategoryObj = dbCategories.find(
+    (c) => c.name.toLowerCase().replace(/\s+/g, "-") === category
+  );
+
+  // Dynamic breeds from Supabase based on selected category
+  const { data: dbBreeds = [], isLoading: isLoadingBreeds } = useQuery({
+    queryKey: ["pet-breeds", selectedCategoryObj?.id],
+    queryFn: async () => {
+      if (!selectedCategoryObj?.id) return [];
+      const { data, error } = await supabase
+        .from("breeds")
+        .select("*")
+        .eq("category_id", selectedCategoryObj.id)
+        .order("name", { ascending: true });
+      if (error) throw error;
+      return (data || []) as DbBreed[];
+    },
+    enabled: !!selectedCategoryObj?.id,
+  });
 
   const handleShowcaseChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -413,9 +326,12 @@ export default function Profile({ onClose }: ProfileProps) {
                   <SelectValue placeholder="Select…" />
                 </SelectTrigger>
                 <SelectContent>
-                  {usingDynamic ? (
+                  {dbCategories.length > 0 ? (
                     dbCategories.map((cat) => (
-                      <SelectItem key={cat.id} value={cat.name.toLowerCase().replace(/\s+/g, "-")}>
+                      <SelectItem
+                        key={cat.id}
+                        value={cat.name.toLowerCase().replace(/\s+/g, "-")}
+                      >
                         {cat.name}
                       </SelectItem>
                     ))
@@ -453,63 +369,35 @@ export default function Profile({ onClose }: ProfileProps) {
                   onChange={(e) => setBreed(e.target.value)}
                   className="h-10 bg-gray-50"
                 />
-              ) : usingDynamic ? (
-                (() => {
-                  // Find the matching DB category by normalized name
-                  const matchedCat = dbCategories.find(
-                    (c) => c.name.toLowerCase().replace(/\s+/g, "-") === category
-                  );
-                  const filteredBreeds = matchedCat
-                    ? dbBreeds.filter((b) => b.category_id === matchedCat.id)
-                    : [];
-                  return (
-                    <Select
-                      value={breed}
-                      onValueChange={setBreed}
-                      disabled={!category}
-                    >
-                      <SelectTrigger id="breed" className="h-10 bg-gray-50">
-                        <SelectValue
-                          placeholder={category ? "Select Breed" : "Category First"}
-                        />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {filteredBreeds.map((b) => (
-                          <SelectItem
-                            key={b.id}
-                            value={b.name.toLowerCase().replace(/[\s/]/g, "-")}
-                          >
-                            {b.name}
-                          </SelectItem>
-                        ))}
-                        {filteredBreeds.length === 0 && (
-                          <SelectItem value="other" disabled>No breeds found</SelectItem>
-                        )}
-                      </SelectContent>
-                    </Select>
-                  );
-                })()
               ) : (
                 <Select
                   value={breed}
                   onValueChange={setBreed}
-                  disabled={!category}
+                  disabled={!category || isLoadingBreeds}
                 >
                   <SelectTrigger id="breed" className="h-10 bg-gray-50">
                     <SelectValue
-                      placeholder={category ? "Select Breed" : "Category First"}
+                      placeholder={
+                        isLoadingBreeds
+                          ? "Loading..."
+                          : category
+                          ? "Select Breed"
+                          : "Category First"
+                      }
                     />
                   </SelectTrigger>
                   <SelectContent>
-                    {category &&
-                      FALLBACK_CATEGORY_BREEDS[category]?.map((b) => (
-                        <SelectItem
-                          key={b}
-                          value={b.toLowerCase().replace(/[\s/]/g, "-")}
-                        >
-                          {b}
+                    {dbBreeds.length > 0 ? (
+                      dbBreeds.map((b) => (
+                        <SelectItem key={b.id} value={b.name}>
+                          {b.name}
                         </SelectItem>
-                      ))}
+                      ))
+                    ) : (
+                      <div className="px-2 py-1.5 text-xs text-muted-foreground italic">
+                        No breeds found
+                      </div>
+                    )}
                   </SelectContent>
                 </Select>
               )}

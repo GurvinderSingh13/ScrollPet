@@ -50,6 +50,7 @@ import {
   Trash2,
   Plus,
   Pencil,
+  MessageCircle,
 } from "lucide-react";
 import logoImage from "@assets/Scrollpet_logo_1766997907297.png";
 import { toast } from "@/hooks/use-toast";
@@ -105,6 +106,7 @@ export default function AdminDashboard() {
   const [breedFormName, setBreedFormName] = useState("");
   const [editingBreedId, setEditingBreedId] = useState<number | null>(null);
   const [isSavingBreed, setIsSavingBreed] = useState(false);
+  const [filterCategoryId, setFilterCategoryId] = useState<string | null>(null);
 
   // Role Management States
   const [isRoleModalOpen, setIsRoleModalOpen] = useState(false);
@@ -332,7 +334,10 @@ export default function AdminDashboard() {
           category_id: selectedCategoryId,
         });
         if (error) throw error;
-        toast({ description: `Breed "${trimmed}" added!` });
+        const parentCat = dbCategories.find((c: any) => c.id === selectedCategoryId);
+        toast({ 
+          description: `Breed "${trimmed}" added! A chat room for ${parentCat?.name || "this category"} → ${trimmed} is now live.`,
+        });
       }
       resetBreedForm();
       queryClient.invalidateQueries({ queryKey: ["admin-breeds"] });
@@ -1384,41 +1389,70 @@ export default function AdminDashboard() {
                           <p className="py-10 text-center text-sm text-gray-400">No categories yet. Add your first one above.</p>
                         ) : (
                           <div className="divide-y divide-gray-100">
-                            {dbCategories.map((cat: any) => (
-                              <div key={cat.id} className={`flex items-center justify-between px-4 py-3 transition-colors group ${
-                                editingCatId === cat.id ? "bg-teal-50 ring-1 ring-teal-300" : "hover:bg-teal-50/50"
-                              }`}>
-                                <div className="flex items-center gap-3 min-w-0">
-                                  {cat.image_url ? (
-                                    <img src={cat.image_url} alt={cat.name} className="w-9 h-9 rounded-lg object-cover border border-gray-200 flex-shrink-0" />
-                                  ) : (
-                                    <div className="w-9 h-9 rounded-lg bg-teal-100 flex items-center justify-center text-teal-700 font-bold text-sm flex-shrink-0">
-                                      {cat.name.charAt(0).toUpperCase()}
+                            {dbCategories.map((cat: any) => {
+                              const isFiltered = filterCategoryId === cat.id;
+                              const breedCount = dbBreeds.filter((b: any) => b.category_id === cat.id).length;
+                              return (
+                                <div
+                                  key={cat.id}
+                                  className={`flex items-center justify-between px-4 py-3 transition-colors group cursor-pointer ${
+                                    isFiltered
+                                      ? "bg-teal-100 ring-1 ring-teal-400"
+                                      : editingCatId === cat.id
+                                        ? "bg-teal-50 ring-1 ring-teal-300"
+                                        : "hover:bg-teal-50/50"
+                                  }`}
+                                  onClick={() => {
+                                    setFilterCategoryId(isFiltered ? null : cat.id);
+                                    if (!isFiltered) setSelectedCategoryId(cat.id);
+                                  }}
+                                >
+                                  <div className="flex items-center gap-3 min-w-0">
+                                    {cat.image_url ? (
+                                      <img src={cat.image_url} alt={cat.name} className="w-9 h-9 rounded-lg object-cover border border-gray-200 flex-shrink-0" />
+                                    ) : (
+                                      <div className="w-9 h-9 rounded-lg bg-teal-100 flex items-center justify-center text-teal-700 font-bold text-sm flex-shrink-0">
+                                        {cat.name.charAt(0).toUpperCase()}
+                                      </div>
+                                    )}
+                                    <div className="flex flex-col min-w-0">
+                                      <span className="text-sm font-medium text-gray-800 truncate">{cat.name}</span>
+                                      <span className="text-[10px] text-gray-400">{breedCount} breed{breedCount !== 1 ? "s" : ""}</span>
                                     </div>
-                                  )}
-                                  <span className="text-sm font-medium text-gray-800 truncate">{cat.name}</span>
+                                  </div>
+                                  <div className="flex items-center gap-1 flex-shrink-0">
+                                    {isFiltered && (
+                                      <span className="text-[9px] bg-teal-600 text-white px-1.5 py-0.5 rounded-full font-bold mr-1">VIEWING</span>
+                                    )}
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); startEditCategory(cat); }}
+                                      className="p-1.5 rounded-lg hover:bg-teal-100 text-teal-600 cursor-pointer sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
+                                      title="Edit category"
+                                    >
+                                      <Pencil className="w-3.5 h-3.5" />
+                                    </button>
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); handleDeleteCategory(cat.id, cat.name); }}
+                                      className="p-1.5 rounded-lg hover:bg-red-100 text-red-500 cursor-pointer sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
+                                      title="Delete category"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
                                 </div>
-                                <div className="flex items-center gap-1 flex-shrink-0 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
-                                  <button
-                                    onClick={() => startEditCategory(cat)}
-                                    className="p-1.5 rounded-lg hover:bg-teal-100 text-teal-600 cursor-pointer"
-                                    title="Edit category"
-                                  >
-                                    <Pencil className="w-3.5 h-3.5" />
-                                  </button>
-                                  <button
-                                    onClick={() => handleDeleteCategory(cat.id, cat.name)}
-                                    className="p-1.5 rounded-lg hover:bg-red-100 text-red-500 cursor-pointer"
-                                    title="Delete category"
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                  </button>
-                                </div>
-                              </div>
-                            ))}
+                              );
+                            })}
                           </div>
                         )}
                       </div>
+                      {filterCategoryId && (
+                        <button
+                          onClick={() => setFilterCategoryId(null)}
+                          className="text-[10px] text-teal-600 hover:text-teal-800 font-semibold text-center cursor-pointer transition-colors"
+                        >
+                          ✕ Clear filter — show all breeds
+                        </button>
+                      )}
                       <p className="text-[10px] text-gray-400 text-center">{dbCategories.length} categories total</p>
                     </div>
                   </div>
@@ -1486,51 +1520,91 @@ export default function AdminDashboard() {
                         </div>
                       </div>
 
-                      {/* List */}
-                      <div className="border border-gray-100 rounded-xl bg-gray-50 overflow-y-auto flex-1" style={{ maxHeight: 340 }}>
-                        {breedsLoading ? (
-                          <div className="py-10 flex justify-center"><Loader2 className="w-5 h-5 animate-spin text-sky-500" /></div>
-                        ) : dbBreeds.length === 0 ? (
-                          <p className="py-10 text-center text-sm text-gray-400">No breeds yet. Add a category first, then create breeds.</p>
-                        ) : (
-                          <div className="divide-y divide-gray-100">
-                            {dbBreeds.map((breed: any) => (
-                              <div key={breed.id} className={`flex items-center justify-between px-4 py-3 transition-colors group ${
-                                editingBreedId === breed.id ? "bg-sky-50 ring-1 ring-sky-300" : "hover:bg-sky-50/50"
-                              }`}>
-                                <div className="flex items-center gap-3 min-w-0">
-                                  <div className="w-8 h-8 rounded-lg bg-sky-100 flex items-center justify-center text-sky-700 font-bold text-xs flex-shrink-0">
-                                    {breed.name.charAt(0).toUpperCase()}
-                                  </div>
-                                  <div className="min-w-0">
-                                    <span className="text-sm font-medium text-gray-800 block truncate">{breed.name}</span>
-                                    <span className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded-full font-medium">
-                                      {breed.categories?.name || "Uncategorized"}
-                                    </span>
-                                  </div>
-                                </div>
-                                <div className="flex items-center gap-1 flex-shrink-0 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
-                                  <button
-                                    onClick={() => startEditBreed(breed)}
-                                    className="p-1.5 rounded-lg hover:bg-sky-100 text-sky-600 cursor-pointer"
-                                    title="Edit breed"
-                                  >
-                                    <Pencil className="w-3.5 h-3.5" />
-                                  </button>
-                                  <button
-                                    onClick={() => handleDeleteBreed(breed.id, breed.name)}
-                                    className="p-1.5 rounded-lg hover:bg-red-100 text-red-500 cursor-pointer"
-                                    title="Delete breed"
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                  </button>
-                                </div>
+                      {/* List — filtered by selected category */}
+                      {(() => {
+                        const filteredBreeds = filterCategoryId
+                          ? dbBreeds.filter((b: any) => b.category_id === filterCategoryId)
+                          : dbBreeds;
+                        const filterCatName = filterCategoryId
+                          ? dbCategories.find((c: any) => c.id === filterCategoryId)?.name
+                          : null;
+                        return (
+                          <>
+                            {filterCatName && (
+                              <div className="flex items-center gap-2 px-3 py-2 bg-sky-50 border border-sky-200 rounded-xl">
+                                <PawPrint className="w-3.5 h-3.5 text-sky-600" />
+                                <span className="text-xs font-semibold text-sky-700">Showing breeds for: {filterCatName}</span>
+                                <button
+                                  onClick={() => setFilterCategoryId(null)}
+                                  className="ml-auto text-[10px] text-sky-500 hover:text-sky-700 font-bold cursor-pointer"
+                                >
+                                  Show all
+                                </button>
                               </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                      <p className="text-[10px] text-gray-400 text-center">{dbBreeds.length} breeds total</p>
+                            )}
+                            <div className="border border-gray-100 rounded-xl bg-gray-50 overflow-y-auto flex-1" style={{ maxHeight: 340 }}>
+                              {breedsLoading ? (
+                                <div className="py-10 flex justify-center"><Loader2 className="w-5 h-5 animate-spin text-sky-500" /></div>
+                              ) : filteredBreeds.length === 0 ? (
+                                <div className="py-10 flex flex-col items-center gap-2">
+                                  <PawPrint className="w-8 h-8 text-gray-200" />
+                                  <p className="text-sm text-gray-400 text-center">
+                                    {filterCategoryId
+                                      ? `No breeds found for "${filterCatName}". Add one above!`
+                                      : "No breeds yet. Add a category first, then create breeds."}
+                                  </p>
+                                </div>
+                              ) : (
+                                <div className="divide-y divide-gray-100">
+                                  {filteredBreeds.map((breed: any) => (
+                                    <div key={breed.id} className={`flex items-center justify-between px-4 py-3 transition-colors group ${
+                                      editingBreedId === breed.id ? "bg-sky-50 ring-1 ring-sky-300" : "hover:bg-sky-50/50"
+                                    }`}>
+                                      <div className="flex items-center gap-3 min-w-0">
+                                        <div className="w-8 h-8 rounded-lg bg-sky-100 flex items-center justify-center text-sky-700 font-bold text-xs flex-shrink-0">
+                                          {breed.name.charAt(0).toUpperCase()}
+                                        </div>
+                                        <div className="min-w-0">
+                                          <span className="text-sm font-medium text-gray-800 block truncate">{breed.name}</span>
+                                          <div className="flex items-center gap-1.5 mt-0.5">
+                                            <span className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded-full font-medium">
+                                              {breed.categories?.name || "Uncategorized"}
+                                            </span>
+                                            <span className="text-[10px] bg-emerald-50 text-emerald-600 px-1.5 py-0.5 rounded-full font-medium flex items-center gap-0.5">
+                                              <MessageCircle className="w-2.5 h-2.5" /> Room active
+                                            </span>
+                                          </div>
+                                        </div>
+                                      </div>
+                                      <div className="flex items-center gap-1 flex-shrink-0 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                                        <button
+                                          onClick={() => startEditBreed(breed)}
+                                          className="p-1.5 rounded-lg hover:bg-sky-100 text-sky-600 cursor-pointer"
+                                          title="Edit breed"
+                                        >
+                                          <Pencil className="w-3.5 h-3.5" />
+                                        </button>
+                                        <button
+                                          onClick={() => handleDeleteBreed(breed.id, breed.name)}
+                                          className="p-1.5 rounded-lg hover:bg-red-100 text-red-500 cursor-pointer"
+                                          title="Delete breed"
+                                        >
+                                          <Trash2 className="w-3.5 h-3.5" />
+                                        </button>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                            <p className="text-[10px] text-gray-400 text-center">
+                              {filterCategoryId
+                                ? `${filteredBreeds.length} breed${filteredBreeds.length !== 1 ? "s" : ""} in ${filterCatName}`
+                                : `${dbBreeds.length} breeds total`}
+                            </p>
+                          </>
+                        );
+                      })()}
                     </div>
                   </div>
 

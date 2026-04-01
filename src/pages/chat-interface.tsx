@@ -45,7 +45,6 @@ import { useWebSocket } from "@/hooks/useWebSocket";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { Country, State, City } from "country-state-city";
-import { getBreeds } from "@/data/petBreeds";
 import { ChatInput } from "@/components/ChatInput";
 import { MessageBubble } from "@/components/MessageBubble";
 import { useAuth } from "@/hooks/use-auth";
@@ -173,7 +172,40 @@ export default function ChatInterface() {
     if (!authLoading && !isAuthenticated) window.location.href = "/login";
   }, [authLoading, isAuthenticated]);
 
-  const currentBreeds = getBreeds(activePet);
+  // Fetch categories dynamically from Supabase
+  const { data: dbCategories = [] } = useQuery({
+    queryKey: ["chat-categories"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("categories")
+        .select("*")
+        .order("name", { ascending: true });
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  // Find the active category ID based on the activePet name
+  const activeCategoryObj = dbCategories.find(
+    (c: any) => c.name.toLowerCase() === activePet.toLowerCase()
+  );
+  const activeCategoryId = activeCategoryObj?.id;
+
+  // Fetch breeds dynamically based on activeCategoryId
+  const { data: dbBreeds = [], isLoading: isLoadingBreeds } = useQuery({
+    queryKey: ["chat-breeds", activeCategoryId],
+    queryFn: async () => {
+      if (!activeCategoryId) return [];
+      const { data, error } = await supabase
+        .from("breeds")
+        .select("*")
+        .eq("category_id", activeCategoryId)
+        .order("name", { ascending: true });
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!activeCategoryId,
+  });
 
   const { data: dbUser } = useQuery({
     queryKey: ["db-user-chat", userId],
@@ -190,18 +222,6 @@ export default function ChatInterface() {
     enabled: !!userId,
   });
 
-  // Fetch categories dynamically from Supabase
-  const { data: dbCategories = [] } = useQuery({
-    queryKey: ["chat-categories"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("categories")
-        .select("*")
-        .order("name", { ascending: true });
-      if (error) throw error;
-      return data || [];
-    },
-  });
 
   const { data: myBans } = useQuery({
     queryKey: ["my-ban-status", userId],
@@ -1125,23 +1145,34 @@ export default function ChatInterface() {
                         </div>
                       )}
                     </div>
-                    {currentBreeds.length > 0 && !activeDmUser && (
+                    {!activeDmUser && (
                       <Select
                         value={activeBreed || "__all__"}
                         onValueChange={(value: string) =>
                           setActiveBreed(value === "__all__" ? null : value)
                         }
+                        disabled={isLoadingBreeds}
                       >
                         <SelectTrigger className="h-8 w-[140px] bg-white/10 border-white/20 text-white rounded-lg text-xs hover:bg-white/20 transition-colors flex-shrink-0">
-                          <SelectValue placeholder="All Breeds" />
+                          <SelectValue
+                            placeholder={
+                              isLoadingBreeds ? "Loading..." : "All Breeds"
+                            }
+                          />
                         </SelectTrigger>
                         <SelectContent className="max-h-60">
                           <SelectItem value="__all__">All Breeds</SelectItem>
-                          {currentBreeds.map((breed: any) => (
-                            <SelectItem key={breed.id} value={breed.id}>
-                              {breed.name}
-                            </SelectItem>
-                          ))}
+                          {dbBreeds.length > 0 ? (
+                            dbBreeds.map((breed: any) => (
+                              <SelectItem key={breed.id} value={breed.id}>
+                                {breed.name}
+                              </SelectItem>
+                            ))
+                          ) : (
+                            <div className="px-2 py-1.5 text-xs text-muted-foreground italic">
+                              No breeds found
+                            </div>
+                          )}
                         </SelectContent>
                       </Select>
                     )}
