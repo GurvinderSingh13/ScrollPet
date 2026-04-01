@@ -21,6 +21,8 @@ import CookiesPolicy from "@/pages/cookies";
 import About from "@/pages/about";
 import ContactUs from "@/pages/contact";
 import UpdatePassword from "@/pages/update-password";
+import GlobalLocationDetector from "@/components/GlobalLocationDetector";
+
 function Router() {
   return (
     <Switch>
@@ -50,10 +52,12 @@ function Router() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
+      <GlobalLocationDetector />
       <TooltipProvider>
         <Toaster />
         <Router />
       </TooltipProvider>
+
     </QueryClientProvider>
   );
 }
