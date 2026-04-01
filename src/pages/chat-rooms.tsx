@@ -1,19 +1,14 @@
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { 
   Menu,
   X,
   Lock,
-  PawPrint
+  PawPrint,
+  Loader2
 } from "lucide-react";
 import { useState } from "react";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -23,36 +18,26 @@ import {
 import { User } from "lucide-react";
 import logoImage from "@assets/Scrollpet_logo_1766997907297.png";
 import { useAuth } from "@/hooks/use-auth";
-
-// Import stock images
-import dogImg from "@assets/stock_images/happy_dog_portrait_o_6e5075a4.jpg";
-import catImg from "@assets/stock_images/ginger_cat_sitting_f_07d19cb3.jpg";
-import fishImg from "@assets/stock_images/goldfish_in_a_bowl_o_1769c4d6.jpg";
-import birdImg from "@assets/stock_images/colorful_parrot_bird_78491bbe.jpg";
-import rabbitImg from "@assets/stock_images/cute_white_rabbit_po_8b3eec97.jpg";
-import hamsterImg from "@assets/stock_images/cute_hamster_portrai_97a17a6a.jpg";
-import turtleImg from "@assets/stock_images/turtle_close_up_port_f8acb4e1.jpg";
-import guineaPigImg from "@assets/stock_images/guinea_pig_portrait_48d4dfd3.jpg";
-import horseImg from "@assets/stock_images/horse_portrait_in_na_95b7a90d.jpg";
-
-// Mock data for chat rooms
-const CHAT_ROOMS = [
-  { id: 'dog', name: 'Dog', image: dogImg },
-  { id: 'cat', name: 'Cat', image: catImg },
-  { id: 'fish', name: 'Fish', image: fishImg },
-  { id: 'bird', name: 'Bird', image: birdImg },
-  { id: 'rabbit', name: 'Rabbit', image: rabbitImg },
-  { id: 'hamster', name: 'Hamster', image: hamsterImg },
-  { id: 'turtle', name: 'Turtle', image: turtleImg },
-  { id: 'guinea-pig', name: 'Guinea Pig', image: guineaPigImg },
-  { id: 'horse', name: 'Horse', image: horseImg },
-  { id: 'other', name: 'Other', isIcon: true },
-];
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/lib/supabase";
 
 export default function ChatRooms() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { user, isLoading, isAuthenticated, logout } = useAuth();
   const [, setLocation] = useLocation();
+
+  // Fetch categories dynamically from Supabase
+  const { data: categories = [], isLoading: isCategoriesLoading } = useQuery({
+    queryKey: ["chat-room-categories"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("categories")
+        .select("*")
+        .order("name", { ascending: true });
+      if (error) throw error;
+      return data || [];
+    },
+  });
 
   const handleRoomClick = (roomId: string) => {
     if (isAuthenticated) {
@@ -186,34 +171,85 @@ export default function ChatRooms() {
 
       <main className="flex-grow flex items-center justify-center py-20">
         <section className="container px-6 mx-auto max-w-7xl">
-          <motion.div 
-            variants={containerVariants}
-            initial="hidden"
-            animate="visible"
-            className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-y-12 gap-x-8"
-          >
-            {CHAT_ROOMS.map((room) => (
+          {isCategoriesLoading ? (
+            /* Skeleton Loader */
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-y-12 gap-x-8">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div key={i} className="flex flex-col items-center justify-center w-full animate-pulse">
+                  <div className="w-40 h-40 md:w-48 md:h-48 mb-4 rounded-full bg-gray-200" />
+                  <div className="h-5 w-20 bg-gray-200 rounded-md" />
+                </div>
+              ))}
+            </div>
+          ) : categories.length === 0 ? (
+            /* Empty State */
+            <div className="flex flex-col items-center justify-center py-20 text-center">
+              <PawPrint size={64} className="text-gray-300 mb-4" />
+              <h3 className="text-xl font-bold text-gray-500 mb-2">No categories yet</h3>
+              <p className="text-gray-400">Pet categories will appear here once an admin adds them.</p>
+            </div>
+          ) : (
+            <motion.div 
+              variants={containerVariants}
+              initial="hidden"
+              animate="visible"
+              className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-y-12 gap-x-8"
+            >
+              {categories.map((category: any) => (
+                <motion.button
+                  key={category.id}
+                  variants={itemVariants}
+                  onClick={() => handleRoomClick(String(category.id))}
+                  className="group relative flex flex-col items-center justify-center w-full cursor-pointer"
+                >
+                  <div className="relative w-40 h-40 md:w-48 md:h-48 mb-4">
+                    <div className="w-full h-full rounded-full overflow-hidden shadow-lg group-hover:shadow-2xl transition-all duration-300 ring-4 ring-transparent group-hover:ring-primary/20">
+                      {category.image_url ? (
+                        <img 
+                          src={category.image_url} 
+                          alt={category.name} 
+                          className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-500"
+                          onError={(e: any) => {
+                            e.currentTarget.style.display = 'none';
+                            e.currentTarget.nextSibling.style.display = 'flex';
+                          }}
+                        />
+                      ) : null}
+                      {/* Fallback icon (shown if no image_url or image fails to load) */}
+                      <div 
+                        className="w-full h-full bg-gradient-to-br from-sky-50 to-sky-100 border-4 border-[#007699] items-center justify-center"
+                        style={{ display: category.image_url ? 'none' : 'flex' }}
+                      >
+                        <PawPrint size={80} className="text-[#007699]" fill="currentColor" />
+                      </div>
+                      
+                      {/* Locked Overlay */}
+                      {!isAuthenticated && (
+                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 backdrop-blur-sm">
+                          <Lock className="text-white w-10 h-10 drop-shadow-md" />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <h3 className="text-lg md:text-xl font-bold text-gray-800 group-hover:text-primary transition-colors">
+                    {category.name}
+                  </h3>
+                </motion.button>
+              ))}
+
+              {/* "Other" catch-all room */}
               <motion.button
-                key={room.id}
+                key="other"
                 variants={itemVariants}
-                onClick={() => handleRoomClick(room.id)}
+                onClick={() => handleRoomClick('other')}
                 className="group relative flex flex-col items-center justify-center w-full cursor-pointer"
               >
                 <div className="relative w-40 h-40 md:w-48 md:h-48 mb-4">
                   <div className="w-full h-full rounded-full overflow-hidden shadow-lg group-hover:shadow-2xl transition-all duration-300 ring-4 ring-transparent group-hover:ring-primary/20">
-                    {room.isIcon ? (
-                      <div className="w-full h-full bg-white border-4 border-[#007699] flex items-center justify-center">
-                         <PawPrint size={80} className="text-[#007699]" fill="currentColor" />
-                      </div>
-                    ) : (
-                      <img 
-                        src={room.image} 
-                        alt={room.name} 
-                        className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-500"
-                      />
-                    )}
-                    
-                    {/* Locked Overlay */}
+                    <div className="w-full h-full bg-white border-4 border-[#007699] flex items-center justify-center">
+                      <PawPrint size={80} className="text-[#007699]" fill="currentColor" />
+                    </div>
                     {!isAuthenticated && (
                       <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 backdrop-blur-sm">
                         <Lock className="text-white w-10 h-10 drop-shadow-md" />
@@ -221,13 +257,12 @@ export default function ChatRooms() {
                     )}
                   </div>
                 </div>
-                
                 <h3 className="text-lg md:text-xl font-bold text-gray-800 group-hover:text-primary transition-colors">
-                  {room.name}
+                  Other
                 </h3>
               </motion.button>
-            ))}
-          </motion.div>
+            </motion.div>
+          )}
         </section>
       </main>
       

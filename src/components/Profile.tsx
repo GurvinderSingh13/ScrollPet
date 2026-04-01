@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import {
   PawPrint,
@@ -46,7 +46,7 @@ const categoryIcons: Record<string, React.ReactNode> = {
   other: <PawPrint className="h-4 w-4" />,
 };
 
-const CATEGORY_BREEDS: Record<string, string[]> = {
+const FALLBACK_CATEGORY_BREEDS: Record<string, string[]> = {
   dog: [
     "Labrador Retriever",
     "German Shepherd",
@@ -143,6 +143,17 @@ const CATEGORY_BREEDS: Record<string, string[]> = {
   ],
 };
 
+interface DbCategory {
+  id: number;
+  name: string;
+}
+
+interface DbBreed {
+  id: number;
+  name: string;
+  category_id: number;
+}
+
 const fadeUp = {
   hidden: { opacity: 0, y: 18 },
   visible: (i: number) => ({
@@ -177,6 +188,30 @@ export default function Profile({ onClose }: ProfileProps) {
 
   const { user } = useAuth();
   const queryClient = useQueryClient();
+
+  // Dynamic categories & breeds from Supabase
+  const [dbCategories, setDbCategories] = useState<DbCategory[]>([]);
+  const [dbBreeds, setDbBreeds] = useState<DbBreed[]>([]);
+  const [usingDynamic, setUsingDynamic] = useState(false);
+
+  useEffect(() => {
+    const fetchCatalog = async () => {
+      try {
+        const [catRes, breedRes] = await Promise.all([
+          supabase.from("categories").select("*").order("name", { ascending: true }),
+          supabase.from("breeds").select("*").order("name", { ascending: true }),
+        ]);
+        if (catRes.data && catRes.data.length > 0) {
+          setDbCategories(catRes.data);
+          setDbBreeds(breedRes.data || []);
+          setUsingDynamic(true);
+        }
+      } catch {
+        // Silently fall back to static data
+      }
+    };
+    fetchCatalog();
+  }, []);
 
   const handleShowcaseChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -378,16 +413,26 @@ export default function Profile({ onClose }: ProfileProps) {
                   <SelectValue placeholder="Select…" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="dog">🐕 Dog</SelectItem>
-                  <SelectItem value="cat">🐈 Cat</SelectItem>
-                  <SelectItem value="bird">🐦 Bird</SelectItem>
-                  <SelectItem value="fish">🐟 Fish</SelectItem>
-                  <SelectItem value="rabbit">🐰 Rabbit</SelectItem>
-                  <SelectItem value="hamster">🐹 Hamster</SelectItem>
-                  <SelectItem value="turtle">🐢 Turtle</SelectItem>
-                  <SelectItem value="guinea-pig">🐹 Guinea Pig</SelectItem>
-                  <SelectItem value="horse">🐎 Horse</SelectItem>
-                  <SelectItem value="other">🐾 Other</SelectItem>
+                  {usingDynamic ? (
+                    dbCategories.map((cat) => (
+                      <SelectItem key={cat.id} value={cat.name.toLowerCase().replace(/\s+/g, "-")}>
+                        {cat.name}
+                      </SelectItem>
+                    ))
+                  ) : (
+                    <>
+                      <SelectItem value="dog">🐕 Dog</SelectItem>
+                      <SelectItem value="cat">🐈 Cat</SelectItem>
+                      <SelectItem value="bird">🐦 Bird</SelectItem>
+                      <SelectItem value="fish">🐟 Fish</SelectItem>
+                      <SelectItem value="rabbit">🐰 Rabbit</SelectItem>
+                      <SelectItem value="hamster">🐹 Hamster</SelectItem>
+                      <SelectItem value="turtle">🐢 Turtle</SelectItem>
+                      <SelectItem value="guinea-pig">🐹 Guinea Pig</SelectItem>
+                      <SelectItem value="horse">🐎 Horse</SelectItem>
+                      <SelectItem value="other">🐾 Other</SelectItem>
+                    </>
+                  )}
                 </SelectContent>
               </Select>
             </motion.div>
@@ -408,6 +453,42 @@ export default function Profile({ onClose }: ProfileProps) {
                   onChange={(e) => setBreed(e.target.value)}
                   className="h-10 bg-gray-50"
                 />
+              ) : usingDynamic ? (
+                (() => {
+                  // Find the matching DB category by normalized name
+                  const matchedCat = dbCategories.find(
+                    (c) => c.name.toLowerCase().replace(/\s+/g, "-") === category
+                  );
+                  const filteredBreeds = matchedCat
+                    ? dbBreeds.filter((b) => b.category_id === matchedCat.id)
+                    : [];
+                  return (
+                    <Select
+                      value={breed}
+                      onValueChange={setBreed}
+                      disabled={!category}
+                    >
+                      <SelectTrigger id="breed" className="h-10 bg-gray-50">
+                        <SelectValue
+                          placeholder={category ? "Select Breed" : "Category First"}
+                        />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {filteredBreeds.map((b) => (
+                          <SelectItem
+                            key={b.id}
+                            value={b.name.toLowerCase().replace(/[\s/]/g, "-")}
+                          >
+                            {b.name}
+                          </SelectItem>
+                        ))}
+                        {filteredBreeds.length === 0 && (
+                          <SelectItem value="other" disabled>No breeds found</SelectItem>
+                        )}
+                      </SelectContent>
+                    </Select>
+                  );
+                })()
               ) : (
                 <Select
                   value={breed}
@@ -421,7 +502,7 @@ export default function Profile({ onClose }: ProfileProps) {
                   </SelectTrigger>
                   <SelectContent>
                     {category &&
-                      CATEGORY_BREEDS[category]?.map((b) => (
+                      FALLBACK_CATEGORY_BREEDS[category]?.map((b) => (
                         <SelectItem
                           key={b}
                           value={b.toLowerCase().replace(/[\s/]/g, "-")}

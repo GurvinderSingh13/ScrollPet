@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { format } from "date-fns";
 import { Play, Pause, X, ChevronDown, Loader2, Ban, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -25,6 +26,7 @@ interface Message {
   mediaUrl?: string | null;
   mediaDuration?: number | null;
   location: string;
+  createdAt: string;
   user: {
     id: string;
     displayName: string;
@@ -144,7 +146,7 @@ export function MessageBubble({
                 onClick={() => setShowFullImage(true)}
               />
             )}
-            {message.content && <p className="text-sm">{message.content}</p>}
+            {message.content && <p className="text-sm whitespace-pre-wrap">{message.content}</p>}
           </div>
         );
       case "video":
@@ -157,7 +159,7 @@ export function MessageBubble({
                 className="max-w-full rounded-lg max-h-60"
               />
             )}
-            {message.content && <p className="text-sm">{message.content}</p>}
+            {message.content && <p className="text-sm whitespace-pre-wrap">{message.content}</p>}
           </div>
         );
       case "audio":
@@ -206,7 +208,7 @@ export function MessageBubble({
           </div>
         );
       default:
-        return <p>{message.content}</p>;
+        return <p className="whitespace-pre-wrap">{message.content}</p>;
     }
   };
 
@@ -269,6 +271,11 @@ export function MessageBubble({
             )}
           >
             {renderContent()}
+            {message.createdAt && (
+              <div className="text-[10px] opacity-60 text-right mt-1 -mb-1 flex justify-end">
+                {format(new Date(message.createdAt), "h:mm a").toLowerCase()}
+              </div>
+            )}
           </div>
 
           {!isOwnMessage && (
@@ -325,9 +332,6 @@ export function MessageBubble({
             </DropdownMenu>
           )}
         </div>
-        {isOwnMessage && (
-          <div className="text-xs text-gray-400 mt-1 mr-1">@{displayName}</div>
-        )}
       </div>
 
       {showFullImage && message.mediaUrl && (

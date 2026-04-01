@@ -39,6 +39,7 @@ import {
   Loader2,
   AlertTriangle,
   Clock,
+  LocateFixed,
 } from "lucide-react";
 import logoImage from "@assets/Scrollpet_logo_1766997907297.png";
 import {
@@ -104,6 +105,7 @@ export default function UserProfile() {
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [openCountry, setOpenCountry] = useState(false);
   const [openState, setOpenState] = useState(false);
+  const [isAutoDetecting, setIsAutoDetecting] = useState(false);
 
   // Pet Delete Confirmation States
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -129,6 +131,58 @@ export default function UserProfile() {
       window.location.href = "/";
     } else {
       window.location.href = "/login";
+    }
+  };
+
+  const handleAutoDetectLocation = async () => {
+    setIsAutoDetecting(true);
+    try {
+      const res = await fetch("https://ipapi.co/json/");
+      if (!res.ok) throw new Error("Location service unavailable.");
+      const data = await res.json();
+
+      const detectedCountryName = data.country_name;
+      const detectedRegion = data.region;
+
+      if (!detectedCountryName) throw new Error("Could not detect your country.");
+
+      // Match country name to ISO code
+      const matchedCountry = Country.getAllCountries().find(
+        (c) => c.name.toLowerCase() === detectedCountryName.toLowerCase()
+      );
+
+      if (!matchedCountry) {
+        toast({ description: `Detected "${detectedCountryName}" but could not match it. Please select manually.`, variant: "destructive" });
+        setIsAutoDetecting(false);
+        return;
+      }
+
+      let matchedStateCode = "";
+      if (detectedRegion) {
+        const statesOfCountry = State.getStatesOfCountry(matchedCountry.isoCode);
+        const matchedState = statesOfCountry.find(
+          (s) => s.name.toLowerCase() === detectedRegion.toLowerCase()
+        );
+        if (matchedState) matchedStateCode = matchedState.isoCode;
+      }
+
+      setEditProfileForm((prev) => ({
+        ...prev,
+        country: matchedCountry.isoCode,
+        state: matchedStateCode,
+      }));
+
+      toast({
+        description: `📍 Detected: ${detectedCountryName}${detectedRegion ? ", " + detectedRegion : ""}`,
+      });
+    } catch (err: any) {
+      console.error("Auto-detect location error:", err);
+      toast({
+        description: err.message || "Failed to detect location. Please select manually.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsAutoDetecting(false);
     }
   };
 
@@ -777,6 +831,24 @@ export default function UserProfile() {
                   </div>
 
                   {/* Location */}
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-sm font-semibold text-gray-700">Location</label>
+                    {canChangeLocation && (
+                      <button
+                        type="button"
+                        onClick={handleAutoDetectLocation}
+                        disabled={isAutoDetecting}
+                        className="inline-flex items-center gap-1.5 text-xs font-medium text-[#007699] hover:text-[#005a75] hover:bg-[#007699]/5 px-2.5 py-1.5 rounded-lg transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {isAutoDetecting ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <LocateFixed className="w-3.5 h-3.5" />
+                        )}
+                        {isAutoDetecting ? "Detecting…" : "Auto-detect Location"}
+                      </button>
+                    )}
+                  </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-1.5">
                       <label className={cn("text-sm font-semibold", canChangeLocation ? "text-gray-700" : "text-gray-400")}>Country</label>

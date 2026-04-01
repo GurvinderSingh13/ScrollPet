@@ -24,6 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 import {
   Shield,
   AlertTriangle,
@@ -44,6 +45,11 @@ import {
   Play,
   Pause,
   Square,
+  PawPrint,
+  Tags,
+  Trash2,
+  Plus,
+  Pencil,
 } from "lucide-react";
 import logoImage from "@assets/Scrollpet_logo_1766997907297.png";
 import { toast } from "@/hooks/use-toast";
@@ -84,8 +90,21 @@ export default function AdminDashboard() {
   const queryClient = useQueryClient();
 
   const [activeTab, setActiveTab] = useState<
-    "reports" | "announcements" | "broadcast" | "analytics"
+    "reports" | "announcements" | "broadcast" | "analytics" | "manage-pets"
   >("reports");
+
+  // ── Manage Pets States ──
+  const [catFormName, setCatFormName] = useState("");
+  const [catFormFile, setCatFormFile] = useState<File | null>(null);
+  const [catFormPreview, setCatFormPreview] = useState<string | null>(null);
+  const [editingCatId, setEditingCatId] = useState<number | null>(null);
+  const [isSavingCat, setIsSavingCat] = useState(false);
+  const catFileRef = useRef<HTMLInputElement>(null);
+
+  const [selectedCategoryId, setSelectedCategoryId] = useState("");
+  const [breedFormName, setBreedFormName] = useState("");
+  const [editingBreedId, setEditingBreedId] = useState<number | null>(null);
+  const [isSavingBreed, setIsSavingBreed] = useState(false);
 
   // Role Management States
   const [isRoleModalOpen, setIsRoleModalOpen] = useState(false);
@@ -164,6 +183,188 @@ export default function AdminDashboard() {
     },
     enabled: isModOrAbove,
   });
+
+  // ── Manage Pets Queries ──
+  const { data: dbCategories = [], isLoading: categoriesLoading } = useQuery({
+    queryKey: ["admin-categories"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("categories")
+        .select("*")
+        .order("name", { ascending: true });
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: dbUser?.role === "admin",
+  });
+
+  const { data: dbBreeds = [], isLoading: breedsLoading } = useQuery({
+    queryKey: ["admin-breeds"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("breeds")
+        .select("*, categories(name)")
+        .order("name", { ascending: true });
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: dbUser?.role === "admin",
+  });
+
+  // ── Category image file handler ──
+  const handleCatFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] || null;
+    setCatFormFile(file);
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => setCatFormPreview(reader.result as string);
+      reader.readAsDataURL(file);
+    } else {
+      setCatFormPreview(null);
+    }
+  };
+
+  const resetCatForm = () => {
+    setCatFormName("");
+    setCatFormFile(null);
+    setCatFormPreview(null);
+    setEditingCatId(null);
+    if (catFileRef.current) catFileRef.current.value = "";
+  };
+
+  const resetBreedForm = () => {
+    setBreedFormName("");
+    setSelectedCategoryId("");
+    setEditingBreedId(null);
+  };
+
+  const uploadCategoryImage = async (file: File): Promise<string> => {
+    const ext = file.name.split(".").pop() || "png";
+    const filePath = `category-images/${Date.now()}-${Math.random().toString(36).substring(2, 8)}.${ext}`;
+    const { error: upErr } = await supabase.storage.from("categories").upload(filePath, file);
+    if (upErr) throw upErr;
+    const { data } = supabase.storage.from("categories").getPublicUrl(filePath);
+    return data.publicUrl;
+  };
+
+  const handleSaveCategory = async () => {
+    const trimmed = catFormName.trim();
+    if (!trimmed) return toast({ description: "Enter a category name.", variant: "destructive" });
+    setIsSavingCat(true);
+    try {
+      let imageUrl: string | null = null;
+      if (catFormFile) {
+        imageUrl = await uploadCategoryImage(catFormFile);
+        const ext = catFormFile.name.split(".").pop() || "png";
+        const filePath = `category-images/${Date.now()}-${Math.random().toString(36).substring(2, 8)}.${ext}`;
+        const { error: upErr } = await supabase.storage.from("categories").upload(filePath, catFormFile);
+        if (upErr) throw upErr;
+        const { data } = supabase.storage.from("categories").getPublicUrl(filePath);
+        imageUrl = data.publicUrl;
+      }
+
+      if (editingCatId) {
+        const updateData: any = { name: trimmed, image_url: imageUrl };
+        const { error } = await supabase.from("categories").update(updateData).eq("id", editingCatId);
+        if (error) throw error;
+        toast({ description: `Category "${trimmed}" updated!` });
+      } else {
+        const insertData: any = { name: trimmed, image_url: imageUrl };
+        const { error } = await supabase.from("categories").insert(insertData);
+        if (error) throw error;
+        toast({ description: `Category "${trimmed}" added!` });
+      }
+      resetCatForm();
+      queryClient.invalidateQueries({ queryKey: ["admin-categories"] });
+    } catch (err: any) {
+      console.error(err);
+      toast({ 
+        description: err.message || "Failed to save category. Check your database permissions (RLS).", 
+        variant: "destructive" 
+      });
+    } finally {
+      setIsSavingCat(false);
+    }
+  };
+
+  const startEditCategory = (cat: any) => {
+    setEditingCatId(cat.id);
+    setCatFormName(cat.name);
+    setCatFormFile(null);
+    setCatFormPreview(cat.image_url || null);
+    if (catFileRef.current) catFileRef.current.value = "";
+  };
+
+  const handleDeleteCategory = async (id: number, name: string) => {
+    if (!confirm(`Delete category "${name}"? All associated breeds will also be deleted.`)) return;
+    try {
+      const { error } = await supabase.from("categories").delete().eq("id", id);
+      if (error) throw error;
+      toast({ description: `Category "${name}" deleted.` });
+      if (editingCatId === id) resetCatForm();
+      queryClient.invalidateQueries({ queryKey: ["admin-categories"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-breeds"] });
+    } catch (err: any) {
+      toast({ description: err.message || "Failed to delete.", variant: "destructive" });
+    }
+  };
+
+  const handleSaveBreed = async () => {
+    if (!selectedCategoryId) return toast({ description: "Select a category first (or create one).", variant: "destructive" });
+    const trimmed = breedFormName.trim();
+    if (!trimmed) return toast({ description: "Enter a breed name.", variant: "destructive" });
+    
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return toast({ description: "Unauthorized: Please log in as admin.", variant: "destructive" });
+
+    setIsSavingBreed(true);
+    try {
+      if (editingBreedId) {
+        const { error } = await supabase.from("breeds").update({
+          name: trimmed,
+          category_id: selectedCategoryId,
+        }).eq("id", editingBreedId);
+        if (error) throw error;
+        toast({ description: `Breed "${trimmed}" updated!` });
+      } else {
+        const { error } = await supabase.from("breeds").insert({
+          name: trimmed,
+          category_id: selectedCategoryId,
+        });
+        if (error) throw error;
+        toast({ description: `Breed "${trimmed}" added!` });
+      }
+      resetBreedForm();
+      queryClient.invalidateQueries({ queryKey: ["admin-breeds"] });
+    } catch (err: any) {
+      console.error(err);
+      toast({ 
+        description: err.message || "Failed to save breed. Check your database permissions (RLS).", 
+        variant: "destructive" 
+      });
+    } finally {
+      setIsSavingBreed(false);
+    }
+  };
+
+  const startEditBreed = (breed: any) => {
+    setEditingBreedId(breed.id);
+    setBreedFormName(breed.name);
+    setSelectedCategoryId(String(breed.category_id));
+  };
+
+  const handleDeleteBreed = async (id: number, name: string) => {
+    if (!confirm(`Delete breed "${name}"?`)) return;
+    try {
+      const { error } = await supabase.from("breeds").delete().eq("id", id);
+      if (error) throw error;
+      toast({ description: `Breed "${name}" deleted.` });
+      if (editingBreedId === id) resetBreedForm();
+      queryClient.invalidateQueries({ queryKey: ["admin-breeds"] });
+    } catch (err: any) {
+      toast({ description: err.message || "Failed to delete.", variant: "destructive" });
+    }
+  };
 
   // Analytics Queries
   const { data: analyticsData, isLoading: analyticsLoading } = useQuery({
@@ -486,6 +687,14 @@ export default function AdminDashboard() {
               >
                 <BarChart2 className="w-4 h-4" /> Platform Analytics
               </button>
+              {dbUser?.role === "admin" && (
+                <button
+                  onClick={() => setActiveTab("manage-pets")}
+                  className={`pb-3 font-bold border-b-2 flex items-center gap-2 ${activeTab === "manage-pets" ? "border-teal-600 text-teal-600" : "border-transparent text-gray-500"}`}
+                >
+                  <PawPrint className="w-4 h-4" /> Manage Pets
+                </button>
+              )}
             </div>
           </CardHeader>
 
@@ -1093,6 +1302,239 @@ export default function AdminDashboard() {
                     </div>
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* ═══════ MANAGE PETS TAB ═══════ */}
+            {activeTab === "manage-pets" && dbUser?.role === "admin" && (
+              <div className="space-y-8">
+                {/* Header */}
+                <div className="flex items-center gap-3 pb-3 border-b border-gray-100">
+                  <div className="w-10 h-10 rounded-xl bg-teal-100 flex items-center justify-center">
+                    <PawPrint className="w-5 h-5 text-teal-600" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-bold text-gray-900">Manage Pet Categories & Breeds</h2>
+                    <p className="text-sm text-gray-500">Full CRUD — add, edit, delete categories (with images) and breeds.</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+                  {/* ══════════ CATEGORIES CARD ══════════ */}
+                  <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden flex flex-col">
+                    <div className="px-5 py-4 border-b border-gray-100 bg-gradient-to-r from-teal-50 to-white">
+                      <h3 className="font-bold text-gray-800 flex items-center gap-2">
+                        <Tags className="w-4 h-4 text-teal-600" /> Categories
+                      </h3>
+                      <p className="text-xs text-gray-400 mt-0.5">e.g. Dog, Cat, Bird, Hamster…</p>
+                    </div>
+
+                    <div className="p-5 space-y-4 flex-1 flex flex-col">
+                      {/* Form (Add / Edit) */}
+                      <div className="space-y-3 p-4 rounded-xl border border-teal-200 bg-teal-50/40">
+                        <p className="text-xs font-bold text-teal-700 uppercase tracking-wider">
+                          {editingCatId ? "✏️ Edit Category" : "➕ New Category"}
+                        </p>
+                        <Input
+                          placeholder="Category name…"
+                          value={catFormName}
+                          onChange={(e) => setCatFormName(e.target.value)}
+                          className="h-10 bg-white border-gray-200 focus-visible:ring-teal-400 rounded-xl"
+                          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleSaveCategory(); } }}
+                        />
+                        {/* Image upload */}
+                        <div className="flex items-center gap-3">
+                          <label className="flex items-center gap-2 px-3 py-2 text-xs font-semibold text-teal-700 bg-white border border-teal-200 rounded-xl cursor-pointer hover:bg-teal-50 transition-colors">
+                            <Upload className="w-3.5 h-3.5" />
+                            {catFormFile ? "Change Image" : "Upload Image"}
+                            <input
+                              ref={catFileRef}
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={handleCatFileChange}
+                            />
+                          </label>
+                          {catFormPreview && (
+                            <img src={catFormPreview} alt="Preview" className="w-10 h-10 rounded-lg object-cover border border-teal-200" />
+                          )}
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            onClick={handleSaveCategory}
+                            disabled={isSavingCat || !catFormName.trim()}
+                            className="flex-1 h-10 bg-teal-600 hover:bg-teal-700 text-white font-semibold rounded-xl cursor-pointer"
+                          >
+                            {isSavingCat ? <Loader2 className="w-4 h-4 animate-spin" /> : editingCatId ? <>Save Changes</> : <><Plus className="w-4 h-4 mr-1" /> Add Category</>}
+                          </Button>
+                          {editingCatId && (
+                            <Button variant="outline" onClick={resetCatForm} className="h-10 rounded-xl cursor-pointer">
+                              Cancel
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* List */}
+                      <div className="border border-gray-100 rounded-xl bg-gray-50 overflow-y-auto flex-1" style={{ maxHeight: 340 }}>
+                        {categoriesLoading ? (
+                          <div className="py-10 flex justify-center"><Loader2 className="w-5 h-5 animate-spin text-teal-500" /></div>
+                        ) : dbCategories.length === 0 ? (
+                          <p className="py-10 text-center text-sm text-gray-400">No categories yet. Add your first one above.</p>
+                        ) : (
+                          <div className="divide-y divide-gray-100">
+                            {dbCategories.map((cat: any) => (
+                              <div key={cat.id} className={`flex items-center justify-between px-4 py-3 transition-colors group ${
+                                editingCatId === cat.id ? "bg-teal-50 ring-1 ring-teal-300" : "hover:bg-teal-50/50"
+                              }`}>
+                                <div className="flex items-center gap-3 min-w-0">
+                                  {cat.image_url ? (
+                                    <img src={cat.image_url} alt={cat.name} className="w-9 h-9 rounded-lg object-cover border border-gray-200 flex-shrink-0" />
+                                  ) : (
+                                    <div className="w-9 h-9 rounded-lg bg-teal-100 flex items-center justify-center text-teal-700 font-bold text-sm flex-shrink-0">
+                                      {cat.name.charAt(0).toUpperCase()}
+                                    </div>
+                                  )}
+                                  <span className="text-sm font-medium text-gray-800 truncate">{cat.name}</span>
+                                </div>
+                                <div className="flex items-center gap-1 flex-shrink-0 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                                  <button
+                                    onClick={() => startEditCategory(cat)}
+                                    className="p-1.5 rounded-lg hover:bg-teal-100 text-teal-600 cursor-pointer"
+                                    title="Edit category"
+                                  >
+                                    <Pencil className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteCategory(cat.id, cat.name)}
+                                    className="p-1.5 rounded-lg hover:bg-red-100 text-red-500 cursor-pointer"
+                                    title="Delete category"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      <p className="text-[10px] text-gray-400 text-center">{dbCategories.length} categories total</p>
+                    </div>
+                  </div>
+
+                  {/* ══════════ BREEDS CARD ══════════ */}
+                  <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden flex flex-col">
+                    <div className="px-5 py-4 border-b border-gray-100 bg-gradient-to-r from-sky-50 to-white">
+                      <h3 className="font-bold text-gray-800 flex items-center gap-2">
+                        <PawPrint className="w-4 h-4 text-sky-600" /> Breeds
+                      </h3>
+                      <p className="text-xs text-gray-400 mt-0.5">Assign breeds to an existing category.</p>
+                    </div>
+
+                    <div className="p-5 space-y-4 flex-1 flex flex-col">
+                      {/* Form (Add / Edit) */}
+                      <div className="space-y-3 p-4 rounded-xl border border-sky-200 bg-sky-50/40">
+                        <p className="text-xs font-bold text-sky-700 uppercase tracking-wider">
+                          {editingBreedId ? "✏️ Edit Breed" : "➕ New Breed"}
+                        </p>
+                        <Select 
+                          value={selectedCategoryId} 
+                          onValueChange={setSelectedCategoryId}
+                        >
+                          <SelectTrigger className="h-10 bg-white border-gray-200 rounded-xl shadow-sm focus:ring-sky-400">
+                            <SelectValue placeholder="Select parent category…" />
+                          </SelectTrigger>
+                          <SelectContent className="rounded-xl border-gray-200 shadow-xl overflow-hidden bg-white z-50">
+                            {dbCategories && dbCategories.length > 0 ? (
+                              dbCategories.map((category: any) => (
+                                <SelectItem 
+                                  key={category.id} 
+                                  value={category.id}
+                                  className="focus:bg-sky-50 focus:text-sky-700 cursor-pointer"
+                                >
+                                  {category.name}
+                                </SelectItem>
+                              ))
+                            ) : (
+                              <SelectItem value="none" disabled className="text-gray-400 italic">
+                                No categories found
+                              </SelectItem>
+                            )}
+                          </SelectContent>
+                        </Select>
+                        <Input
+                          placeholder="Breed name (e.g. Bulldog)…"
+                          value={breedFormName}
+                          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setBreedFormName(e.target.value)}
+                          className="h-10 bg-white border-gray-200 focus-visible:ring-sky-400 rounded-xl shadow-sm"
+                          onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => { if (e.key === "Enter") { e.preventDefault(); handleSaveBreed(); } }}
+                        />
+                        <div className="flex gap-2">
+                          <Button
+                            onClick={handleSaveBreed}
+                            disabled={isSavingBreed || !breedFormName.trim() || !selectedCategoryId}
+                            className="flex-1 h-10 bg-sky-600 hover:bg-sky-700 text-white font-semibold rounded-xl cursor-pointer"
+                          >
+                            {isSavingBreed ? <Loader2 className="w-4 h-4 animate-spin" /> : editingBreedId ? <>Save Changes</> : <><Plus className="w-4 h-4 mr-1" /> Add Breed</>}
+                          </Button>
+                          {editingBreedId && (
+                            <Button variant="outline" onClick={resetBreedForm} className="h-10 rounded-xl cursor-pointer">
+                              Cancel
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* List */}
+                      <div className="border border-gray-100 rounded-xl bg-gray-50 overflow-y-auto flex-1" style={{ maxHeight: 340 }}>
+                        {breedsLoading ? (
+                          <div className="py-10 flex justify-center"><Loader2 className="w-5 h-5 animate-spin text-sky-500" /></div>
+                        ) : dbBreeds.length === 0 ? (
+                          <p className="py-10 text-center text-sm text-gray-400">No breeds yet. Add a category first, then create breeds.</p>
+                        ) : (
+                          <div className="divide-y divide-gray-100">
+                            {dbBreeds.map((breed: any) => (
+                              <div key={breed.id} className={`flex items-center justify-between px-4 py-3 transition-colors group ${
+                                editingBreedId === breed.id ? "bg-sky-50 ring-1 ring-sky-300" : "hover:bg-sky-50/50"
+                              }`}>
+                                <div className="flex items-center gap-3 min-w-0">
+                                  <div className="w-8 h-8 rounded-lg bg-sky-100 flex items-center justify-center text-sky-700 font-bold text-xs flex-shrink-0">
+                                    {breed.name.charAt(0).toUpperCase()}
+                                  </div>
+                                  <div className="min-w-0">
+                                    <span className="text-sm font-medium text-gray-800 block truncate">{breed.name}</span>
+                                    <span className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded-full font-medium">
+                                      {breed.categories?.name || "Uncategorized"}
+                                    </span>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-1 flex-shrink-0 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                                  <button
+                                    onClick={() => startEditBreed(breed)}
+                                    className="p-1.5 rounded-lg hover:bg-sky-100 text-sky-600 cursor-pointer"
+                                    title="Edit breed"
+                                  >
+                                    <Pencil className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteBreed(breed.id, breed.name)}
+                                    className="p-1.5 rounded-lg hover:bg-red-100 text-red-500 cursor-pointer"
+                                    title="Delete breed"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      <p className="text-[10px] text-gray-400 text-center">{dbBreeds.length} breeds total</p>
+                    </div>
+                  </div>
+
+                </div>
               </div>
             )}
           </CardContent>

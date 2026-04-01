@@ -65,6 +65,7 @@ import {
 } from "@/components/ui/command";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
+import { format, isToday, isYesterday } from "date-fns";
 
 import dogImg from "@assets/stock_images/happy_dog_portrait_o_6e5075a4.jpg";
 import catImg from "@assets/stock_images/ginger_cat_sitting_f_07d19cb3.jpg";
@@ -1516,28 +1517,34 @@ export default function ChatInterface() {
                   isNewsRoom && "bg-amber-50/30",
                 )}
               >
-                {/* --- DYNAMIC WATERMARK --- */}
-                <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden flex flex-col items-center">
-                  <div className="sticky top-1/2 -translate-y-1/2 flex flex-col items-center justify-center w-full text-center uppercase tracking-widest font-extrabold text-gray-200 select-none opacity-40">
+                {/* --- FIXED BACKGROUND WATERMARK --- */}
+                <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none select-none z-0 w-full flex flex-col items-center justify-center p-4">
+                  <div className="flex flex-col items-center justify-center w-full text-center uppercase tracking-[0.2em] font-black text-gray-900 opacity-[0.03]">
                     {chatRoomLocation === "global" && !isNewsRoom ? (
-                      <span className="text-4xl md:text-7xl">Global Chat</span>
+                      <span className="text-5xl md:text-8xl">Global Room</span>
                     ) : isNewsRoom ? (
-                      <span className="text-4xl md:text-7xl text-amber-200">News Room</span>
+                      <span className="text-5xl md:text-8xl">News Room</span>
                     ) : activeDmUser ? (
-                      <span className="text-4xl md:text-7xl">Direct Message</span>
+                      <div className="flex flex-col items-center gap-2">
+                         <span className="text-3xl md:text-5xl">Direct Message</span>
+                         <span className="text-5xl md:text-8xl">@{activeDmUser.name}</span>
+                      </div>
                     ) : chatRoomLocation === "staff_lounge" ? (
-                      <span className="text-4xl md:text-7xl">Staff Lounge</span>
+                      <span className="text-5xl md:text-8xl">Staff Lounge</span>
                     ) : (
-                      <>
-                        <span className="text-2xl md:text-4xl opacity-80">{activePetData?.name || activePet}</span>
-                        {activeBreed && <span className="text-5xl md:text-7xl mt-1">{activeBreed}</span>}
-                        <span className="text-lg md:text-2xl opacity-60 mt-3 max-w-2xl px-4 truncate">
+                      <div className="flex flex-col items-center gap-2 lg:gap-4">
+                        <div className="flex items-center gap-3 md:gap-6">
+                           <span className="text-4xl md:text-6xl">{activePetData?.name || activePet}</span>
+                           {activeBreed && <span className="text-6xl md:text-9xl">/ {activeBreed}</span>}
+                        </div>
+                        <span className="text-2xl md:text-4xl max-w-[90vw] break-words">
                           {chatRoomLocation.replace(/^(country|state|city):/, '').replace(/:/g, ' • ')}
                         </span>
-                      </>
+                      </div>
                     )}
                   </div>
                 </div>
+                {/* --------------------------------- */}
                 {/* ------------------------- */}
                 {isNewsRoom ? (
                   announcements.length === 0 ? (
@@ -1612,20 +1619,41 @@ export default function ChatInterface() {
                     ))
                   )
                 ) : (
-                  messages.map((msg) => (
-                    <div key={msg.id} className="relative z-10">
-                      <MessageBubble
-                        message={msg}
-                        isOwnMessage={msg.userId === userId}
-                        displayName={displayName}
-                        currentUserRole={userRole}
-                        onUserClick={handleUserClick}
-                        onReplyClick={(name: string) => setReplyToUser(`@${name} `)}
-                        onBanClick={() => handleOpenDirectBan(msg.user)}
-                        onDeleteClick={handleDeleteMessage}
-                      />
-                    </div>
-                  ))
+                  messages.map((msg, index) => {
+                    const prevMsg = messages[index - 1];
+                    const currentDate = new Date(msg.createdAt);
+                    const prevDate = prevMsg ? new Date(prevMsg.createdAt) : null;
+                    const showDateChip = !prevDate || currentDate.toDateString() !== prevDate.toDateString();
+                    
+                    let dateChipText = "";
+                    if (showDateChip) {
+                      if (isToday(currentDate)) dateChipText = "Today";
+                      else if (isYesterday(currentDate)) dateChipText = "Yesterday";
+                      else dateChipText = format(currentDate, "MMMM d, yyyy");
+                    }
+                    
+                    return (
+                      <div key={msg.id} className="relative z-10 flex flex-col">
+                        {showDateChip && (
+                          <div className="flex justify-center my-4">
+                            <span className="bg-gray-100 border border-gray-200 text-gray-500 text-[11px] px-3 py-1 rounded-full font-medium shadow-sm">
+                              {dateChipText}
+                            </span>
+                          </div>
+                        )}
+                        <MessageBubble
+                          message={msg}
+                          isOwnMessage={msg.userId === userId}
+                          displayName={displayName}
+                          currentUserRole={userRole}
+                          onUserClick={handleUserClick}
+                          onReplyClick={(name: string) => setReplyToUser(`@${name} `)}
+                          onBanClick={() => handleOpenDirectBan(msg.user)}
+                          onDeleteClick={handleDeleteMessage}
+                        />
+                      </div>
+                    );
+                  })
                 )}
                 <div ref={messagesEndRef} />
               </div>

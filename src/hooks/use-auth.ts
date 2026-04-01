@@ -22,7 +22,7 @@ async function fetchUser(): Promise<AuthUser | null> {
   // Fetch the latest user profile directly to get the current avatar URL
   const { data: dbUser, error } = await supabase
     .from("users")
-    .select("profile_image_url, avatar_url")
+    .select("profile_image_url")
     .eq("id", user.id)
     .single();
 

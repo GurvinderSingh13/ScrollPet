@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { EmojiPicker } from "./EmojiPicker";
+import { Textarea } from "@/components/ui/textarea";
 
 interface MediaPreview {
   file: File;
@@ -59,7 +60,7 @@ export function ChatInput({
   const [isUploading, setIsUploading] = useState(false);
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
 
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -68,6 +69,13 @@ export function ChatInput({
   );
   const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
   const emojiPickerRef = useRef<HTMLDivElement>(null);
+
+  // Reset textarea height when message is cleared
+  useEffect(() => {
+    if (message === "" && inputRef.current) {
+      inputRef.current.style.height = "40px";
+    }
+  }, [message]);
 
   // Close emoji picker when clicking outside
   useEffect(() => {
@@ -398,16 +406,24 @@ export function ChatInput({
         />
 
         {/* Text Input */}
-        <input
+        <Textarea
           ref={inputRef}
-          type="text"
+          rows={1}
           placeholder="Type a message..."
-          className="flex-1 min-w-0 bg-transparent border-none focus:outline-none text-gray-700 placeholder:text-gray-400 h-10 px-2 text-base"
+          className="flex-1 min-w-0 bg-transparent border-none focus-visible:ring-0 focus-visible:ring-offset-0 text-gray-700 placeholder:text-gray-400 px-2 py-2 text-base resize-none overflow-y-auto min-h-[40px]"
+          style={{ height: '40px', maxHeight: '120px' }}
           value={message}
-          onChange={(e) => setMessage(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && hasContent && !isUploading) {
-              handleSend();
+          onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => {
+            setMessage(e.target.value);
+            e.target.style.height = 'auto';
+            e.target.style.height = `${e.target.scrollHeight}px`;
+          }}
+          onKeyDown={(e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              if (hasContent && !isUploading) {
+                handleSend();
+              }
             }
           }}
           disabled={isRecording || isUploading}
