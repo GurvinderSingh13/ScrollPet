@@ -42,7 +42,7 @@ interface MessageBubbleProps {
   displayName: string;
   currentUserRole?: string;
   onUserClick?: (userId: string, userName: string) => void;
-  onReplyClick?: (userName: string) => void;
+  onReplyClick?: (userId: string, userName: string) => void;
   onBanClick?: () => void;
   onDeleteClick?: (messageId: string) => void;
 }
@@ -292,7 +292,7 @@ export function MessageBubble({
               >
                 <DropdownMenuItem
                   className="cursor-pointer hover:bg-gray-100 px-3 py-2"
-                  onClick={() => onReplyClick?.(message.user.displayName)}
+                  onClick={() => onReplyClick?.(message.user.id, message.user.displayName)}
                 >
                   Reply
                 </DropdownMenuItem>

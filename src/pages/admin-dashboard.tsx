@@ -51,6 +51,12 @@ import {
   Plus,
   Pencil,
   MessageCircle,
+  TrendingUp,
+  TrendingDown,
+  Activity,
+  Zap,
+  Crown,
+  MessageSquare,
 } from "lucide-react";
 import logoImage from "@assets/Scrollpet_logo_1766997907297.png";
 import { toast } from "@/hooks/use-toast";
@@ -70,6 +76,8 @@ import {
   Pie,
   Cell,
   Legend,
+  AreaChart,
+  Area,
 } from "recharts";
 
 const PET_CATEGORIES = [
@@ -371,80 +379,150 @@ export default function AdminDashboard() {
     }
   };
 
-  // Analytics Queries
+  // ═══════════════════════════════════════════════════════
+  // ═══  COMPREHENSIVE ANALYTICS ENGINE  ════════════════
+  // ═══════════════════════════════════════════════════════
   const { data: analyticsData, isLoading: analyticsLoading } = useQuery({
-    queryKey: ["admin-analytics"],
+    queryKey: ["admin-analytics-v2"],
     queryFn: async () => {
-      const sevenDaysAgo = new Date();
-      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      const now = new Date();
+      const fiveMinAgo = new Date(now.getTime() - 5 * 60 * 1000);
+      const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+      const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
-      const [messagesRes, usersRes, reportsCountRes, approvedCountRes] =
-        await Promise.all([
-          supabase.from("messages").select("pet_type"),
-          supabase
-            .from("users")
-            .select("created_at")
-            .gte("created_at", sevenDaysAgo.toISOString()),
-          supabase
-            .from("reports")
-            .select("id", { count: "exact", head: true }),
-          supabase
-            .from("announcements")
-            .select("id", { count: "exact", head: true })
-            .eq("status", "approved"),
-        ]);
+      // Parallel fetch all data we need
+      const [
+        totalUsersRes,
+        totalMsgCountRes,
+        allMessagesRes,
+        recentSignupsRes,
+        recentActiveRes,
+        weeklyActiveRes,
+        monthlyActiveRes,
+        liveNowRes,
+        reportsCountRes,
+        approvedCountRes,
+      ] = await Promise.all([
+        // Total users
+        supabase.from("users").select("id", { count: "exact", head: true }),
+        // Total messages
+        supabase.from("messages").select("id", { count: "exact", head: true }),
+        // All messages for type breakdown + hour chart + room activity
+        supabase.from("messages").select("message_type, created_at, location, pet_type, breed"),
+        // Signups last 30 days
+        supabase.from("users").select("created_at").gte("created_at", thirtyDaysAgo.toISOString()),
+        // DAU — distinct users who sent messages in last 24h
+        supabase.from("messages").select("user_id").gte("created_at", oneDayAgo.toISOString()),
+        // WAU — distinct users who sent messages in last 7d
+        supabase.from("messages").select("user_id").gte("created_at", sevenDaysAgo.toISOString()),
+        // MAU — distinct users who sent messages in last 30d
+        supabase.from("messages").select("user_id").gte("created_at", thirtyDaysAgo.toISOString()),
+        // "Live Now" — unique senders in last 5 min
+        supabase.from("messages").select("user_id").gte("created_at", fiveMinAgo.toISOString()),
+        // Reports
+        supabase.from("reports").select("id", { count: "exact", head: true }),
+        // Approved announcements
+        supabase.from("announcements").select("id", { count: "exact", head: true }).eq("status", "approved"),
+      ]);
 
-      // Bar chart: messages per pet category
-      const petCounts: Record<string, number> = {};
-      for (const msg of messagesRes.data || []) {
-        const key = msg.pet_type || "other";
-        petCounts[key] = (petCounts[key] || 0) + 1;
+      const totalUsers = totalUsersRes.count || 0;
+      const totalMessages = totalMsgCountRes.count || 0;
+
+      // ── Live Now (unique users in last 5 min) ──
+      const liveNowSet = new Set((liveNowRes.data || []).map((r: any) => r.user_id));
+      const liveNow = liveNowSet.size;
+
+      // ── DAU / WAU / MAU ──
+      const dauSet = new Set((recentActiveRes.data || []).map((r: any) => r.user_id));
+      const wauSet = new Set((weeklyActiveRes.data || []).map((r: any) => r.user_id));
+      const mauSet = new Set((monthlyActiveRes.data || []).map((r: any) => r.user_id));
+
+      // ── Message Type Breakdown (donut chart) ──
+      const typeCounts: Record<string, number> = { text: 0, image: 0, video: 0, audio: 0 };
+      const hourCounts: number[] = new Array(24).fill(0);
+      const roomCounts: Record<string, number> = {};
+
+      for (const msg of allMessagesRes.data || []) {
+        // Type
+        const t = (msg.message_type || "text").toLowerCase();
+        if (t in typeCounts) typeCounts[t]++;
+        else typeCounts["text"]++;
+
+        // Hour of day
+        const h = new Date(msg.created_at).getHours();
+        hourCounts[h]++;
+
+        // Room activity
+        const petLabel = (msg.pet_type || "other").charAt(0).toUpperCase() + (msg.pet_type || "other").slice(1).replace("-", " ");
+        let locLabel = msg.location || "global";
+        if (locLabel === "global") locLabel = "🌍 Global";
+        else if (locLabel.startsWith("country:")) locLabel = "🏳️ " + locLabel.split(":")[1];
+        else if (locLabel.startsWith("state:")) locLabel = "📍 " + locLabel.split(":").slice(2).join(":");
+        else if (locLabel === "staff_lounge") locLabel = "🔒 Staff";
+        const roomKey = `${petLabel} · ${locLabel}`;
+        roomCounts[roomKey] = (roomCounts[roomKey] || 0) + 1;
       }
-      const petChartData = Object.entries(petCounts)
-        .map(([name, count]) => ({
-          name: name.charAt(0).toUpperCase() + name.slice(1).replace("-", " "),
-          count,
-        }))
-        .sort((a, b) => b.count - a.count);
 
-      // Line chart: signups per day over last 7 days
+      const typeChartData = [
+        { name: "Text", value: typeCounts.text, color: "#6366f1" },
+        { name: "Image", value: typeCounts.image, color: "#06b6d4" },
+        { name: "Video", value: typeCounts.video, color: "#f59e0b" },
+        { name: "Audio", value: typeCounts.audio, color: "#ec4899" },
+      ].filter((d) => d.value > 0);
+
+      // ── Busiest hour of day ──
+      const hourChartData = hourCounts.map((count, hour) => ({
+        hour: `${hour.toString().padStart(2, "0")}:00`,
+        messages: count,
+      }));
+
+      // ── Top rooms ──
+      const topRooms = Object.entries(roomCounts)
+        .map(([name, count]) => ({ name, count }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 8);
+
+      // ── Signup Trends (30 days) ──
       const dayLabels: string[] = [];
       const signupMap: Record<string, number> = {};
-      for (let i = 6; i >= 0; i--) {
+      for (let i = 29; i >= 0; i--) {
         const d = new Date();
         d.setDate(d.getDate() - i);
-        const label = d.toLocaleDateString("en-US", {
-          month: "short",
-          day: "numeric",
-        });
+        const label = d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
         dayLabels.push(label);
         signupMap[label] = 0;
       }
-      for (const u of usersRes.data || []) {
+      for (const u of recentSignupsRes.data || []) {
         const d = new Date(u.created_at);
-        const label = d.toLocaleDateString("en-US", {
-          month: "short",
-          day: "numeric",
-        });
+        const label = d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
         if (label in signupMap) signupMap[label]++;
       }
-      const signupChartData = dayLabels.map((label) => ({
-        date: label,
-        signups: signupMap[label],
-      }));
+      const signupChartData = dayLabels.map((label) => ({ date: label, signups: signupMap[label] }));
 
-      // Pie chart: reports vs approved announcements
-      const pieData = [
-        { name: "Reports Filed", value: reportsCountRes.count || 0 },
-        {
-          name: "Approved Announcements",
-          value: approvedCountRes.count || 0,
-        },
-      ];
+      // ── Growth rate (last 7 days vs previous 7 days) ──
+      const last7 = signupChartData.slice(-7).reduce((s, d) => s + d.signups, 0);
+      const prev7 = signupChartData.slice(-14, -7).reduce((s, d) => s + d.signups, 0);
+      const growthPercent = prev7 > 0 ? Math.round(((last7 - prev7) / prev7) * 100) : last7 > 0 ? 100 : 0;
 
-      return { petChartData, signupChartData, pieData };
+      return {
+        totalUsers,
+        totalMessages,
+        liveNow,
+        dau: dauSet.size,
+        wau: wauSet.size,
+        mau: mauSet.size,
+        typeChartData,
+        signupChartData,
+        hourChartData,
+        topRooms,
+        growthPercent,
+        reportsCount: reportsCountRes.count || 0,
+        approvedCount: approvedCountRes.count || 0,
+      };
     },
     enabled: isModOrAbove,
+    refetchInterval: 60_000, // Auto-refresh every 60s
   });
 
   const handleSearchUser = async () => {
@@ -1125,186 +1203,369 @@ export default function AdminDashboard() {
                 </Button>
               </div>
             )}
-            {/* ANALYTICS TAB */}
+            {/* ═══════════════════════════════════════════════════ */}
+            {/* ═══  PLATFORM ANALYTICS — PREMIUM DASHBOARD  ═══ */}
+            {/* ═══════════════════════════════════════════════════ */}
             {activeTab === "analytics" && (
-              <div className="space-y-8">
-                {/* Header */}
-                <div className="flex items-center gap-3 pb-2 border-b border-gray-100">
-                  <div className="w-10 h-10 rounded-xl bg-violet-100 flex items-center justify-center">
-                    <BarChart2 className="w-5 h-5 text-violet-600" />
+              <div className="space-y-6">
+                {/* Header with last-refresh badge */}
+                <div className="flex items-center justify-between flex-wrap gap-3 pb-3 border-b border-gray-100">
+                  <div className="flex items-center gap-3">
+                    <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-violet-200">
+                      <BarChart2 className="w-5 h-5 text-white" />
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-black text-gray-900 tracking-tight">Platform Analytics</h2>
+                      <p className="text-xs text-gray-400 mt-0.5">Real-time insights · Auto-refreshes every 60 s</p>
+                    </div>
                   </div>
-                  <div>
-                    <h2 className="text-lg font-bold text-gray-900">Platform Analytics</h2>
-                    <p className="text-sm text-gray-500">Live insights pulled directly from your Supabase tables.</p>
+                  <div className="flex items-center gap-2 text-xs text-gray-400">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                    Live
                   </div>
                 </div>
 
                 {analyticsLoading ? (
-                  <div className="py-20 flex flex-col items-center gap-3 text-gray-400">
-                    <Loader2 className="w-8 h-8 animate-spin text-violet-500" />
-                    <p className="text-sm">Loading analytics…</p>
+                  <div className="py-24 flex flex-col items-center gap-4 text-gray-400">
+                    <div className="relative">
+                      <Loader2 className="w-10 h-10 animate-spin text-violet-500" />
+                      <div className="absolute inset-0 rounded-full bg-violet-500/10 animate-ping" />
+                    </div>
+                    <p className="text-sm font-medium">Crunching numbers…</p>
                   </div>
                 ) : (
-                  <div className="space-y-8">
-                    {/* Stat summary cards */}
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      {[
-                        {
-                          label: "Total Messages",
-                          value: (analyticsData?.petChartData || []).reduce((s, d) => s + d.count, 0).toLocaleString(),
-                          color: "bg-sky-50 border-sky-200 text-sky-700",
-                          dot: "bg-sky-500",
-                        },
-                        {
-                          label: "Signups (7 days)",
-                          value: (analyticsData?.signupChartData || []).reduce((s, d) => s + d.signups, 0).toLocaleString(),
-                          color: "bg-emerald-50 border-emerald-200 text-emerald-700",
-                          dot: "bg-emerald-500",
-                        },
-                        {
-                          label: "Open Reports",
-                          value: (analyticsData?.pieData?.[0]?.value ?? 0).toLocaleString(),
-                          color: "bg-red-50 border-red-200 text-red-700",
-                          dot: "bg-red-500",
-                        },
-                        {
-                          label: "Approved Posts",
-                          value: (analyticsData?.pieData?.[1]?.value ?? 0).toLocaleString(),
-                          color: "bg-violet-50 border-violet-200 text-violet-700",
-                          dot: "bg-violet-500",
-                        },
-                      ].map((stat) => (
-                        <div key={stat.label} className={`rounded-2xl border p-4 ${stat.color}`}>
-                          <div className="flex items-center gap-2 mb-1">
-                            <div className={`w-2.5 h-2.5 rounded-full ${stat.dot}`} />
-                            <p className="text-xs font-semibold uppercase tracking-wide opacity-70">{stat.label}</p>
+                  <div className="space-y-6">
+
+                    {/* ═══ ROW 1: KPI HERO CARDS ═══ */}
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+
+                      {/* Total Users */}
+                      <div className="relative overflow-hidden rounded-2xl p-5 bg-gradient-to-br from-indigo-500 via-violet-500 to-purple-600 text-white shadow-lg shadow-violet-200/50 group">
+                        <div className="absolute -right-4 -top-4 w-24 h-24 rounded-full bg-white/10 blur-2xl group-hover:scale-125 transition-transform duration-700" />
+                        <div className="relative z-10">
+                          <div className="flex items-center gap-2 mb-3">
+                            <Users className="w-4 h-4 opacity-80" />
+                            <span className="text-xs font-semibold uppercase tracking-wider opacity-80">Total Users</span>
                           </div>
-                          <p className="text-3xl font-black mt-1">{stat.value}</p>
+                          <p className="text-4xl font-black tracking-tight">{(analyticsData?.totalUsers ?? 0).toLocaleString()}</p>
+                          <div className="flex items-center gap-1.5 mt-2">
+                            {(analyticsData?.growthPercent ?? 0) >= 0 ? (
+                              <TrendingUp className="w-3.5 h-3.5 text-emerald-300" />
+                            ) : (
+                              <TrendingDown className="w-3.5 h-3.5 text-red-300" />
+                            )}
+                            <span className="text-xs font-bold opacity-90">{analyticsData?.growthPercent ?? 0}% this week</span>
+                          </div>
                         </div>
-                      ))}
+                      </div>
+
+                      {/* Total Messages */}
+                      <div className="relative overflow-hidden rounded-2xl p-5 bg-gradient-to-br from-cyan-500 via-sky-500 to-blue-600 text-white shadow-lg shadow-sky-200/50 group">
+                        <div className="absolute -right-4 -top-4 w-24 h-24 rounded-full bg-white/10 blur-2xl group-hover:scale-125 transition-transform duration-700" />
+                        <div className="relative z-10">
+                          <div className="flex items-center gap-2 mb-3">
+                            <MessageSquare className="w-4 h-4 opacity-80" />
+                            <span className="text-xs font-semibold uppercase tracking-wider opacity-80">Total Messages</span>
+                          </div>
+                          <p className="text-4xl font-black tracking-tight">{(analyticsData?.totalMessages ?? 0).toLocaleString()}</p>
+                          <p className="text-xs mt-2 opacity-80 font-medium">
+                            {analyticsData?.reportsCount ?? 0} reports · {analyticsData?.approvedCount ?? 0} approved posts
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Live Right Now */}
+                      <div className="relative overflow-hidden rounded-2xl p-5 bg-gradient-to-br from-emerald-500 via-green-500 to-teal-600 text-white shadow-lg shadow-emerald-200/50 group">
+                        <div className="absolute -right-4 -top-4 w-24 h-24 rounded-full bg-white/10 blur-2xl group-hover:scale-125 transition-transform duration-700" />
+                        <div className="relative z-10">
+                          <div className="flex items-center gap-2 mb-3">
+                            <Zap className="w-4 h-4 opacity-80" />
+                            <span className="text-xs font-semibold uppercase tracking-wider opacity-80">Live Right Now</span>
+                          </div>
+                          <div className="flex items-baseline gap-2">
+                            <p className="text-4xl font-black tracking-tight">{analyticsData?.liveNow ?? 0}</p>
+                            <span className="text-xs font-bold opacity-80 flex items-center gap-1">
+                              <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
+                              active
+                            </span>
+                          </div>
+                          <p className="text-xs mt-2 opacity-80 font-medium">Based on messages in last 5 min</p>
+                        </div>
+                      </div>
+
+                      {/* DAU Snapshot */}
+                      <div className="relative overflow-hidden rounded-2xl p-5 bg-gradient-to-br from-amber-500 via-orange-500 to-red-500 text-white shadow-lg shadow-orange-200/50 group">
+                        <div className="absolute -right-4 -top-4 w-24 h-24 rounded-full bg-white/10 blur-2xl group-hover:scale-125 transition-transform duration-700" />
+                        <div className="relative z-10">
+                          <div className="flex items-center gap-2 mb-3">
+                            <Activity className="w-4 h-4 opacity-80" />
+                            <span className="text-xs font-semibold uppercase tracking-wider opacity-80">Active Today</span>
+                          </div>
+                          <p className="text-4xl font-black tracking-tight">{analyticsData?.dau ?? 0}</p>
+                          <p className="text-xs mt-2 opacity-80 font-medium">Daily Active Users (24 h)</p>
+                        </div>
+                      </div>
                     </div>
 
-                    {/* Bar Chart: Messages per pet category */}
+                    {/* ═══ ROW 2: DAU / WAU / MAU RETENTION ═══ */}
                     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-                      <div className="mb-5">
-                        <h3 className="font-bold text-gray-800 text-base">Messages by Pet Category</h3>
-                        <p className="text-xs text-gray-400 mt-0.5">Total messages sent across all chat rooms, grouped by pet type.</p>
+                      <div className="flex items-center gap-3 mb-5">
+                        <div className="w-8 h-8 rounded-xl bg-violet-100 flex items-center justify-center">
+                          <Activity className="w-4 h-4 text-violet-600" />
+                        </div>
+                        <div>
+                          <h3 className="font-bold text-gray-800 text-base">User Retention & Activity</h3>
+                          <p className="text-xs text-gray-400 mt-0.5">Unique users who sent at least one message in each time window.</p>
+                        </div>
                       </div>
-                      {(analyticsData?.petChartData?.length ?? 0) === 0 ? (
-                        <div className="h-64 flex items-center justify-center text-gray-300 text-sm">No message data yet.</div>
-                      ) : (
-                        <ResponsiveContainer width="100%" height={280}>
-                          <BarChart data={analyticsData!.petChartData} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
-                            <defs>
-                              <linearGradient id="barGrad" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="0%" stopColor="#7c3aed" stopOpacity={1} />
-                                <stop offset="100%" stopColor="#a78bfa" stopOpacity={0.8} />
-                              </linearGradient>
-                            </defs>
-                            <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
-                            <XAxis dataKey="name" tick={{ fontSize: 12, fill: "#6b7280" }} axisLine={false} tickLine={false} />
-                            <YAxis tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false} allowDecimals={false} />
-                            <Tooltip
-                              contentStyle={{ borderRadius: "12px", border: "none", boxShadow: "0 4px 20px rgba(0,0,0,0.1)", fontSize: 13 }}
-                              cursor={{ fill: "#f5f3ff" }}
-                            />
-                            <Bar dataKey="count" fill="url(#barGrad)" radius={[8, 8, 0, 0]} name="Messages" />
-                          </BarChart>
-                        </ResponsiveContainer>
-                      )}
+                      <div className="grid grid-cols-3 gap-4">
+                        {[
+                          { label: "DAU", sublabel: "Daily Active", value: analyticsData?.dau ?? 0, bg: "from-violet-50 to-indigo-50", border: "border-violet-200", text: "text-violet-700", bar: "bg-gradient-to-r from-violet-500 to-indigo-500", pct: analyticsData?.totalUsers ? Math.round(((analyticsData?.dau ?? 0) / analyticsData.totalUsers) * 100) : 0 },
+                          { label: "WAU", sublabel: "Weekly Active", value: analyticsData?.wau ?? 0, bg: "from-sky-50 to-cyan-50", border: "border-sky-200", text: "text-sky-700", bar: "bg-gradient-to-r from-sky-500 to-cyan-500", pct: analyticsData?.totalUsers ? Math.round(((analyticsData?.wau ?? 0) / analyticsData.totalUsers) * 100) : 0 },
+                          { label: "MAU", sublabel: "Monthly Active", value: analyticsData?.mau ?? 0, bg: "from-emerald-50 to-teal-50", border: "border-emerald-200", text: "text-emerald-700", bar: "bg-gradient-to-r from-emerald-500 to-teal-500", pct: analyticsData?.totalUsers ? Math.round(((analyticsData?.mau ?? 0) / analyticsData.totalUsers) * 100) : 0 },
+                        ].map((m) => (
+                          <div key={m.label} className={`rounded-2xl bg-gradient-to-br ${m.bg} border ${m.border} p-5`}>
+                            <div className="flex items-center justify-between mb-1">
+                              <span className={`text-xs font-black uppercase tracking-wider ${m.text}`}>{m.label}</span>
+                              <span className={`text-[11px] font-bold ${m.text} opacity-60`}>{m.sublabel}</span>
+                            </div>
+                            <p className={`text-3xl font-black ${m.text} mt-1`}>{m.value.toLocaleString()}</p>
+                            <div className="mt-3">
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="text-[10px] text-gray-500 font-semibold">{m.pct}% of all users</span>
+                              </div>
+                              <div className="h-2 bg-white/60 rounded-full overflow-hidden">
+                                <div className={`h-full ${m.bar} rounded-full transition-all duration-1000`} style={{ width: `${Math.min(m.pct, 100)}%` }} />
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     </div>
 
-                    {/* Line Chart: Signups over 7 days */}
-                    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-                      <div className="mb-5">
-                        <h3 className="font-bold text-gray-800 text-base">New User Signups — Last 7 Days</h3>
-                        <p className="text-xs text-gray-400 mt-0.5">Daily registration trend over the past week.</p>
+                    {/* ═══ ROW 3: MESSAGE TYPE DONUT + BUSIEST HOUR ═══ */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+                      {/* Donut: Message Type Breakdown */}
+                      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+                        <div className="flex items-center gap-3 mb-5">
+                          <div className="w-8 h-8 rounded-xl bg-pink-100 flex items-center justify-center">
+                            <MessageSquare className="w-4 h-4 text-pink-600" />
+                          </div>
+                          <div>
+                            <h3 className="font-bold text-gray-800 text-base">Message Type Breakdown</h3>
+                            <p className="text-xs text-gray-400 mt-0.5">Distribution across text, image, video & voice.</p>
+                          </div>
+                        </div>
+                        {(analyticsData?.typeChartData?.length ?? 0) === 0 ? (
+                          <div className="h-64 flex items-center justify-center text-gray-300 text-sm">No messages yet.</div>
+                        ) : (
+                          <div className="flex flex-col items-center gap-4">
+                            <ResponsiveContainer width="100%" height={240}>
+                              <PieChart>
+                                <defs>
+                                  <linearGradient id="typeText" x1="0" y1="0" x2="1" y2="1">
+                                    <stop offset="0%" stopColor="#6366f1" />
+                                    <stop offset="100%" stopColor="#818cf8" />
+                                  </linearGradient>
+                                  <linearGradient id="typeImage" x1="0" y1="0" x2="1" y2="1">
+                                    <stop offset="0%" stopColor="#06b6d4" />
+                                    <stop offset="100%" stopColor="#22d3ee" />
+                                  </linearGradient>
+                                  <linearGradient id="typeVideo" x1="0" y1="0" x2="1" y2="1">
+                                    <stop offset="0%" stopColor="#f59e0b" />
+                                    <stop offset="100%" stopColor="#fbbf24" />
+                                  </linearGradient>
+                                  <linearGradient id="typeAudio" x1="0" y1="0" x2="1" y2="1">
+                                    <stop offset="0%" stopColor="#ec4899" />
+                                    <stop offset="100%" stopColor="#f472b6" />
+                                  </linearGradient>
+                                </defs>
+                                <Pie
+                                  data={analyticsData?.typeChartData || []}
+                                  cx="50%"
+                                  cy="50%"
+                                  innerRadius={65}
+                                  outerRadius={100}
+                                  paddingAngle={4}
+                                  dataKey="value"
+                                  nameKey="name"
+                                  strokeWidth={0}
+                                  animationBegin={0}
+                                  animationDuration={800}
+                                >
+                                  {(analyticsData?.typeChartData || []).map((entry: any, idx: number) => {
+                                    const fills = ["url(#typeText)", "url(#typeImage)", "url(#typeVideo)", "url(#typeAudio)"];
+                                    return <Cell key={entry.name} fill={fills[idx] || entry.color} />;
+                                  })}
+                                </Pie>
+                                <Tooltip
+                                  contentStyle={{ borderRadius: "12px", border: "none", boxShadow: "0 4px 20px rgba(0,0,0,0.1)", fontSize: 13 }}
+                                  formatter={(value: number) => [value.toLocaleString(), "Messages"]}
+                                />
+                              </PieChart>
+                            </ResponsiveContainer>
+                            {/* Legend cards inline */}
+                            <div className="flex flex-wrap items-center justify-center gap-3">
+                              {(analyticsData?.typeChartData || []).map((entry: any) => {
+                                const total = (analyticsData?.typeChartData || []).reduce((s: number, d: any) => s + d.value, 0);
+                                const pct = total > 0 ? Math.round((entry.value / total) * 100) : 0;
+                                return (
+                                  <div key={entry.name} className="flex items-center gap-2 px-3 py-2 rounded-xl bg-gray-50 border border-gray-100">
+                                    <span className="w-3 h-3 rounded-full" style={{ background: entry.color }} />
+                                    <span className="text-xs font-bold text-gray-700">{entry.name}</span>
+                                    <span className="text-xs text-gray-400 font-semibold">{pct}%</span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
                       </div>
-                      <ResponsiveContainer width="100%" height={260}>
-                        <LineChart data={analyticsData?.signupChartData || []} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
+
+                      {/* Busiest Hour of Day */}
+                      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+                        <div className="flex items-center gap-3 mb-5">
+                          <div className="w-8 h-8 rounded-xl bg-amber-100 flex items-center justify-center">
+                            <Clock className="w-4 h-4 text-amber-600" />
+                          </div>
+                          <div>
+                            <h3 className="font-bold text-gray-800 text-base">Busiest Time of Day</h3>
+                            <p className="text-xs text-gray-400 mt-0.5">Messages grouped by hour (24 h).</p>
+                          </div>
+                        </div>
+                        {(analyticsData?.hourChartData?.every((d: any) => d.messages === 0)) ? (
+                          <div className="h-64 flex items-center justify-center text-gray-300 text-sm">No data yet.</div>
+                        ) : (
+                          <ResponsiveContainer width="100%" height={260}>
+                            <BarChart data={analyticsData?.hourChartData || []} margin={{ top: 5, right: 5, left: -15, bottom: 5 }}>
+                              <defs>
+                                <linearGradient id="hourGrad" x1="0" y1="0" x2="0" y2="1">
+                                  <stop offset="0%" stopColor="#f59e0b" stopOpacity={1} />
+                                  <stop offset="100%" stopColor="#fbbf24" stopOpacity={0.6} />
+                                </linearGradient>
+                              </defs>
+                              <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
+                              <XAxis dataKey="hour" tick={{ fontSize: 10, fill: "#9ca3af" }} axisLine={false} tickLine={false} interval={2} />
+                              <YAxis tick={{ fontSize: 10, fill: "#9ca3af" }} axisLine={false} tickLine={false} allowDecimals={false} />
+                              <Tooltip
+                                contentStyle={{ borderRadius: "12px", border: "none", boxShadow: "0 4px 20px rgba(0,0,0,0.1)", fontSize: 13 }}
+                                cursor={{ fill: "#fffbeb" }}
+                                formatter={(value: number) => [value.toLocaleString(), "Messages"]}
+                              />
+                              <Bar dataKey="messages" fill="url(#hourGrad)" radius={[6, 6, 0, 0]} name="Messages" animationDuration={800} />
+                            </BarChart>
+                          </ResponsiveContainer>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* ═══ ROW 4: SIGNUP TRENDS (30 DAY AREA CHART) ═══ */}
+                    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+                      <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-xl bg-emerald-100 flex items-center justify-center">
+                            <TrendingUp className="w-4 h-4 text-emerald-600" />
+                          </div>
+                          <div>
+                            <h3 className="font-bold text-gray-800 text-base">Signup Trends — Last 30 Days</h3>
+                            <p className="text-xs text-gray-400 mt-0.5">Daily new user registrations.</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-50 border border-gray-100">
+                          <span className="text-xs font-semibold text-gray-500">30-Day Total:</span>
+                          <span className="text-sm font-black text-emerald-600">
+                            {(analyticsData?.signupChartData || []).reduce((s: number, d: any) => s + d.signups, 0).toLocaleString()}
+                          </span>
+                        </div>
+                      </div>
+                      <ResponsiveContainer width="100%" height={280}>
+                        <AreaChart data={analyticsData?.signupChartData || []} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
                           <defs>
-                            <linearGradient id="lineGrad" x1="0" y1="0" x2="1" y2="0">
+                            <linearGradient id="signupGrad" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor="#10b981" stopOpacity={0.4} />
+                              <stop offset="100%" stopColor="#10b981" stopOpacity={0.02} />
+                            </linearGradient>
+                            <linearGradient id="signupLine" x1="0" y1="0" x2="1" y2="0">
                               <stop offset="0%" stopColor="#10b981" />
                               <stop offset="100%" stopColor="#06b6d4" />
                             </linearGradient>
                           </defs>
                           <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
-                          <XAxis dataKey="date" tick={{ fontSize: 12, fill: "#6b7280" }} axisLine={false} tickLine={false} />
-                          <YAxis tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false} allowDecimals={false} />
+                          <XAxis dataKey="date" tick={{ fontSize: 10, fill: "#9ca3af" }} axisLine={false} tickLine={false} interval={4} />
+                          <YAxis tick={{ fontSize: 10, fill: "#9ca3af" }} axisLine={false} tickLine={false} allowDecimals={false} />
                           <Tooltip
-                            contentStyle={{ borderRadius: "12px", border: "none", boxShadow: "0 4px 20px rgba(0,0,0,0.1)", fontSize: 13 }}
+                            contentStyle={{ borderRadius: "12px", border: "none", boxShadow: "0 4px 20px rgba(0,0,0,0.1)", fontSize: 13, fontWeight: 600 }}
                             cursor={{ stroke: "#10b981", strokeWidth: 1, strokeDasharray: "4 4" }}
+                            formatter={(value: number) => [value, "New Users"]}
                           />
-                          <Line
+                          <Area
                             type="monotone"
                             dataKey="signups"
-                            stroke="url(#lineGrad)"
+                            stroke="url(#signupLine)"
                             strokeWidth={3}
-                            dot={{ fill: "#10b981", strokeWidth: 2, r: 5 }}
-                            activeDot={{ r: 7, fill: "#059669" }}
-                            name="New Users"
+                            fill="url(#signupGrad)"
+                            dot={false}
+                            activeDot={{ r: 6, fill: "#059669", strokeWidth: 3, stroke: "#fff" }}
+                            animationDuration={1000}
                           />
-                        </LineChart>
+                        </AreaChart>
                       </ResponsiveContainer>
                     </div>
 
-                    {/* Pie Chart: Reports vs Approved Announcements */}
+                    {/* ═══ ROW 5: MOST ACTIVE ROOMS ═══ */}
                     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-                      <div className="mb-5">
-                        <h3 className="font-bold text-gray-800 text-base">Reports vs Approved Announcements</h3>
-                        <p className="text-xs text-gray-400 mt-0.5">Proportion of open user reports against successfully approved posts.</p>
+                      <div className="flex items-center gap-3 mb-5">
+                        <div className="w-8 h-8 rounded-xl bg-indigo-100 flex items-center justify-center">
+                          <Crown className="w-4 h-4 text-indigo-600" />
+                        </div>
+                        <div>
+                          <h3 className="font-bold text-gray-800 text-base">Most Active Chat Rooms</h3>
+                          <p className="text-xs text-gray-400 mt-0.5">Top chat rooms ranked by total messages.</p>
+                        </div>
                       </div>
-                      {(analyticsData?.pieData?.every((d) => d.value === 0)) ? (
-                        <div className="h-64 flex items-center justify-center text-gray-300 text-sm">No data yet.</div>
+                      {(analyticsData?.topRooms?.length ?? 0) === 0 ? (
+                        <div className="h-36 flex items-center justify-center text-gray-300 text-sm">No room data yet.</div>
                       ) : (
-                        <div className="flex flex-col md:flex-row items-center gap-8">
-                          <ResponsiveContainer width="100%" height={260}>
-                            <PieChart>
-                              <defs>
-                                <linearGradient id="pieRed" x1="0" y1="0" x2="1" y2="1">
-                                  <stop offset="0%" stopColor="#ef4444" />
-                                  <stop offset="100%" stopColor="#f87171" />
-                                </linearGradient>
-                                <linearGradient id="pieViolet" x1="0" y1="0" x2="1" y2="1">
-                                  <stop offset="0%" stopColor="#7c3aed" />
-                                  <stop offset="100%" stopColor="#a78bfa" />
-                                </linearGradient>
-                              </defs>
-                              <Pie
-                                data={analyticsData?.pieData || []}
-                                cx="50%"
-                                cy="50%"
-                                innerRadius={72}
-                                outerRadius={110}
-                                paddingAngle={4}
-                                dataKey="value"
-                                nameKey="name"
-                                strokeWidth={0}
-                              >
-                                <Cell fill="url(#pieRed)" />
-                                <Cell fill="url(#pieViolet)" />
-                              </Pie>
-                              <Tooltip
-                                contentStyle={{ borderRadius: "12px", border: "none", boxShadow: "0 4px 20px rgba(0,0,0,0.1)", fontSize: 13 }}
-                              />
-                              <Legend
-                                iconType="circle"
-                                iconSize={10}
-                                formatter={(value) => <span style={{ fontSize: 13, color: "#374151" }}>{value}</span>}
-                              />
-                            </PieChart>
-                          </ResponsiveContainer>
-                          <div className="flex flex-col gap-4 min-w-[160px]">
-                            {(analyticsData?.pieData || []).map((entry, i) => (
-                              <div key={entry.name} className={`rounded-xl p-4 text-center ${i === 0 ? "bg-red-50 border border-red-200" : "bg-violet-50 border border-violet-200"}`}>
-                                <p className={`text-3xl font-black ${i === 0 ? "text-red-600" : "text-violet-600"}`}>{entry.value}</p>
-                                <p className={`text-xs font-semibold mt-1 ${i === 0 ? "text-red-500" : "text-violet-500"}`}>{entry.name}</p>
+                        <div className="space-y-2.5">
+                          {(analyticsData?.topRooms || []).map((room: any, idx: number) => {
+                            const maxCount = analyticsData?.topRooms?.[0]?.count || 1;
+                            const pct = Math.round((room.count / maxCount) * 100);
+                            const medals = ["🥇", "🥈", "🥉"];
+                            const barColors = [
+                              "bg-gradient-to-r from-indigo-500 to-violet-500",
+                              "bg-gradient-to-r from-sky-500 to-cyan-500",
+                              "bg-gradient-to-r from-amber-500 to-orange-500",
+                              "bg-gradient-to-r from-emerald-500 to-teal-500",
+                              "bg-gradient-to-r from-pink-500 to-rose-500",
+                              "bg-gradient-to-r from-purple-500 to-fuchsia-500",
+                              "bg-gradient-to-r from-lime-500 to-green-500",
+                              "bg-gradient-to-r from-red-500 to-orange-500",
+                            ];
+                            return (
+                              <div key={room.name} className="group">
+                                <div className="flex items-center justify-between mb-1">
+                                  <div className="flex items-center gap-2 min-w-0">
+                                    <span className="text-sm w-6 text-center flex-shrink-0">{medals[idx] || `#${idx + 1}`}</span>
+                                    <span className="text-sm font-semibold text-gray-700 truncate">{room.name}</span>
+                                  </div>
+                                  <span className="text-xs font-bold text-gray-500 flex-shrink-0 ml-2">
+                                    {room.count.toLocaleString()}
+                                  </span>
+                                </div>
+                                <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden ml-8">
+                                  <div
+                                    className={`h-full ${barColors[idx % barColors.length]} rounded-full transition-all duration-700`}
+                                    style={{ width: `${pct}%` }}
+                                  />
+                                </div>
                               </div>
-                            ))}
-                          </div>
+                            );
+                          })}
                         </div>
                       )}
                     </div>
+
                   </div>
                 )}
               </div>

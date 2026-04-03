@@ -26,6 +26,7 @@ export const users = pgTable("users", {
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),
+  enableCrossposting: text("enable_crossposting").default("false"), // Using text to match frontend expectations if it's already in DB as boolean/text
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -45,6 +46,7 @@ export const messages = pgTable("messages", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull().references(() => users.id),
   receiverId: varchar("receiver_id").references(() => users.id), // Added for DMs
+  replyToUserId: varchar("reply_to_user_id").references(() => users.id), // Added for reply notifications
   petType: text("pet_type").notNull(),
   breed: text("breed"),
   location: text("location").notNull(),
@@ -52,6 +54,7 @@ export const messages = pgTable("messages", {
   messageType: text("message_type").notNull().default('text'),
   mediaUrl: text("media_url"),
   mediaDuration: integer("media_duration"),
+  crosspostRooms: text("crosspost_rooms").array(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

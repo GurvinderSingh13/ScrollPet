@@ -64,9 +64,70 @@ import {
 } from "@/components/ui/command";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
 import { format, isToday, isYesterday } from "date-fns";
 
 import { PawPrint } from "lucide-react";
+
+function isMessageTargetedToCurrentRoom(
+  crosspostRoomsArray: string[],
+  roomLocation: string,
+  roomPet: string,
+  roomBreed: string | null | undefined
+): boolean {
+  if (!Array.isArray(crosspostRoomsArray)) return false;
+  const currentRoomId = `${roomLocation}::${roomPet}::${roomBreed || 'all'}`;
+  
+  if (crosspostRoomsArray.includes(currentRoomId)) return true;
+
+  const currentBreed = roomBreed || 'all';
+
+  for (const target of crosspostRoomsArray) {
+    if (typeof target !== 'string') continue;
+    const parts = target.split('::');
+    if (parts.length !== 3) continue;
+    
+    const tLoc = parts[0];
+    const tPet = parts[1];
+    const tBreed = parts[2];
+
+    // -- PET & BREED MATCHING --
+    let petMatch = false;
+    if (tPet === 'all' || roomPet === 'all' || tPet === roomPet) petMatch = true;
+    if (!petMatch) continue;
+
+    let breedMatch = false;
+    if (tBreed === 'all' || currentBreed === 'all' || tBreed === currentBreed) breedMatch = true;
+    if (!breedMatch) continue;
+
+    // -- LOCATION MATCHING --
+    let locMatch = false;
+    if (tLoc === roomLocation) {
+        locMatch = true;
+    } else if (roomLocation === 'global' || tLoc === 'global') {
+        locMatch = true;
+    } else {
+        const tLocParts = tLoc.split(':');
+        const rLocParts = roomLocation.split(':');
+
+        if (tLocParts[0] === 'country' && rLocParts[1] === tLocParts[1]) {
+            locMatch = true;
+        } else if (tLocParts[0] === 'state' && rLocParts[1] === tLocParts[1] && rLocParts[2] === tLocParts[2]) {
+            locMatch = true;
+        } else if (rLocParts[0] === 'country' && tLocParts[1] === rLocParts[1]) {
+            locMatch = true;
+        } else if (rLocParts[0] === 'state' && tLocParts[1] === rLocParts[1] && tLocParts[2] === rLocParts[2]) {
+            locMatch = true;
+        }
+    }
+
+    if (locMatch) return true;
+  }
+
+  return false;
+}
 
 function usePinnedStates() {
   const [pinnedIds, setPinnedIds] = useState<string[]>(() => {
@@ -137,7 +198,7 @@ export default function ChatInterface() {
   const [unreadDmCount, setUnreadDmCount] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [mobileView, setMobileView] = useState<"list" | "chat">("list");
-  const [replyToUser, setReplyToUser] = useState<string | null>(null);
+  const [replyToUser, setReplyToUser] = useState<{ id: string, name: string } | null>(null);
 
   const [modSelectedCountry, setModSelectedCountry] = useState<string | null>(
     null,
@@ -159,6 +220,22 @@ export default function ChatInterface() {
   const [isNewsRoom, setIsNewsRoom] = useState(false);
   const [announcements, setAnnouncements] = useState<any[]>([]);
   const [hasNewAnnouncements, setHasNewAnnouncements] = useState(true);
+
+  const [isCrosspostModalOpen, setIsCrosspostModalOpen] = useState(false);
+  const [pendingMessagePayload, setPendingMessagePayload] = useState<any>(null);
+  const [crosspostOptions, setCrosspostOptions] = useState<{id: string, label: string}[]>([]);
+  const [isSendingCrosspost, setIsSendingCrosspost] = useState(false);
+
+  // New States for Advanced Crossposting
+  const [crosspostGlobal, setCrosspostGlobal] = useState(false);
+  const [crosspostCurrentRoom, setCrosspostCurrentRoom] = useState(true);
+  const [crosspostCountry, setCrosspostCountry] = useState(false);
+  const [crosspostAllBreedsInLoc, setCrosspostAllBreedsInLoc] = useState(false);
+  const [builderState, setBuilderState] = useState<string>("");
+  const [builderCity, setBuilderCity] = useState<string>("");
+  const [builderCategory, setBuilderCategory] = useState<string>("");
+  const [builderBreed, setBuilderBreed] = useState<string>("");
+  const [autoIncludeParents, setAutoIncludeParents] = useState(true);
 
   const userId = user?.id || "";
   const displayName =
@@ -207,13 +284,35 @@ export default function ChatInterface() {
     enabled: !!activeCategoryId,
   });
 
+  // Find the builder category object to get its proper ID
+  const builderCategoryObj = dbCategories.find(
+    (c: any) => c.name.toLowerCase() === builderCategory.toLowerCase() || c.id === builderCategory
+  );
+  const builderCategoryId = builderCategoryObj?.id;
+
+  // Fetch breeds dynamically for the Crosspost Builder
+  const { data: builderBreeds = [], isLoading: isLoadingBuilderBreeds } = useQuery({
+    queryKey: ["chat-breeds-builder", builderCategoryId],
+    queryFn: async () => {
+      if (!builderCategoryId) return [];
+      const { data, error } = await supabase
+        .from("breeds")
+        .select("*")
+        .eq("category_id", builderCategoryId)
+        .order("name", { ascending: true });
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!builderCategoryId,
+  });
+
   const { data: dbUser } = useQuery({
     queryKey: ["db-user-chat", userId],
     queryFn: async () => {
       if (!userId) return null;
       const { data, error } = await supabase
         .from("users")
-        .select("country, state, role, news_cooldown_hours")
+        .select("country, state, role, news_cooldown_hours, enable_crossposting")
         .eq("id", userId)
         .single();
       if (error) throw error;
@@ -425,17 +524,22 @@ export default function ChatInterface() {
         data = result.data;
         error = result.error;
       } else {
+        const currentRoomId = `${chatRoomLocation}::${activePet}::${activeBreed || 'all'}`;
         let query = supabase
           .from("messages")
           .select(
             `*, users:users!user_id(id, username, display_name, state, country, role)`,
           )
-          .eq("location", chatRoomLocation)
           .is("receiver_id", null);
+
         if (chatRoomLocation !== "staff_lounge") {
-          query = query.eq("pet_type", activePet);
-          if (activeBreed) query = query.eq("breed", activeBreed);
+          const nativeMatch = `and(location.eq.${chatRoomLocation},pet_type.eq.${activePet}${activeBreed ? `,breed.eq.${activeBreed}` : ''})`;
+          const crosspostMatch = `crosspost_rooms.cs.{${currentRoomId}}`;
+          query = query.or(`${nativeMatch},${crosspostMatch}`);
+        } else {
+          query = query.eq("location", "staff_lounge");
         }
+        
         query = query.order("created_at", { ascending: false }).limit(50);
         const result = await query;
         data = result.data;
@@ -500,8 +604,17 @@ export default function ChatInterface() {
         newMessage.receiverId &&
         newMessage.receiverId === userId &&
         !activeDmUser
-      )
+      ) {
         setUnreadDmCount((prev) => prev + 1);
+      }
+      
+      if (newMessage.replyToUserId === userId && newMessage.userId !== userId) {
+        toast({
+          title: "Reply received",
+          description: `@${newMessage.user?.displayName || 'Someone'} replied to your message.`,
+        });
+      }
+
       setMessages((prev) => {
         if (activeDmUser) {
           const isFromMeToThem =
@@ -513,11 +626,16 @@ export default function ChatInterface() {
           if (!isFromMeToThem && !isFromThemToMe) return prev;
         } else {
           if (newMessage.receiverId) return prev;
-          if (newMessage.location !== chatRoomLocation) return prev;
-          if (chatRoomLocation !== "staff_lounge") {
-            if (newMessage.petType !== activePet) return prev;
-            if (activeBreed && newMessage.breed !== activeBreed) return prev;
+          
+          let matchesCurrentRoom = false;
+          if (chatRoomLocation === "staff_lounge") {
+             matchesCurrentRoom = newMessage.location === "staff_lounge";
+          } else {
+             const crosspostRoomsArray = newMessage.crosspost_rooms || newMessage.crosspostRooms || [];
+             matchesCurrentRoom = isMessageTargetedToCurrentRoom(crosspostRoomsArray, chatRoomLocation, activePet, activeBreed);
           }
+          
+          if (!matchesCurrentRoom) return prev;
         }
         return [...prev, newMessage];
       });
@@ -739,6 +857,7 @@ export default function ChatInterface() {
         mediaUrl = urlData.publicUrl;
       }
 
+      const currentRoomId = `${chatRoomLocation}::${activePet}::${activeBreed || 'all'}`;
       const insertData: any = {
         user_id: userId,
         pet_type: activePet,
@@ -750,10 +869,58 @@ export default function ChatInterface() {
         media_url: mediaUrl,
         media_duration: mediaDuration || null,
         receiver_id: activeDmUser ? activeDmUser.id : null,
+        reply_to_user_id: replyToUser ? replyToUser.id : null,
+        crosspost_rooms: [currentRoomId]
       };
 
       if (activeBreed && !activeDmUser && chatRoomLocation !== "staff_lounge")
         insertData.breed = activeBreed;
+
+      // INTERCEPT CROSSPOSTING
+      if (
+        dbUser?.enable_crossposting &&
+        !activeDmUser &&
+        chatRoomLocation !== "staff_lounge" &&
+        !isNewsRoom
+      ) {
+        const options: { id: string; label: string }[] = [];
+        const locParts = chatRoomLocation.split(":");
+        
+        if (locParts[0] === "city") {
+          options.push({ id: `state:${locParts[1]}:${locParts[2]}::${activePet}::${activeBreed || 'all'}`, label: `State: ${locParts[2]}` });
+          options.push({ id: `country:${locParts[1]}::${activePet}::${activeBreed || 'all'}`, label: `Country: ${locParts[1]}` });
+          options.push({ id: `global::${activePet}::${activeBreed || 'all'}`, label: `Global Room` });
+        } else if (locParts[0] === "state") {
+          options.push({ id: `country:${locParts[1]}::${activePet}::${activeBreed || 'all'}`, label: `Country: ${locParts[1]}` });
+          options.push({ id: `global::${activePet}::${activeBreed || 'all'}`, label: `Global Room` });
+        } else if (locParts[0] === "country") {
+          options.push({ id: `global::${activePet}::${activeBreed || 'all'}`, label: `Global Room` });
+        }
+
+        if (activeBreed) {
+          options.push({ id: `${chatRoomLocation}::${activePet}::all`, label: `All ${activePet}s in ${chatRoomLocation.split(':').pop()}` });
+        }
+
+        if (options.length > 0) {
+          setPendingMessagePayload(insertData);
+          setCrosspostOptions(options);
+          
+          // Reset Builder States for a fresh start
+          setCrosspostGlobal(false);
+          setCrosspostCurrentRoom(true);
+          setCrosspostCountry(false);
+          setCrosspostAllBreedsInLoc(false);
+          setBuilderState("");
+          setBuilderCity("");
+          setBuilderCategory(activePet); // Default to current pet type for convenience
+          setBuilderBreed("");
+          setAutoIncludeParents(true);
+
+
+          setIsCrosspostModalOpen(true);
+          return true; // Stop here, wait for modal
+        }
+      }
 
       const { data: insertedMsg, error } = await supabase.from("messages").insert(insertData).select(`*, users:users!user_id(id, username, display_name, state, country, role)`).single();
       if (error) throw error;
@@ -789,12 +956,20 @@ export default function ChatInterface() {
               role: userRole,
             },
         };
-        // Optimistic UI update
-        // Check if the message is already added via websocket to prevent duplicates
-        setMessages((prev) => {
-          if (prev.some(m => m.id === formattedMsg.id)) return prev;
-          return [...prev, formattedMsg];
-        });
+        // STRICT OPTIMISTIC GUARD
+        const targetRooms = insertedMsg.crosspost_rooms || [];
+        const isTargeted = activeDmUser ? true : (
+           chatRoomLocation === "staff_lounge" 
+             ? insertedMsg.location === "staff_lounge" 
+             : isMessageTargetedToCurrentRoom(targetRooms, chatRoomLocation, activePet, activeBreed)
+        );
+
+        if (isTargeted) {
+          setMessages((prev) => {
+            if (prev.some(m => m.id === formattedMsg.id)) return prev;
+            return [...prev, formattedMsg];
+          });
+        }
       }
 
       return true;
@@ -806,6 +981,161 @@ export default function ChatInterface() {
         variant: "destructive",
       });
       return false;
+    }
+  };
+
+  const generateHierarchicalTags = (country: string, state: string, city: string, category: string, breed: string) => {
+    const tags: string[] = [];
+    const c = category || "all";
+    const b = breed || "all";
+
+    // 1. City Level
+    if (city && state && country) {
+      const loc = `city:${country}:${state}:${city}`;
+      tags.push(`${loc}::${c}::${b}`);
+      tags.push(`${loc}::${c}::all`);
+      tags.push(`${loc}::all::all`);
+    }
+
+    // 2. State Level
+    if (state && country) {
+      const loc = `state:${country}:${state}`;
+      tags.push(`${loc}::${c}::${b}`);
+      tags.push(`${loc}::${c}::all`);
+      tags.push(`${loc}::all::all`);
+    }
+
+    // 3. Country Level
+    if (country) {
+      const loc = `country:${country}`;
+      tags.push(`${loc}::${c}::${b}`);
+      tags.push(`${loc}::${c}::all`);
+      tags.push(`${loc}::all::all`);
+    }
+
+    return tags;
+  };
+
+  const submitCrosspostMessage = async () => {
+    if (!pendingMessagePayload) return;
+    setIsSendingCrosspost(true);
+    
+    // Combine and deduplicate rooms
+    const allRoomsSet = new Set<string>();
+    
+    // 1. Current Room (Optional)
+    if (crosspostCurrentRoom) {
+      const currentRoomId = `${pendingMessagePayload.location}::${activePet}::${activeBreed || 'all'}`;
+      allRoomsSet.add(currentRoomId);
+    }
+    
+    // 2. Quick Toggles
+    if (crosspostGlobal) {
+      allRoomsSet.add(`global::${activePet}::${activeBreed || 'all'}`);
+    }
+    if (crosspostCountry && countryCode) {
+      allRoomsSet.add(`country:${countryCode}::${activePet}::${activeBreed || 'all'}`);
+    }
+    if (crosspostAllBreedsInLoc) {
+      allRoomsSet.add(`${chatRoomLocation}::${activePet}::all`);
+    }
+    
+    // 2b. Include global room if checked (ensuring exact format)
+    if (crosspostGlobal) {
+      allRoomsSet.add(`global::${activePet}::${activeBreed || 'all'}`);
+    }
+
+    // 3. Custom Builder Selection with Hierarchical Logic
+    if (builderCategory) {
+      if (autoIncludeParents) {
+        const generatedTags = generateHierarchicalTags(countryCode || "", builderState, builderCity, builderCategory, builderBreed);
+        generatedTags.forEach((tag: string) => allRoomsSet.add(tag));
+      } else {
+        // Direct Only
+        let loc = "";
+        if (builderCity && builderState) {
+          loc = `city:${countryCode}:${builderState}:${builderCity}`;
+        } else if (builderState) {
+          loc = `state:${countryCode}:${builderState}`;
+        } else if (countryCode) {
+          loc = `country:${countryCode}`;
+        }
+
+        if (loc) {
+          allRoomsSet.add(`${loc}::${builderCategory || "all"}::${builderBreed || "all"}`);
+        }
+      }
+    }
+
+    const finalRooms = Array.from(allRoomsSet);
+    console.log("DEBUG: Final Crosspost Rooms:", finalRooms);
+
+    if (finalRooms.length === 0) {
+      toast({
+        title: "No Target Selected",
+        description: "Please select at least one room to post your message.",
+        variant: "destructive",
+      });
+      setIsSendingCrosspost(false);
+      return;
+    }
+
+    try {
+      const payload = {
+        ...pendingMessagePayload,
+        crosspost_rooms: finalRooms,
+      };
+      const { data: insertedMsg, error } = await supabase.from("messages").insert(payload).select(`*, users:users!user_id(id, username, display_name, state, country, role)`).single();
+      if (error) throw error;
+      
+      if (insertedMsg) {
+        const userData = insertedMsg.users || insertedMsg.users_messages_user_id_fkey;
+        const formattedMsg = {
+          id: insertedMsg.id,
+          userId: insertedMsg.user_id,
+          petType: insertedMsg.pet_type,
+          location: insertedMsg.location,
+          content: insertedMsg.content,
+          messageType: insertedMsg.message_type,
+          mediaUrl: insertedMsg.media_url,
+          mediaDuration: insertedMsg.media_duration,
+          createdAt: insertedMsg.created_at,
+          receiverId: insertedMsg.receiver_id,
+          crosspostRooms: insertedMsg.crosspost_rooms,
+          user: userData ? {
+            id: userData.id,
+            username: userData.username || "",
+            displayName: userData.display_name || userData.username || "",
+            state: userData.state || "",
+            country: userData.country || "",
+            role: userData.role || "user",
+          } : {
+            id: insertedMsg.user_id,
+            username: displayName,
+            displayName: displayName,
+            state: "",
+            country: "",
+            role: userRole,
+          },
+        };
+
+        // SENDER OPTIMISTIC GUARD: Only append to local state if current room was targeted
+        const finalCrosspostRoomsArray = insertedMsg.crosspost_rooms || [];
+        const isOptTargeted = isMessageTargetedToCurrentRoom(finalCrosspostRoomsArray, chatRoomLocation, activePet, activeBreed);
+            
+        if (isOptTargeted) {
+          setMessages((prev) => {
+            if (prev.some(m => m.id === formattedMsg.id)) return prev;
+            return [...prev, formattedMsg];
+          });
+        }
+      }
+      setIsCrosspostModalOpen(false);
+      setPendingMessagePayload(null);
+    } catch(err: any) {
+      toast({description: err.message || "Failed to crosspost", variant: "destructive"});
+    } finally {
+      setIsSendingCrosspost(false);
     }
   };
 
@@ -1695,7 +2025,7 @@ export default function ChatInterface() {
                           displayName={displayName}
                           currentUserRole={userRole}
                           onUserClick={handleUserClick}
-                          onReplyClick={(name: string) => setReplyToUser(`@${name} `)}
+                          onReplyClick={(userId: string, name: string) => setReplyToUser({ id: userId, name })}
                           onBanClick={() => handleOpenDirectBan(msg.user)}
                           onDeleteClick={handleDeleteMessage}
                         />
@@ -1709,7 +2039,7 @@ export default function ChatInterface() {
               <ChatInput
                 onSendMessage={handleSendMessage}
                 isConnected={isConnected || isNewsRoom}
-                initialValue={replyToUser || undefined}
+                initialValue={replyToUser ? `@${replyToUser.name} ` : undefined}
                 onClearInitialValue={() => setReplyToUser(null)}
               />
             </>
@@ -1847,6 +2177,157 @@ export default function ChatInterface() {
             >
               {isProcessingBan ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Ban className="w-4 h-4 mr-2" />}
               Issue Ban
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Advanced Crosspost Target Builder */}
+      <Dialog open={isCrosspostModalOpen} onOpenChange={setIsCrosspostModalOpen}>
+        <DialogContent className="sm:max-w-[600px] max-h-[90vh] flex flex-col p-0 overflow-hidden">
+          <div className="p-6 pb-2">
+            <DialogHeader>
+              <DialogTitle className="text-2xl font-bold flex items-center gap-2">
+                <Megaphone className="w-6 h-6 text-orange-500" />
+                Advanced Target Builder
+              </DialogTitle>
+            </DialogHeader>
+            <p className="text-sm text-gray-500 mt-1">
+              Select high-level targets or build custom combinations for maximum reach.
+            </p>
+          </div>
+          
+          <ScrollArea className="flex-1 px-6 py-2">
+            <div className="space-y-6 pb-6">
+              {/* Quick Toggles Section */}
+              <div className="space-y-3">
+                <h3 className="text-sm font-semibold uppercase tracking-wider text-gray-400">Quick Toggles</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="flex items-center space-x-3 p-3 rounded-lg border hover:bg-gray-50 cursor-pointer transition-colors">
+                    <Checkbox
+                      id="q-current"
+                      checked={crosspostCurrentRoom}
+                      onCheckedChange={(c: any) => setCrosspostCurrentRoom(!!c)}
+                    />
+                    <label htmlFor="q-current" className="text-sm font-medium cursor-pointer flex-1 leading-none">
+                      Current Room ({activeBreed ? (dbBreeds.find((b: any) => b.id === activeBreed)?.name || activeBreed) : 'All ' + activePet})
+                    </label>
+                  </div>
+                  <div className="flex items-center space-x-3 p-3 rounded-lg border hover:bg-gray-50 cursor-pointer transition-colors">
+                    <Checkbox 
+                      id="q-global" 
+                      checked={crosspostGlobal} 
+                      onCheckedChange={(c: any) => setCrosspostGlobal(!!c)} 
+                    />
+                    <label htmlFor="q-global" className="text-sm font-medium cursor-pointer flex-1 leading-none">Global Room</label>
+                  </div>
+                  <div className="flex items-center space-x-3 p-3 rounded-lg border hover:bg-gray-50 cursor-pointer transition-colors">
+                    <Checkbox 
+                      id="q-country" 
+                      checked={crosspostCountry} 
+                      onCheckedChange={(c: any) => setCrosspostCountry(!!c)} 
+                    />
+                    <label htmlFor="q-country" className="text-sm font-medium cursor-pointer flex-1 leading-none">Entire Country ({countryCode})</label>
+                  </div>
+                  <div className="flex items-center space-x-3 p-3 rounded-lg border hover:bg-gray-50 cursor-pointer transition-colors">
+                    <Checkbox 
+                      id="q-allbreeds" 
+                      checked={crosspostAllBreedsInLoc} 
+                      onCheckedChange={(c: any) => setCrosspostAllBreedsInLoc(!!c)} 
+                    />
+                    <label htmlFor="q-allbreeds" className="text-sm font-medium cursor-pointer flex-1 leading-none">All Breeds in Current Loc</label>
+                  </div>
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* Advanced Builder Section */}
+              <div className="space-y-4">
+                <h3 className="text-sm font-semibold uppercase tracking-wider text-gray-400">Custom Location & Breed Builder</h3>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Location Dropdowns */}
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-gray-600">Location</label>
+                    <div className="flex gap-2">
+                      <Select value={builderState} onValueChange={(val: string) => { setBuilderState(val); setBuilderCity(""); }}>
+                        <SelectTrigger className="flex-1 h-9 text-xs">
+                          <SelectValue placeholder="State" />
+                        </SelectTrigger>
+                        <SelectContent className="max-h-60">
+                          {countryStates.map((s: any) => (
+                            <SelectItem key={s.isoCode} value={s.isoCode}>{s.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Select value={builderCity} onValueChange={setBuilderCity}>
+                        <SelectTrigger className="flex-1 h-9 text-xs">
+                          <SelectValue placeholder="City" />
+                        </SelectTrigger>
+                        <SelectContent className="max-h-60">
+                          {City.getCitiesOfState(countryCode || "", builderState).map((c: any) => (
+                            <SelectItem key={c.name} value={c.name}>{c.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  {/* Breed Dropdowns */}
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-gray-600">Pet & Breed</label>
+                    <div className="flex gap-2">
+                      <Select value={builderCategory} onValueChange={(val: string) => { setBuilderCategory(val); setBuilderBreed(""); }}>
+                        <SelectTrigger className="flex-1 h-9 text-xs">
+                          <SelectValue placeholder="Pet" />
+                        </SelectTrigger>
+                        <SelectContent className="max-h-60">
+                          {dbCategories.map((c: any) => (
+                            <SelectItem key={c.id} value={c.name.toLowerCase()}>{c.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Select value={builderBreed} onValueChange={setBuilderBreed}>
+                        <SelectTrigger className="flex-1 h-9 text-xs">
+                          <SelectValue placeholder="Breed" />
+                        </SelectTrigger>
+                        <SelectContent className="max-h-60">
+                          <SelectItem value="all">All Breeds</SelectItem>
+                          {builderBreeds.map((b: any) => (
+                            <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="flex items-center space-x-2 pt-2 border-t border-dashed">
+                  <Checkbox 
+                    id="auto-parents" 
+                    checked={autoIncludeParents} 
+                    onCheckedChange={(c: any) => setAutoIncludeParents(!!c)} 
+                  />
+                  <label htmlFor="auto-parents" className="text-xs font-semibold cursor-pointer text-gray-700">
+                    Auto-include parent rooms (e.g., All {builderCategory || "Pet"}s, All Breeds)
+                  </label>
+                </div>
+              </div>
+            </div>
+          </ScrollArea>
+
+          <div className="p-6 pt-2 border-t bg-gray-50 flex justify-end gap-3">
+            <Button variant="outline" onClick={() => setIsCrosspostModalOpen(false)} disabled={isSendingCrosspost}>
+              Cancel
+            </Button>
+            <Button
+              className="bg-orange-600 text-white hover:bg-orange-700 font-bold shadow-lg shadow-orange-100 transition-all active:scale-95"
+              onClick={submitCrosspostMessage}
+              disabled={isSendingCrosspost}
+            >
+              {isSendingCrosspost ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Megaphone className="w-4 h-4 mr-2" />}
+              Post Message
             </Button>
           </div>
         </DialogContent>

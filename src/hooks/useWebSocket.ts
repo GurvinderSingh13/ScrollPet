@@ -11,8 +11,10 @@ interface Message {
   messageType: string;
   mediaUrl?: string | null;
   mediaDuration?: number | null;
+  crosspostRooms?: string[] | null;
   createdAt: string;
   receiverId?: string | null;
+  replyToUserId?: string | null;
   user: {
     id: string;
     username: string;
@@ -39,8 +41,10 @@ function mapRowToMessage(row: any): Message {
     messageType: row.message_type,
     mediaUrl: row.media_url,
     mediaDuration: row.media_duration,
+    crosspostRooms: row.crosspost_rooms || row.crosspostRooms || [],
     createdAt: row.created_at,
     receiverId: row.receiver_id,
+    replyToUserId: row.reply_to_user_id,
     user: userData
       ? {
           id: userData.id,
@@ -74,7 +78,8 @@ export function useWebSocket({ userId, petType, breed, location, onMessage }: Us
       channelRef.current = null;
     }
 
-    // Channel for PUBLIC messages in the current room (filtered by location at DB level)
+    // Subscribe to ALL public message changes - we filter client-side 
+    // because Supabase Realtime doesn't support array 'contains' filters easily.
     const channel = supabase
       .channel(channelName)
       .on(
@@ -83,18 +88,87 @@ export function useWebSocket({ userId, petType, breed, location, onMessage }: Us
           event: 'INSERT',
           schema: 'public',
           table: 'messages',
-          filter: `location=eq.${location}`,
+          // REMOVED DB-level filter to capture crossposts from other rooms
         },
-        async (payload) => {
-          const newRow = payload.new as any;
+        async (payload: any) => {
+          const newRow = payload.new;
+          const currentRoomId = `${location}::${petType}::${breed || 'all'}`;
 
-          // Skip DMs in this listener
-          if (newRow.receiver_id) return;
+          // 1. DMs handling
+          if (newRow.receiver_id) {
+             if (newRow.receiver_id !== userId && newRow.user_id !== userId) return;
+          } else {
+            // 2. Strict Target Matching for non-DMs
+            let crosspostRooms = newRow.crosspost_rooms || newRow.crosspostRooms || [];
+            
+            // Handle Supabase Realtime stringified Postgres arrays
+            if (typeof crosspostRooms === 'string') {
+               try {
+                 if (crosspostRooms.startsWith('{') && crosspostRooms.endsWith('}')) {
+                   crosspostRooms = crosspostRooms.slice(1, -1).split(',').map((s: string) => s.replace(/^"|"$/g, ''));
+                 } else {
+                   crosspostRooms = JSON.parse(crosspostRooms);
+                 }
+               } catch (e) {
+                 crosspostRooms = [];
+               }
+            }
+            if (!Array.isArray(crosspostRooms)) {
+               crosspostRooms = [];
+            }
+            
+            let isTargeted = false;
+            const currentBreed = breed || 'all';
 
-          // Strict client-side room filters
-          if (newRow.pet_type !== petType) return;
-          if (newRow.location !== location) return;
-          if (breed && newRow.breed !== breed) return;
+            if (crosspostRooms.includes(currentRoomId)) {
+                isTargeted = true;
+            } else {
+                for (const target of crosspostRooms) {
+                    if (typeof target !== 'string') continue;
+                    const parts = target.split('::');
+                    if (parts.length !== 3) continue;
+                    
+                    const tLoc = parts[0];
+                    const tPet = parts[1];
+                    const tBreed = parts[2];
+
+                    let petMatch = false;
+                    if (tPet === 'all' || petType === 'all' || tPet === petType) petMatch = true;
+                    if (!petMatch) continue;
+
+                    let breedMatch = false;
+                    if (tBreed === 'all' || currentBreed === 'all' || tBreed === currentBreed) breedMatch = true;
+                    if (!breedMatch) continue;
+
+                    let locMatch = false;
+                    if (tLoc === location) {
+                        locMatch = true;
+                    } else if (location === 'global' || tLoc === 'global') {
+                        locMatch = true;
+                    } else {
+                        const tLocParts = tLoc.split(':');
+                        const rLocParts = location.split(':');
+
+                        if (tLocParts[0] === 'country' && rLocParts[1] === tLocParts[1]) {
+                            locMatch = true;
+                        } else if (tLocParts[0] === 'state' && rLocParts[1] === tLocParts[1] && rLocParts[2] === tLocParts[2]) {
+                            locMatch = true;
+                        } else if (rLocParts[0] === 'country' && tLocParts[1] === rLocParts[1]) {
+                            locMatch = true;
+                        } else if (rLocParts[0] === 'state' && tLocParts[1] === rLocParts[1] && tLocParts[2] === rLocParts[2]) {
+                            locMatch = true;
+                        }
+                    }
+
+                    if (locMatch) {
+                        isTargeted = true;
+                        break;
+                    }
+                }
+            }
+            
+            if (!isTargeted) return;
+          }
 
           const { data: userData } = await supabase
             .from('users')
@@ -114,6 +188,28 @@ export function useWebSocket({ userId, petType, breed, location, onMessage }: Us
           schema: 'public',
           table: 'messages',
           filter: `receiver_id=eq.${userId}`,
+        },
+        async (payload) => {
+          const newRow = payload.new as any;
+
+          const { data: userData } = await supabase
+            .from('users')
+            .select('id, username, display_name')
+            .eq('id', newRow.user_id)
+            .single();
+
+          const msg = mapRowToMessage({ ...newRow, users: userData });
+          onMessageRef.current?.(msg);
+        }
+      )
+      // Third listener: Replies targeting this user
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+          filter: `reply_to_user_id=eq.${userId}`,
         },
         async (payload) => {
           const newRow = payload.new as any;

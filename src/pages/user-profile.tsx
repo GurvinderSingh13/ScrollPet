@@ -57,11 +57,13 @@ import {
 } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
 import { Country, State } from "country-state-city";
-import ProfileForm from "@/components/Profile";
+import { Lock, Unlock } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { toast } from "@/hooks/use-toast";
 import { Pet } from "@shared/schema";
+import ProfileForm from "@/components/Profile";
 
 const daysArray = Array.from({ length: 31 }, (_, i) => String(i + 1).padStart(2, '0'));
 const monthsArray = [
@@ -99,6 +101,7 @@ export default function UserProfile() {
     bio: "",
     phone: "",
     display_name: "",
+    enable_crossposting: false,
   });
   const [newAvatarFile, setNewAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
@@ -202,7 +205,7 @@ export default function UserProfile() {
     enabled: !!user?.id,
   });
 
-  const { data: dbUser } = useQuery({
+  const { data: dbUser, isLoading: isProfileLoading } = useQuery({
     queryKey: ["db-user", user?.id],
     queryFn: async () => {
       if (!user?.id) return null;
@@ -243,6 +246,7 @@ export default function UserProfile() {
         bio: dbUser.bio || "",
         phone: dbUser.phone || "",
         display_name: dbUser.display_name || user?.displayName || user?.username || "",
+        enable_crossposting: Boolean(dbUser.enable_crossposting ?? false),
       });
       setAvatarPreview(dbUser.profile_image_url || dbUser.avatar_url || null);
     }
@@ -290,6 +294,8 @@ export default function UserProfile() {
       state: matchedStateCode,
       bio: dbUser?.bio || "",
       phone: dbUser?.phone || "",
+      display_name: dbUser?.display_name || user?.displayName || user?.username || "",
+      enable_crossposting: Boolean(dbUser?.enable_crossposting ?? false),
     });
     setIsEditProfileModalOpen(true);
   };
@@ -325,6 +331,7 @@ export default function UserProfile() {
         bio: editProfileForm.bio,
         phone: editProfileForm.phone,
         display_name: editProfileForm.display_name,
+        enable_crossposting: editProfileForm.enable_crossposting,
       };
 
       if (newAvatarFile) {
@@ -781,6 +788,12 @@ export default function UserProfile() {
 
         <div className="py-6 md:py-8">
           {activeTab === "account-settings" ? (
+            isProfileLoading ? (
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm flex flex-col items-center justify-center p-12">
+                <Loader2 className="h-8 w-8 animate-spin text-[#007699] mb-4" />
+                <p className="text-sm text-gray-500 font-medium">Loading profile settings...</p>
+              </div>
+            ) : (
             <div className="max-w-2xl space-y-6">
               {/* Edit Profile Card */}
               <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
@@ -926,6 +939,7 @@ export default function UserProfile() {
                 </Button>
               </div>
             </div>
+            )
           ) : (
             /* ═══ MY PETS TAB ═══ */
             <div className="space-y-6">
@@ -1426,7 +1440,20 @@ export default function UserProfile() {
               />
             </div>
 
-            <div className="flex flex-col space-y-2">
+            <div className="flex flex-row items-center justify-between p-3 border border-gray-200 rounded-lg bg-gray-50 mt-4">
+              <div className="space-y-0.5">
+                <label className="text-sm font-bold text-gray-700">Multi-Room Crossposting</label>
+                <div className="text-xs text-gray-500">
+                  Allow your messages to be seamlessly shared into larger regional or global rooms.
+                </div>
+              </div>
+              <Switch
+                checked={Boolean(editProfileForm.enable_crossposting)}
+                onCheckedChange={(checked: boolean) => setEditProfileForm(prev => ({ ...prev, enable_crossposting: checked }))}
+              />
+            </div>
+
+            <div className="flex flex-col space-y-2 mt-4">
               <label
                 className={cn(
                   "text-sm font-bold",
