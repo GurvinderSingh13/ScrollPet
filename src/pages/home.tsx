@@ -28,7 +28,6 @@ import {
 } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import heroImage from "@assets/generated_images/happy_community_of_pet_lovers_in_a_park.png";
-import introImage from "@assets/generated_images/minimalist_pet_chat_concept_illustration.png";
 import logoImage from "@assets/Scrollpet_logo_1766997907297.png";
 
 
@@ -535,12 +534,117 @@ export default function Home() {
           <div className="container px-6 mx-auto">
             <div className="grid lg:grid-cols-2 gap-16 lg:gap-20 items-center">
               <div className="order-2 lg:order-1 relative">
+                {/* Soft anchoring color blurs */}
                 <div className="absolute -z-10 inset-4 bg-secondary/15 rounded-full blur-3xl" />
-                <img
-                  src={introImage}
-                  alt="Pet chat concept"
-                  className="w-full max-w-lg mx-auto drop-shadow-2xl rounded-2xl"
-                />
+                <div className="absolute -z-10 -bottom-6 -right-6 w-40 h-40 bg-primary/15 rounded-full blur-3xl" />
+
+                {/* Mock chat preview card — visualizes what ScrollPet looks like in use */}
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.6 }}
+                  className="relative max-w-md mx-auto bg-background rounded-3xl border border-border/60 shadow-2xl overflow-hidden"
+                >
+                  {/* Room header */}
+                  <div className="bg-gradient-to-r from-primary to-[#009bb8] px-5 py-4 flex items-center gap-3 text-white">
+                    <div className="h-10 w-10 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                      <PawPrint size={18} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-bold text-sm truncate">Golden Retrievers — Global</p>
+                      <p className="text-xs text-white/80 flex items-center gap-1.5">
+                        <span className="inline-block h-1.5 w-1.5 rounded-full bg-green-400" />
+                        12 pet parents active now
+                      </p>
+                    </div>
+                    <MessageCircle size={18} className="opacity-80" />
+                  </div>
+
+                  {/* Conversation */}
+                  <div className="p-5 space-y-4 bg-gradient-to-b from-sky-50/50 to-background">
+                    <div className="flex items-start gap-2.5">
+                      <div className="h-8 w-8 rounded-full bg-gradient-to-br from-secondary to-[#ff8833] flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                        M
+                      </div>
+                      <div className="max-w-[75%]">
+                        <p className="text-xs font-semibold text-muted-foreground mb-1">Maya • Rex's mom</p>
+                        <div className="bg-white border border-border rounded-2xl rounded-tl-sm px-3.5 py-2 shadow-sm">
+                          <p className="text-sm text-foreground">Just took Rex to the new vet on 5th Ave — highly recommend!</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-start gap-2.5 flex-row-reverse">
+                      <div className="h-8 w-8 rounded-full bg-gradient-to-br from-primary to-[#009bb8] flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                        J
+                      </div>
+                      <div className="max-w-[75%]">
+                        <p className="text-xs font-semibold text-muted-foreground mb-1 text-right">You</p>
+                        <div className="bg-primary text-white rounded-2xl rounded-tr-sm px-3.5 py-2 shadow-sm">
+                          <p className="text-sm">Thanks! Booking Bella in for next week.</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-start gap-2.5">
+                      <div className="h-8 w-8 rounded-full bg-gradient-to-br from-[#ff8833] to-primary flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                        L
+                      </div>
+                      <div className="max-w-[75%]">
+                        <p className="text-xs font-semibold text-muted-foreground mb-1">Liam • Buddy's dad</p>
+                        <div className="bg-white border border-border rounded-2xl rounded-tl-sm px-3.5 py-2 shadow-sm">
+                          <p className="text-sm text-foreground">Anyone joining the park meetup Saturday?</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Live typing indicator */}
+                    <div className="flex items-center gap-2.5">
+                      <div className="h-8 w-8 rounded-full bg-gradient-to-br from-secondary to-primary flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                        A
+                      </div>
+                      <div className="bg-white border border-border rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm flex items-center gap-1">
+                        <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/50 animate-bounce" style={{ animationDelay: "0ms" }} />
+                        <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/50 animate-bounce" style={{ animationDelay: "150ms" }} />
+                        <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/50 animate-bounce" style={{ animationDelay: "300ms" }} />
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+
+                {/* Floating accent badges that echo the bullet themes on the right */}
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.5 }}
+                  whileInView={{ opacity: 1, scale: 1 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: 0.4, type: "spring", stiffness: 120 }}
+                  className="hidden md:flex absolute -top-3 -right-2 bg-white rounded-2xl shadow-xl border border-border/60 px-3 py-2 items-center gap-2"
+                >
+                  <div className="h-8 w-8 rounded-full bg-gradient-to-br from-primary to-[#009bb8] flex items-center justify-center text-white shrink-0">
+                    <ShieldCheck size={15} />
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-bold text-foreground leading-tight">Safe & Moderated</p>
+                    <p className="text-[10px] text-muted-foreground leading-tight">24/7 trust team</p>
+                  </div>
+                </motion.div>
+
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.5 }}
+                  whileInView={{ opacity: 1, scale: 1 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: 0.6, type: "spring", stiffness: 120 }}
+                  className="hidden md:flex absolute -bottom-3 -left-2 bg-white rounded-2xl shadow-xl border border-border/60 px-3 py-2 items-center gap-2"
+                >
+                  <div className="h-8 w-8 rounded-full bg-gradient-to-br from-secondary to-[#ff8833] flex items-center justify-center text-white shrink-0">
+                    <MapPin size={15} />
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-bold text-foreground leading-tight">Local Rooms</p>
+                    <p className="text-[10px] text-muted-foreground leading-tight">in 190+ countries</p>
+                  </div>
+                </motion.div>
               </div>
               <motion.div
                 initial="hidden"
