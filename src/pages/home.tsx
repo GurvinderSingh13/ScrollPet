@@ -1,4 +1,4 @@
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
 import { motion, useInView } from "framer-motion";
@@ -86,6 +86,7 @@ export default function Home() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { user, isLoading, isAuthenticated, logout } = useAuth();
   const [activePetIndex, setActivePetIndex] = useState(0);
+  const [, setLocation] = useLocation();
 
   const { data: dbUser } = useQuery({
     queryKey: ["db-user-home", user?.id],
@@ -486,6 +487,7 @@ export default function Home() {
                       variants={itemVariants}
                       whileHover={{ y: -8, scale: 1.05 }}
                       className="flex flex-col items-center gap-3 cursor-pointer group"
+                      onClick={() => setLocation(`/chat-interface?category=${encodeURIComponent(cat.name.toLowerCase().trim())}`)}
                     >
                       <div className={`w-16 h-16 md:w-20 md:h-20 rounded-full overflow-hidden border-[3px] shadow-md transition-all duration-300 ${
                         activePetIndex === i
