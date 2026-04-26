@@ -1289,8 +1289,8 @@ export default function ChatInterface() {
       : [];
 
   return (
-    <div className="h-[100dvh] flex flex-col bg-background font-sans overflow-hidden">
-      <header className="flex-none sticky top-0 z-50 bg-background/80 backdrop-blur-md border-b border-border/40 transition-all">
+    <div className="h-[100dvh] pt-16 md:pt-20 flex flex-col bg-background font-sans overflow-hidden">
+      <header className="fixed w-full top-0 z-[100] bg-background/80 backdrop-blur-md border-b border-border/40 shadow-sm transition-all">
         <div className="container mx-auto px-4 md:px-6 h-16 md:h-20 flex items-center justify-between">
           <Link href="/" className="cursor-pointer">
             <img

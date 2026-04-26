@@ -146,10 +146,10 @@ export default function AboutUs() {
         ["moderator", "super_moderator", "staff", "admin"].includes(dbUser.role);
 
     return (
-        <div className="min-h-screen bg-background font-sans text-foreground overflow-x-hidden selection:bg-primary/20">
+        <div className="min-h-screen pt-20 bg-background font-sans text-foreground overflow-x-hidden selection:bg-primary/20">
 
             {/* ── HEADER ── */}
-            <header className="sticky top-0 z-50 w-full bg-background/80 backdrop-blur-md border-b border-border/40">
+            <header className="fixed w-full top-0 z-[100] bg-background/80 backdrop-blur-md border-b border-border/40 shadow-sm">
                 <div className="container mx-auto px-6 h-20 flex items-center justify-between">
                     <Link href="/" className="cursor-pointer">
                         <img src={logoImage} alt="ScrollPet Logo" className="h-10 md:h-12 w-auto object-contain hover:opacity-90 transition-opacity" />

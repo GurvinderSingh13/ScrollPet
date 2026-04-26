@@ -723,8 +723,8 @@ export default function AdminDashboard() {
     return <div className="p-10 text-center">Access Denied</div>;
 
   return (
-    <div className="min-h-screen bg-[#F5F7F9] font-sans">
-      <header className="sticky top-0 z-50 bg-[#00789c] text-white shadow-md h-16 flex items-center px-6 justify-between">
+    <div className="min-h-screen pt-16 bg-[#F5F7F9] font-sans">
+      <header className="fixed w-full top-0 z-[100] bg-[#00789c] text-white shadow-md h-16 flex items-center px-6 justify-between">
         <div className="flex items-center gap-4">
           <Link href="/chat">
             <ArrowLeft className="w-5 h-5 cursor-pointer" />

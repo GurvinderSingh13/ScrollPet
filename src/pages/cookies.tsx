@@ -3,8 +3,8 @@ import { ArrowLeft, Cookie } from "lucide-react";
 
 export default function CookiePolicy() {
   return (
-    <div className="min-h-screen bg-[#F5F7F9] font-sans text-gray-800 selection:bg-orange-200 selection:text-orange-900 pb-20">
-      <header className="bg-[#00789c] text-white shadow-md sticky top-0 z-50">
+    <div className="min-h-screen pt-16 bg-[#F5F7F9] font-sans text-gray-800 selection:bg-orange-200 selection:text-orange-900 pb-20">
+      <header className="bg-[#00789c] text-white shadow-md fixed w-full top-0 z-[100]">
         <div className="container mx-auto px-4 md:px-6 h-16 flex items-center gap-4">
           <Link href="/">
             <button className="p-2 hover:bg-white/10 rounded-full transition-colors cursor-pointer">

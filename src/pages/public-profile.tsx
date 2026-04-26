@@ -88,12 +88,12 @@ export default function PublicProfile() {
         : null;
 
     return (
-        <div className="min-h-screen bg-[#f0f4f8] flex flex-col" style={{ fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif" }}>
+        <div className="min-h-screen pt-16 bg-[#f0f4f8] flex flex-col" style={{ fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif" }}>
 
             {/* ══════════════════════════════════════════════════════════════════
                 HEADER — Frosted glass, matching the dashboard
                ══════════════════════════════════════════════════════════════════ */}
-            <header className="sticky top-0 z-50 w-full border-b border-white/20" style={{ background: 'rgba(255,255,255,0.82)', backdropFilter: 'blur(16px) saturate(180%)' }}>
+            <header className="fixed w-full top-0 z-[100] border-b border-white/20 shadow-sm" style={{ background: 'rgba(255,255,255,0.82)', backdropFilter: 'blur(16px) saturate(180%)' }}>
                 <div className="container mx-auto px-6 h-16 flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <Link href="/chat">

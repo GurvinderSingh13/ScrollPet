@@ -100,10 +100,10 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-white font-sans text-foreground overflow-x-hidden flex flex-col relative">
+    <div className="min-h-screen pt-20 bg-white font-sans text-foreground overflow-x-hidden flex flex-col relative">
 
       {/* Header */}
-      <header className="sticky top-0 z-50 w-full bg-background/80 backdrop-blur-md border-b border-border/40">
+      <header className="fixed w-full top-0 z-[100] bg-background/80 backdrop-blur-md border-b border-border/40 shadow-sm">
         <div className="container mx-auto px-6 h-20 flex items-center justify-between">
           <Link href="/" className="cursor-pointer">
             <img 
