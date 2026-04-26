@@ -872,7 +872,7 @@ export default function Home() {
                     <Button
                       size="lg"
                       variant="secondary"
-                      className="w-[90%] sm:w-auto bg-white text-primary hover:bg-white/90 rounded-full px-6 py-4 sm:px-8 sm:py-6 text-[15px] sm:text-lg font-bold shadow-xl border-none cursor-pointer hover:scale-[1.02] transition-all flex items-center justify-center group"
+                      className="w-[90%] sm:w-auto bg-white text-primary hover:bg-white/90 rounded-full px-6 py-4 sm:px-8 sm:py-6 text-[15px] sm:text-lg font-bold shadow-xl border-none cursor-pointer hover:scale-[1.02] transition-all flex items-center justify-center group align-middle"
                     >
                       Read Our Community Guidelines
                       <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
