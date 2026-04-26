@@ -339,7 +339,7 @@ export default function FAQ() {
       />
 
       {/* Header */}
-      <header className="flex-none bg-background/80 backdrop-blur-md border-b border-border/40 z-30 sticky top-0">
+      <header className="flex-none bg-background/80 backdrop-blur-md border-b border-border/40 z-50 sticky top-0">
         <div className="container mx-auto px-4 md:px-6 h-16 md:h-20 flex items-center justify-between">
           <Link href="/" className="cursor-pointer">
             <img 
