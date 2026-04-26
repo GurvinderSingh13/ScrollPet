@@ -420,6 +420,13 @@ export default function UserProfile() {
       gender: pet.gender,
       dob: pet.dob,
       location: pet.location,
+      status_mating: pet.status_mating ?? false,
+      status_pups_sell: pet.status_pups_sell ?? false,
+      status_pups_adoption: pet.status_pups_adoption ?? false,
+      status_for_sell: pet.status_for_sell ?? false,
+      status_for_adoption: pet.status_for_adoption ?? false,
+      status_lost: pet.status_lost ?? false,
+      status_dead: pet.status_dead ?? false,
     });
     
     if (pet.dob) {
@@ -1181,6 +1188,42 @@ export default function UserProfile() {
                   </>
                 )}
               </div>
+
+              {isEditingPet && (
+                <div className="space-y-3 pt-2 pb-4 border-b border-gray-100">
+                  <h3 className="font-bold text-sm text-gray-900">
+                    Pet Status <span className="text-muted-foreground font-normal">(Optional)</span>
+                  </h3>
+                  <div className="grid grid-cols-1 gap-2">
+                    {(
+                      [
+                        { key: "status_mating", label: "Available for Mating" },
+                        { key: "status_pups_sell", label: "Pups for Sell" },
+                        { key: "status_pups_adoption", label: "Pups for Adoption" },
+                        { key: "status_for_sell", label: "For Sell" },
+                        { key: "status_for_adoption", label: "For Adoption" },
+                        { key: "status_lost", label: "Lost" },
+                        { key: "status_dead", label: "Dead" },
+                      ] as { key: keyof typeof editForm; label: string }[]
+                    ).map(({ key, label }) => (
+                      <label
+                        key={key}
+                        className="flex items-center justify-between gap-3 px-3 py-2 rounded-md border border-input bg-background cursor-pointer hover:bg-muted/40 transition-colors"
+                      >
+                        <span className="text-sm">{label}</span>
+                        <input
+                          type="checkbox"
+                          className="w-4 h-4 accent-[#007699] cursor-pointer"
+                          checked={!!(editForm as any)[key]}
+                          onChange={(e) =>
+                            setEditForm({ ...editForm, [key]: e.target.checked })
+                          }
+                        />
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {isEditingPet && (
                 <div className="space-y-4 pt-2 pb-4 border-b border-gray-100">
