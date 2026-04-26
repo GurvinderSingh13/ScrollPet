@@ -29,6 +29,8 @@ import {
   ArrowLeft,
   Heart,
   Send,
+  UserPlus,
+  UserCheck,
 } from "lucide-react";
 import logoImage from "@assets/Scrollpet_logo_1766997907297.png";
 import { cn } from "@/lib/utils";
@@ -140,6 +142,60 @@ export default function PetProfilePage() {
     },
     enabled: !!user?.id,
   });
+
+  const { data: followerCount, refetch: refetchFollowerCount } = useQuery({
+    queryKey: ["pet_followers_count", petId],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from("pet_followers")
+        .select("*", { count: "exact", head: true })
+        .eq("pet_id", petId);
+      if (error) throw error;
+      return count ?? 0;
+    },
+    enabled: !!petId,
+  });
+
+  const { data: isFollowing, refetch: refetchIsFollowing } = useQuery({
+    queryKey: ["pet_following", petId, user?.id],
+    queryFn: async () => {
+      if (!user?.id) return false;
+      const { data, error } = await supabase
+        .from("pet_followers")
+        .select("pet_id")
+        .eq("pet_id", petId)
+        .eq("user_id", user.id)
+        .maybeSingle();
+      if (error) throw error;
+      return !!data;
+    },
+    enabled: !!user?.id && !!petId,
+  });
+
+  const [isTogglingFollow, setIsTogglingFollow] = useState(false);
+
+  const handleToggleFollow = async () => {
+    if (!user?.id || !petId) return;
+    setIsTogglingFollow(true);
+    try {
+      if (isFollowing) {
+        await supabase
+          .from("pet_followers")
+          .delete()
+          .eq("pet_id", petId)
+          .eq("user_id", user.id);
+      } else {
+        await supabase
+          .from("pet_followers")
+          .insert({ pet_id: petId, user_id: user.id });
+      }
+      await Promise.all([refetchIsFollowing(), refetchFollowerCount()]);
+    } catch (err: any) {
+      toast({ description: err.message || "Failed to update follow", variant: "destructive" });
+    } finally {
+      setIsTogglingFollow(false);
+    }
+  };
 
   const { data: mediaLikes, refetch: refetchLikes } = useQuery({
     queryKey: ["media_likes", selectedMedia?.id],
@@ -638,10 +694,31 @@ export default function PetProfilePage() {
                   <span className="text-muted-foreground">Posts</span>
                 </span>
                 <span>
-                  <strong className="font-semibold">0</strong>{" "}
+                  <strong className="font-semibold">{followerCount ?? 0}</strong>{" "}
                   <span className="text-muted-foreground">Followers</span>
                 </span>
               </div>
+
+              {!isOwner && user?.id && (
+                <div className="flex flex-wrap gap-2 mt-3">
+                  <Button
+                    size="sm"
+                    variant={isFollowing ? "outline" : "default"}
+                    onClick={handleToggleFollow}
+                    disabled={isTogglingFollow}
+                    className="text-xs px-5 cursor-pointer"
+                  >
+                    {isTogglingFollow ? (
+                      <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />
+                    ) : isFollowing ? (
+                      <UserCheck className="h-3 w-3 mr-1.5" />
+                    ) : (
+                      <UserPlus className="h-3 w-3 mr-1.5" />
+                    )}
+                    {isFollowing ? "Following" : "Follow"}
+                  </Button>
+                </div>
+              )}
 
               {isOwner && (
                 <div className="flex flex-wrap gap-2 mt-3">
