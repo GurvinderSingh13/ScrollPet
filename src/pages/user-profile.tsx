@@ -1045,9 +1045,9 @@ export default function UserProfile() {
         <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto no-scrollbar pb-6">
           {selectedPet && (
             <div className="space-y-6">
-              <div className="flex items-start justify-between sticky top-0 bg-white z-10 pb-3 border-b border-gray-100 -mx-6 px-6">
-                <div className="flex items-center gap-4">
-                  <div className="h-16 w-16 bg-primary/10 rounded-full flex items-center justify-center overflow-hidden">
+              <div className="sticky top-0 bg-white z-10 pb-4 border-b border-gray-100 -mx-6 px-6">
+                <div className="flex items-start gap-5">
+                  <div className="h-24 w-24 shrink-0 bg-primary/10 rounded-full flex items-center justify-center overflow-hidden border-2 border-gray-100">
                     {selectedPet.image_url ? (
                       <img
                         src={selectedPet.image_url}
@@ -1055,45 +1055,51 @@ export default function UserProfile() {
                         className="w-full h-full object-cover"
                       />
                     ) : selectedPet.type === "dog" ? (
-                      <Dog className="h-8 w-8 text-primary" />
+                      <Dog className="h-10 w-10 text-primary" />
                     ) : selectedPet.type === "cat" ? (
-                      <Cat className="h-8 w-8 text-primary" />
+                      <Cat className="h-10 w-10 text-primary" />
                     ) : selectedPet.type === "bird" ? (
-                      <Bird className="h-8 w-8 text-primary" />
+                      <Bird className="h-10 w-10 text-primary" />
                     ) : (
-                      <Activity className="h-8 w-8 text-primary" />
+                      <Activity className="h-10 w-10 text-primary" />
                     )}
                   </div>
-                  <div>
+
+                  <div className="flex-1 min-w-0 pt-1">
                     {isEditingPet ? (
                       <input
-                        className="text-2xl font-bold bg-background border border-input rounded px-2 py-1 mb-1 w-full"
+                        className="text-xl font-bold bg-background border border-input rounded px-2 py-1 mb-1 w-full"
                         value={editForm.name || ""}
                         onChange={(e) =>
                           setEditForm({ ...editForm, name: e.target.value })
                         }
                       />
                     ) : (
-                      <h2 className="text-2xl font-bold capitalize">
+                      <h2 className="text-xl font-bold capitalize leading-tight">
                         {selectedPet.name}
                       </h2>
                     )}
-                    <p className="text-muted-foreground capitalize">
-                      {selectedPet.breed || selectedPet.type}
+                    <p className="text-sm text-muted-foreground mt-0.5">
+                      @{(selectedPet.name || "pet").toLowerCase().replace(/\s+/g, "_")}
                     </p>
-                  </div>
-                </div>
 
-                <div className="flex gap-2">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setIsEditingPet(!isEditingPet)}
-                    title="Edit Pet"
-                    className={cn("cursor-pointer", isEditingPet && "bg-muted")}
-                  >
-                    <Edit3 className="h-5 w-5" />
-                  </Button>
+                    <div className="flex gap-6 mt-2 text-sm">
+                      <span><strong className="font-semibold">0</strong> <span className="text-muted-foreground">Posts</span></span>
+                      <span><strong className="font-semibold">0</strong> <span className="text-muted-foreground">Followers</span></span>
+                    </div>
+
+                    {user?.id === (selectedPet as any).user_id && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setIsEditingPet(!isEditingPet)}
+                        className={cn("mt-3 text-xs px-4 cursor-pointer", isEditingPet && "bg-muted")}
+                      >
+                        <Edit3 className="h-3 w-3 mr-1.5" />
+                        {isEditingPet ? "Cancel Edit" : "Edit Profile"}
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </div>
 
