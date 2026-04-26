@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { User } from "lucide-react";
 import logoImage from "@assets/Scrollpet_logo_1766997907297.png";
+import Footer from "@/components/Footer";
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
@@ -267,70 +268,7 @@ export default function ChatRooms() {
         </section>
       </main>
       
-      {/* Footer */}
-      <footer className="bg-gray-950 text-gray-300 py-20 border-t border-gray-900">
-        <div className="container px-6 mx-auto">
-          <div className="grid md:grid-cols-12 gap-12 mb-16">
-            <div className="col-span-12 md:col-span-4">
-              <Link href="/" className="inline-block mb-6 opacity-90 hover:opacity-100 transition-opacity">
-                 <img 
-                  src={logoImage} 
-                  alt="ScrollPet Logo" 
-                  className="h-10 w-auto object-contain brightness-0 invert opacity-90"
-                />
-              </Link>
-              <p className="text-gray-400 mb-6 leading-relaxed">
-                Connecting pet lovers worldwide in a safe, trusted environment. Join us in building the most positive pet community on the internet.
-              </p>
-              <div className="flex gap-4">
-                {/* Social placeholders */}
-                {[1,2,3].map(i => (
-                  <div key={i} className="h-10 w-10 rounded-full bg-gray-900 flex items-center justify-center hover:bg-primary hover:text-white transition-colors cursor-pointer">
-                    <div className="w-5 h-5 bg-current rounded-sm opacity-50"></div>
-                  </div>
-                ))}
-              </div>
-            </div>
-            
-            <div className="col-span-6 md:col-span-2 md:col-start-6">
-              <h4 className="font-bold text-white mb-6 text-lg">Platform</h4>
-              <ul className="space-y-3">
-                <li><Link href="/" className="hover:text-primary transition-colors cursor-pointer">Home</Link></li>
-                <li><Link href="/chat" className="hover:text-primary transition-colors cursor-pointer">Chat Rooms</Link></li>
-                <li><Link href="/login" className="hover:text-primary transition-colors cursor-pointer">Login</Link></li>
-                <li><Link href="/signup" className="hover:text-primary transition-colors cursor-pointer">Sign Up</Link></li>
-              </ul>
-            </div>
-
-            <div className="col-span-6 md:col-span-2">
-              <h4 className="font-bold text-white mb-6 text-lg">Company</h4>
-              <ul className="space-y-3">
-                <li><Link href="/about" className="hover:text-primary transition-colors cursor-pointer">About Us</Link></li>
-                <li><Link href="/contact" className="hover:text-primary transition-colors cursor-pointer">Contact Us</Link></li>
-                <li><Link href="/careers" className="hover:text-primary transition-colors cursor-pointer">Careers</Link></li>
-                <li><Link href="/press" className="hover:text-primary transition-colors cursor-pointer">Press</Link></li>
-              </ul>
-            </div>
-
-            <div className="col-span-6 md:col-span-2">
-              <h4 className="font-bold text-white mb-6 text-lg">Legal</h4>
-              <ul className="space-y-3">
-                <li><Link href="/privacy" className="hover:text-primary transition-colors cursor-pointer">Privacy Policy</Link></li>
-                <li><Link href="/terms" className="hover:text-primary transition-colors cursor-pointer">Terms of Service</Link></li>
-                <li><Link href="/cookies" className="hover:text-primary transition-colors cursor-pointer">Cookie Policy</Link></li>
-                <li><Link href="/community-guidelines" className="hover:text-primary transition-colors cursor-pointer">Community Guidelines</Link></li>
-              </ul>
-            </div>
-          </div>
-          
-          <div className="pt-8 border-t border-gray-900 flex flex-col md:flex-row items-center justify-between text-sm text-gray-500 gap-4">
-            <div>© {new Date().getFullYear()} ScrollPet. All rights reserved.</div>
-            <div className="flex gap-8">
-              <span>Built for pet lovers 🐾</span>
-            </div>
-          </div>
-        </div>
-      </footer>
+      <Footer />
 
       {/* Login Requirement Dialog - REMOVED since we redirect to /login now */}
     </div>
