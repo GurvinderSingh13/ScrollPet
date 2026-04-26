@@ -27,6 +27,8 @@ import {
   Grid3X3,
   LogOut,
   ArrowLeft,
+  Heart,
+  Send,
 } from "lucide-react";
 import logoImage from "@assets/Scrollpet_logo_1766997907297.png";
 import { cn } from "@/lib/utils";
@@ -76,9 +78,12 @@ export default function PetProfilePage() {
   const [isUploadingPost, setIsUploadingPost] = useState(false);
   const postFileInputRef = useRef<HTMLInputElement>(null);
   const [selectedMedia, setSelectedMedia] = useState<{
+    id: string;
     media_url: string;
     media_type: string;
   } | null>(null);
+  const [commentText, setCommentText] = useState("");
+  const [isPostingComment, setIsPostingComment] = useState(false);
   const [editBirthDay, setEditBirthDay] = useState("");
   const [editBirthMonth, setEditBirthMonth] = useState("");
   const [editBirthYear, setEditBirthYear] = useState("");
@@ -134,6 +139,83 @@ export default function PetProfilePage() {
     },
     enabled: !!user?.id,
   });
+
+  const { data: mediaLikes, refetch: refetchLikes } = useQuery({
+    queryKey: ["media_likes", selectedMedia?.id],
+    queryFn: async () => {
+      if (!selectedMedia?.id) return [];
+      const { data, error } = await supabase
+        .from("media_likes")
+        .select("*")
+        .eq("media_id", selectedMedia.id);
+      if (error) throw error;
+      return data as { id: string; media_id: string; user_id: string }[];
+    },
+    enabled: !!selectedMedia?.id,
+  });
+
+  const { data: mediaComments, refetch: refetchComments } = useQuery({
+    queryKey: ["media_comments", selectedMedia?.id],
+    queryFn: async () => {
+      if (!selectedMedia?.id) return [];
+      const { data, error } = await supabase
+        .from("media_comments")
+        .select("*, users(username, display_name, profile_image_url, avatar_url)")
+        .eq("media_id", selectedMedia.id)
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+      return data as {
+        id: string;
+        media_id: string;
+        user_id: string;
+        content: string;
+        created_at: string;
+        users: {
+          username: string;
+          display_name: string | null;
+          profile_image_url: string | null;
+          avatar_url: string | null;
+        } | null;
+      }[];
+    },
+    enabled: !!selectedMedia?.id,
+  });
+
+  const userHasLiked = !!user?.id && (mediaLikes ?? []).some((l) => l.user_id === user.id);
+  const likeCount = (mediaLikes ?? []).length;
+
+  const handleToggleLike = async () => {
+    if (!user?.id || !selectedMedia?.id) return;
+    if (userHasLiked) {
+      await supabase
+        .from("media_likes")
+        .delete()
+        .eq("media_id", selectedMedia.id)
+        .eq("user_id", user.id);
+    } else {
+      await supabase
+        .from("media_likes")
+        .insert({ media_id: selectedMedia.id, user_id: user.id });
+    }
+    refetchLikes();
+  };
+
+  const handlePostComment = async () => {
+    if (!user?.id || !selectedMedia?.id || !commentText.trim()) return;
+    setIsPostingComment(true);
+    try {
+      const { error } = await supabase
+        .from("media_comments")
+        .insert({ media_id: selectedMedia.id, user_id: user.id, content: commentText.trim() });
+      if (error) throw error;
+      setCommentText("");
+      refetchComments();
+    } catch (err: any) {
+      toast({ description: err.message || "Failed to post comment", variant: "destructive" });
+    } finally {
+      setIsPostingComment(false);
+    }
+  };
 
   useEffect(() => {
     if (pet) {
@@ -893,34 +975,148 @@ export default function PetProfilePage() {
       {/* ── LIGHTBOX ── */}
       {selectedMedia && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4"
           onClick={() => setSelectedMedia(null)}
         >
+          {/* Close button */}
           <button
-            className="fixed top-6 right-6 text-white hover:text-white/70 bg-black/50 rounded-full p-2 cursor-pointer"
+            className="fixed top-4 right-4 text-white hover:text-white/70 bg-black/50 rounded-full p-2 cursor-pointer z-10"
             onClick={() => setSelectedMedia(null)}
             aria-label="Close"
           >
-            <X className="w-7 h-7" />
+            <X className="w-6 h-6" />
           </button>
+
+          {/* 2-column container */}
           <div
-            className="flex items-center justify-center"
+            className="flex flex-col md:flex-row w-full max-w-5xl max-h-[90vh] rounded-xl overflow-hidden shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
-            {selectedMedia.media_type === "video" ? (
-              <video
-                src={selectedMedia.media_url}
-                controls
-                autoPlay
-                className="max-w-5xl w-[90vw] max-h-[85vh] object-contain rounded-lg"
-              />
-            ) : (
-              <img
-                src={selectedMedia.media_url}
-                alt="Full size post"
-                className="max-w-5xl w-[90vw] max-h-[85vh] object-contain rounded-lg"
-              />
-            )}
+            {/* LEFT: media */}
+            <div className="bg-black flex items-center justify-center md:w-[63%] min-h-[40vh] md:min-h-0">
+              {selectedMedia.media_type === "video" ? (
+                <video
+                  src={selectedMedia.media_url}
+                  controls
+                  autoPlay
+                  className="w-full h-full max-h-[55vh] md:max-h-[90vh] object-contain"
+                />
+              ) : (
+                <img
+                  src={selectedMedia.media_url}
+                  alt="Full size post"
+                  className="w-full h-full max-h-[55vh] md:max-h-[90vh] object-contain"
+                />
+              )}
+            </div>
+
+            {/* RIGHT: sidebar */}
+            <div className="bg-white flex flex-col md:w-[37%] md:max-h-[90vh]">
+              {/* Pet header */}
+              <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100 shrink-0">
+                <div className="h-9 w-9 rounded-full overflow-hidden bg-gray-100 shrink-0">
+                  {pet.image_url ? (
+                    <img src={pet.image_url} alt={pet.name} className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs font-bold">
+                      {pet.name?.[0]?.toUpperCase()}
+                    </div>
+                  )}
+                </div>
+                <span className="font-semibold text-sm text-gray-900 truncate">{pet.name}</span>
+              </div>
+
+              {/* Comments list */}
+              <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 min-h-0">
+                {(mediaComments ?? []).length === 0 ? (
+                  <p className="text-xs text-gray-400 text-center py-6">No comments yet. Be the first!</p>
+                ) : (
+                  (mediaComments ?? []).map((c) => (
+                    <div key={c.id} className="flex gap-2.5">
+                      <div className="h-8 w-8 rounded-full overflow-hidden bg-gray-100 shrink-0">
+                        <img
+                          src={
+                            c.users?.profile_image_url ||
+                            c.users?.avatar_url ||
+                            `https://api.dicebear.com/7.x/avataaars/svg?seed=${c.user_id}`
+                          }
+                          alt="avatar"
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs leading-snug">
+                          <span className="font-semibold text-gray-900 mr-1">
+                            {c.users?.display_name || c.users?.username || "User"}
+                          </span>
+                          <span className="text-gray-700">{c.content}</span>
+                        </p>
+                        <p className="text-[10px] text-gray-400 mt-0.5">
+                          {new Date(c.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                        </p>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              {/* Like row */}
+              <div className="px-4 py-2 border-t border-gray-100 shrink-0">
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleToggleLike}
+                    disabled={!isAuthenticated}
+                    className={cn(
+                      "cursor-pointer transition-transform active:scale-90",
+                      !isAuthenticated && "opacity-40 cursor-default",
+                    )}
+                    aria-label="Like"
+                  >
+                    <Heart
+                      className={cn(
+                        "w-6 h-6 transition-colors",
+                        userHasLiked ? "fill-red-500 text-red-500" : "text-gray-500 hover:text-red-400",
+                      )}
+                    />
+                  </button>
+                  <span className="text-sm font-semibold text-gray-800">
+                    {likeCount} {likeCount === 1 ? "like" : "likes"}
+                  </span>
+                </div>
+              </div>
+
+              {/* Comment input */}
+              {isAuthenticated ? (
+                <div className="flex items-center gap-2 px-4 py-3 border-t border-gray-100 shrink-0">
+                  <input
+                    type="text"
+                    placeholder="Add a comment…"
+                    className="flex-1 text-sm border-0 outline-none bg-transparent placeholder:text-gray-400"
+                    value={commentText}
+                    onChange={(e) => setCommentText(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") handlePostComment(); }}
+                    maxLength={500}
+                  />
+                  <button
+                    onClick={handlePostComment}
+                    disabled={!commentText.trim() || isPostingComment}
+                    className="text-[#007699] font-semibold text-sm disabled:opacity-40 cursor-pointer disabled:cursor-default"
+                  >
+                    {isPostingComment ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                  </button>
+                </div>
+              ) : (
+                <div className="px-4 py-3 border-t border-gray-100 shrink-0 text-xs text-gray-400 text-center">
+                  <span
+                    className="text-[#007699] cursor-pointer font-semibold hover:underline"
+                    onClick={() => (window.location.href = "/login")}
+                  >
+                    Log in
+                  </span>{" "}
+                  to like &amp; comment.
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
