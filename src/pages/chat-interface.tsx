@@ -454,16 +454,26 @@ export default function ChatInterface() {
     }
   }, []);
 
-  const prevMessageCount = useRef(0);
+  const needsInstantScroll = useRef(true);
+
+  // Any room change (location / pet / breed / DM target) re-arms the instant scroll
   useEffect(() => {
-    if (prevMessageCount.current === 0 && messages.length > 0) {
-      // Initial data load from Supabase: jump instantly to bottom, no animation
-      messagesEndRef.current?.scrollIntoView({ behavior: "auto" });
-    } else if (messages.length > prevMessageCount.current) {
-      // A brand new message arrived mid-chat: smooth scroll
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    }
-    prevMessageCount.current = messages.length;
+    needsInstantScroll.current = true;
+  }, [chatRoomLocation, activePet, activeBreed, activeDmUser]);
+
+  useEffect(() => {
+    if (messages.length === 0) return; // Wait for data
+
+    const scrollDelay = setTimeout(() => {
+      if (needsInstantScroll.current) {
+        messagesEndRef.current?.scrollIntoView({ behavior: "auto" });
+        needsInstantScroll.current = false;
+      } else {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      }
+    }, 50); // 50ms gives the browser time to render message heights
+
+    return () => clearTimeout(scrollDelay);
   }, [messages, announcements]);
   const isFirstPetRender = useRef(true);
   useEffect(() => {
