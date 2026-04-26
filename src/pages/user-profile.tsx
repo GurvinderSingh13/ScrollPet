@@ -427,6 +427,7 @@ export default function UserProfile() {
       status_for_adoption: pet.status_for_adoption ?? false,
       status_lost: pet.status_lost ?? false,
       status_dead: pet.status_dead ?? false,
+      status_exchange: pet.status_exchange ?? false,
     });
     
     if (pet.dob) {
@@ -1204,6 +1205,7 @@ export default function UserProfile() {
                         { key: "status_for_adoption", label: "For Adoption" },
                         { key: "status_lost", label: "Lost" },
                         { key: "status_dead", label: "Dead" },
+                        { key: "status_exchange", label: "Open for Exchange" },
                       ] as { key: keyof typeof editForm; label: string }[]
                     ).map(({ key, label }) => (
                       <label
