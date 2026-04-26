@@ -92,6 +92,7 @@ export default function UserProfile() {
   const [newVideoFile, setNewVideoFile] = useState<File | null>(null);
   const [isUploadingPost, setIsUploadingPost] = useState(false);
   const postFileInputRef = useRef<HTMLInputElement>(null);
+  const [selectedMedia, setSelectedMedia] = useState<{ media_url: string; media_type: string } | null>(null);
 
   const [editBirthDay, setEditBirthDay] = useState("");
   const [editBirthMonth, setEditBirthMonth] = useState("");
@@ -1276,11 +1277,15 @@ export default function UserProfile() {
                   ) : petMedia && petMedia.length > 0 ? (
                     <div className="grid grid-cols-3 gap-1">
                       {petMedia.map((item) => (
-                        <div key={item.id} className="aspect-square overflow-hidden rounded-sm bg-gray-100">
+                        <div
+                          key={item.id}
+                          className="aspect-square overflow-hidden rounded-sm bg-gray-100 cursor-pointer"
+                          onClick={() => setSelectedMedia(item)}
+                        >
                           {item.media_type === "video" ? (
                             <video
                               src={item.media_url}
-                              className="w-full h-full object-cover"
+                              className="w-full h-full object-cover pointer-events-none"
                               autoPlay
                               muted
                               loop
@@ -1434,6 +1439,40 @@ export default function UserProfile() {
                   </div>
                 </div>
               )}
+            </div>
+          )}
+
+          {selectedMedia && (
+            <div
+              className="fixed inset-0 z-[200] flex items-center justify-center bg-black/85"
+              onClick={() => setSelectedMedia(null)}
+            >
+              <button
+                className="absolute top-4 right-4 text-white/80 hover:text-white bg-black/40 rounded-full p-1.5 cursor-pointer"
+                onClick={() => setSelectedMedia(null)}
+                aria-label="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
+              <div
+                className="max-w-[92vw] max-h-[88vh] flex items-center justify-center"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {selectedMedia.media_type === "video" ? (
+                  <video
+                    src={selectedMedia.media_url}
+                    controls
+                    autoPlay
+                    className="max-w-full max-h-[88vh] object-contain rounded-lg"
+                  />
+                ) : (
+                  <img
+                    src={selectedMedia.media_url}
+                    alt="Full size post"
+                    className="max-w-full max-h-[88vh] object-contain rounded-lg"
+                  />
+                )}
+              </div>
             </div>
           )}
         </DialogContent>
