@@ -21,6 +21,7 @@ import CookiesPolicy from "@/pages/cookies";
 import About from "@/pages/about";
 import ContactUs from "@/pages/contact";
 import UpdatePassword from "@/pages/update-password";
+import PetProfilePage from "@/pages/pet-profile";
 import GlobalLocationDetector from "@/components/GlobalLocationDetector";
 
 function Router() {
@@ -44,6 +45,7 @@ function Router() {
       <Route path="/about" component={About} />
       <Route path="/contact" component={ContactUs} />
       <Route path="/update-password" component={UpdatePassword} />
+      <Route path="/pet/:petId" component={PetProfilePage} />
       <Route component={NotFound} />
     </Switch>
   );
