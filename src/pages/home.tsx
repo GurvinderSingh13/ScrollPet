@@ -472,42 +472,66 @@ export default function Home() {
               initial="hidden"
               whileInView="visible"
               viewport={{ once: true }}
-              className="grid grid-cols-3 sm:grid-cols-5 lg:grid-cols-9 gap-4 md:gap-6"
+              className="relative max-w-5xl mx-auto"
             >
-              {isCategoriesLoading
-                ? Array.from({ length: 9 }).map((_, i) => (
-                    <div key={i} className="flex flex-col items-center gap-3 animate-pulse">
-                      <div className="w-16 h-16 md:w-20 md:h-20 rounded-full bg-gray-200" />
-                      <div className="h-3 w-14 bg-gray-200 rounded-md" />
-                    </div>
-                  ))
-                : dbHomeCategories.map((cat: any, i) => (
-                    <motion.div
-                      key={cat.id}
-                      variants={itemVariants}
-                      whileHover={{ y: -8, scale: 1.05 }}
-                      className="flex flex-col items-center gap-3 cursor-pointer group"
-                      onClick={() => setLocation(`/chat-interface?category=${encodeURIComponent(cat.name.toLowerCase().trim())}`)}
-                    >
-                      <div className={`w-16 h-16 md:w-20 md:h-20 rounded-full overflow-hidden border-[3px] shadow-md transition-all duration-300 ${
-                        activePetIndex === i
-                          ? "border-secondary ring-4 ring-secondary/20 scale-110"
-                          : "border-border group-hover:border-primary group-hover:ring-4 group-hover:ring-primary/20"
-                      }`}>
-                        {cat.image_url ? (
-                          <img src={cat.image_url} alt={cat.name} className="w-full h-full object-cover" />
-                        ) : (
-                          <div className="w-full h-full bg-gradient-to-br from-sky-50 to-sky-100 flex items-center justify-center">
-                            <PawPrint size={32} className="text-[#007699]" />
+              {/* Soft decorative background blurs that visually anchor the panel */}
+              <div className="absolute -top-10 -left-10 w-56 h-56 bg-primary/10 rounded-full blur-3xl pointer-events-none" />
+              <div className="absolute -bottom-10 -right-10 w-56 h-56 bg-secondary/10 rounded-full blur-3xl pointer-events-none" />
+
+              {/* Unified feature panel that grounds the section */}
+              <div className="relative rounded-[2rem] bg-gradient-to-br from-background via-sky-50/50 to-secondary/5 border border-border/60 shadow-xl px-5 py-7 md:px-10 md:py-10 overflow-hidden">
+                {/* Watermark paw prints for depth and brand presence */}
+                <PawPrint className="absolute top-5 right-6 w-20 h-20 text-primary/[0.06] -rotate-12 pointer-events-none" />
+                <PawPrint className="absolute bottom-5 left-6 w-16 h-16 text-secondary/[0.08] rotate-12 pointer-events-none" />
+
+                <div className="relative flex flex-wrap justify-center gap-3 md:gap-4">
+                  {isCategoriesLoading
+                    ? Array.from({ length: 9 }).map((_, i) => (
+                        <div
+                          key={i}
+                          className="flex items-center gap-3 pl-1.5 pr-5 py-1.5 rounded-full bg-background border-2 border-border/40 animate-pulse"
+                        >
+                          <div className="w-10 h-10 md:w-11 md:h-11 rounded-full bg-gray-200" />
+                          <div className="h-3 w-16 bg-gray-200 rounded-md" />
+                        </div>
+                      ))
+                    : dbHomeCategories.map((cat: any, i) => (
+                        <motion.button
+                          key={cat.id}
+                          variants={itemVariants}
+                          whileHover={{ y: -4, scale: 1.04 }}
+                          whileTap={{ scale: 0.97 }}
+                          onClick={() =>
+                            setLocation(
+                              `/chat-interface?category=${encodeURIComponent(cat.name.toLowerCase().trim())}`
+                            )
+                          }
+                          className={`group flex items-center gap-3 pl-1.5 pr-5 py-1.5 rounded-full bg-background border-2 shadow-sm hover:shadow-lg transition-all cursor-pointer ${
+                            activePetIndex === i
+                              ? "border-secondary ring-4 ring-secondary/20 scale-[1.04]"
+                              : "border-border hover:border-primary/50"
+                          }`}
+                        >
+                          <div className="w-10 h-10 md:w-11 md:h-11 rounded-full overflow-hidden border-2 border-background shadow-sm flex-shrink-0">
+                            {cat.image_url ? (
+                              <img
+                                src={cat.image_url}
+                                alt={cat.name}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-full h-full bg-gradient-to-br from-sky-50 to-sky-100 flex items-center justify-center">
+                                <PawPrint size={20} className="text-[#007699]" />
+                              </div>
+                            )}
                           </div>
-                        )}
-                      </div>
-                      <span className="text-xs md:text-sm font-bold text-foreground/80 group-hover:text-primary transition-colors">
-                        {cat.name}
-                      </span>
-                    </motion.div>
-                  ))
-              }
+                          <span className="text-sm md:text-base font-bold text-foreground/80 group-hover:text-primary transition-colors whitespace-nowrap">
+                            {cat.name}
+                          </span>
+                        </motion.button>
+                      ))}
+                </div>
+              </div>
             </motion.div>
 
             <motion.div
