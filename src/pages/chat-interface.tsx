@@ -466,7 +466,8 @@ export default function ChatInterface() {
 
     const scrollDelay = setTimeout(() => {
       if (needsInstantScroll.current) {
-        messagesEndRef.current?.scrollIntoView({ behavior: "auto" });
+        // "instant" forces a hard jump even if container CSS sets scroll-behavior: smooth
+        messagesEndRef.current?.scrollIntoView({ behavior: "instant" as ScrollBehavior });
         needsInstantScroll.current = false;
       } else {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -1931,7 +1932,7 @@ export default function ChatInterface() {
 
               <div
                 className={cn(
-                  "flex-1 overflow-y-auto p-4 space-y-6 pt-6 scroll-smooth relative",
+                  "flex-1 overflow-y-auto p-4 space-y-6 pt-6 relative",
                   isNewsRoom && "bg-amber-50/30",
                 )}
               >
