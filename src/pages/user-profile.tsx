@@ -1046,7 +1046,7 @@ export default function UserProfile() {
           {selectedPet && (
             <div className="space-y-6">
               <div className="sticky top-0 bg-white z-10 pb-4 border-b border-gray-100 -mx-6 px-6">
-                <div className="flex items-start gap-5">
+                <div className="flex flex-row items-start gap-6">
                   <div className="h-24 w-24 shrink-0 bg-primary/10 rounded-full flex items-center justify-center overflow-hidden border-2 border-gray-100">
                     {selectedPet.image_url ? (
                       <img
@@ -1195,6 +1195,19 @@ export default function UserProfile() {
                   </>
                 )}
               </div>
+
+              {!isEditingPet && (
+                <div className="pt-2 pb-2">
+                  <div className="grid grid-cols-3 gap-1">
+                    {Array.from({ length: 6 }).map((_, i) => (
+                      <div
+                        key={i}
+                        className="aspect-square bg-gray-200 rounded-sm"
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {isEditingPet && (
                 <div className="space-y-3 pt-2 pb-4 border-b border-gray-100">
