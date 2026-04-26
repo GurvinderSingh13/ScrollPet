@@ -454,16 +454,16 @@ export default function ChatInterface() {
     }
   }, []);
 
-  const isInitialMount = useRef(true);
+  const prevMessageCount = useRef(0);
   useEffect(() => {
-    if (isInitialMount.current) {
-      // Initial load: jump instantly so user never sees a scroll animation
+    if (prevMessageCount.current === 0 && messages.length > 0) {
+      // Initial data load from Supabase: jump instantly to bottom, no animation
       messagesEndRef.current?.scrollIntoView({ behavior: "auto" });
-      isInitialMount.current = false;
-    } else {
-      // New messages during active chat: smooth scroll
+    } else if (messages.length > prevMessageCount.current) {
+      // A brand new message arrived mid-chat: smooth scroll
       messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }
+    prevMessageCount.current = messages.length;
   }, [messages, announcements]);
   const isFirstPetRender = useRef(true);
   useEffect(() => {
