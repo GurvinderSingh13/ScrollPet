@@ -282,12 +282,12 @@ export default function Home() {
                   Join thousands of passionate pet owners sharing advice, swapping stories, and forming real friendships — organized by pet type, breed, and your own neighbourhood.
                 </p>
 
-                <div className="flex flex-col sm:flex-row gap-4 mb-10">
+                <div className="flex flex-row items-center gap-4 mb-10">
                   {isAuthenticated ? (
                     <Link href="/chat">
                       <Button
                         size="lg"
-                        className="text-lg px-8 py-7 rounded-full shadow-xl shadow-primary/20 hover:shadow-2xl hover:shadow-primary/30 hover:scale-[1.02] transition-all cursor-pointer group"
+                        className="text-sm px-8 py-3 rounded-full shadow-xl shadow-primary/20 hover:shadow-2xl hover:shadow-primary/30 hover:scale-[1.02] transition-all cursor-pointer group"
                       >
                         Enter Chat Rooms
                         <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
@@ -308,7 +308,7 @@ export default function Home() {
                     <Button
                       variant="outline"
                       size="lg"
-                      className="text-sm px-4 py-3 rounded-full border-2 hover:bg-muted transition-all cursor-pointer"
+                      className="text-sm px-8 py-3 rounded-full border-2 hover:bg-muted transition-all cursor-pointer"
                     >
                       Community Guidelines
                     </Button>
