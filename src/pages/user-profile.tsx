@@ -235,7 +235,7 @@ export default function UserProfile() {
         .eq("pet_id", selectedPet.id)
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return data as { id: string; media_url: string }[];
+      return data as { id: string; media_url: string; media_type: string }[];
     },
     enabled: !!selectedPet?.id,
   });
@@ -244,10 +244,11 @@ export default function UserProfile() {
     if (!selectedPet || !user) return;
     setIsUploadingPost(true);
     try {
-      const mediaUrl = await uploadFile(file, "pets/posts");
+      const mediaUrl = await uploadFile(file, "pets/posts", "pet_media");
+      const mediaType = file.type.startsWith("video") ? "video" : "image";
       const { error } = await supabase
         .from("pet_media")
-        .insert({ pet_id: selectedPet.id, media_url: mediaUrl });
+        .insert({ pet_id: selectedPet.id, media_url: mediaUrl, media_type: mediaType });
       if (error) throw error;
       queryClient.invalidateQueries({ queryKey: ["pet_media", selectedPet.id] });
       toast({ description: "Post uploaded successfully!" });
@@ -1156,7 +1157,7 @@ export default function UserProfile() {
                             <input
                               ref={postFileInputRef}
                               type="file"
-                              accept="image/*"
+                              accept="image/*,video/*"
                               className="hidden"
                               onChange={(e) => {
                                 const file = e.target.files?.[0];
@@ -1276,11 +1277,22 @@ export default function UserProfile() {
                     <div className="grid grid-cols-3 gap-1">
                       {petMedia.map((item) => (
                         <div key={item.id} className="aspect-square overflow-hidden rounded-sm bg-gray-100">
-                          <img
-                            src={item.media_url}
-                            alt="Pet post"
-                            className="w-full h-full object-cover"
-                          />
+                          {item.media_type === "video" ? (
+                            <video
+                              src={item.media_url}
+                              className="w-full h-full object-cover"
+                              autoPlay
+                              muted
+                              loop
+                              playsInline
+                            />
+                          ) : (
+                            <img
+                              src={item.media_url}
+                              alt="Pet post"
+                              className="w-full h-full object-cover"
+                            />
+                          )}
                         </div>
                       ))}
                     </div>
