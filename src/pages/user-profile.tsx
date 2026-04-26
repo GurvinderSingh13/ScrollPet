@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { Link } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
@@ -40,6 +40,8 @@ import {
   AlertTriangle,
   Clock,
   LocateFixed,
+  PlusSquare,
+  Grid3X3,
 } from "lucide-react";
 import logoImage from "@assets/Scrollpet_logo_1766997907297.png";
 import {
@@ -88,6 +90,8 @@ export default function UserProfile() {
   const [newProfileImage, setNewProfileImage] = useState<File | null>(null);
   const [newShowcaseImages, setNewShowcaseImages] = useState<File[]>([]);
   const [newVideoFile, setNewVideoFile] = useState<File | null>(null);
+  const [isUploadingPost, setIsUploadingPost] = useState(false);
+  const postFileInputRef = useRef<HTMLInputElement>(null);
 
   const [editBirthDay, setEditBirthDay] = useState("");
   const [editBirthMonth, setEditBirthMonth] = useState("");
@@ -220,6 +224,40 @@ export default function UserProfile() {
     },
     enabled: !!user?.id,
   });
+
+  const { data: petMedia, isLoading: isPetMediaLoading } = useQuery({
+    queryKey: ["pet_media", selectedPet?.id],
+    queryFn: async () => {
+      if (!selectedPet?.id) return [];
+      const { data, error } = await supabase
+        .from("pet_media")
+        .select("*")
+        .eq("pet_id", selectedPet.id)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data as { id: string; media_url: string }[];
+    },
+    enabled: !!selectedPet?.id,
+  });
+
+  const handleNewPost = async (file: File) => {
+    if (!selectedPet || !user) return;
+    setIsUploadingPost(true);
+    try {
+      const mediaUrl = await uploadFile(file, "pets/posts");
+      const { error } = await supabase
+        .from("pet_media")
+        .insert({ pet_id: selectedPet.id, media_url: mediaUrl });
+      if (error) throw error;
+      queryClient.invalidateQueries({ queryKey: ["pet_media", selectedPet.id] });
+      toast({ description: "Post uploaded successfully!" });
+    } catch (err: any) {
+      toast({ description: err.message || "Failed to upload post", variant: "destructive" });
+    } finally {
+      setIsUploadingPost(false);
+      if (postFileInputRef.current) postFileInputRef.current.value = "";
+    }
+  };
 
   useEffect(() => {
     if (dbUser) {
@@ -1084,20 +1122,50 @@ export default function UserProfile() {
                     </p>
 
                     <div className="flex gap-6 mt-2 text-sm">
-                      <span><strong className="font-semibold">0</strong> <span className="text-muted-foreground">Posts</span></span>
+                      <span><strong className="font-semibold">{petMedia?.length ?? 0}</strong> <span className="text-muted-foreground">Posts</span></span>
                       <span><strong className="font-semibold">0</strong> <span className="text-muted-foreground">Followers</span></span>
                     </div>
 
                     {user?.id === (selectedPet as any).user_id && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setIsEditingPet(!isEditingPet)}
-                        className={cn("mt-3 text-xs px-4 cursor-pointer", isEditingPet && "bg-muted")}
-                      >
-                        <Edit3 className="h-3 w-3 mr-1.5" />
-                        {isEditingPet ? "Cancel Edit" : "Edit Profile"}
-                      </Button>
+                      <div className="flex gap-2 mt-3">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setIsEditingPet(!isEditingPet)}
+                          className={cn("text-xs px-4 cursor-pointer", isEditingPet && "bg-muted")}
+                        >
+                          <Edit3 className="h-3 w-3 mr-1.5" />
+                          {isEditingPet ? "Cancel Edit" : "Edit Profile"}
+                        </Button>
+                        {!isEditingPet && (
+                          <>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => postFileInputRef.current?.click()}
+                              disabled={isUploadingPost}
+                              className="text-xs px-4 cursor-pointer"
+                            >
+                              {isUploadingPost ? (
+                                <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />
+                              ) : (
+                                <PlusSquare className="h-3 w-3 mr-1.5" />
+                              )}
+                              {isUploadingPost ? "Uploading…" : "New Post"}
+                            </Button>
+                            <input
+                              ref={postFileInputRef}
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) handleNewPost(file);
+                              }}
+                            />
+                          </>
+                        )}
+                      </div>
                     )}
                   </div>
                 </div>
@@ -1198,14 +1266,33 @@ export default function UserProfile() {
 
               {!isEditingPet && (
                 <div className="pt-2 pb-2">
-                  <div className="grid grid-cols-3 gap-1">
-                    {Array.from({ length: 6 }).map((_, i) => (
-                      <div
-                        key={i}
-                        className="aspect-square bg-gray-200 rounded-sm"
-                      />
-                    ))}
-                  </div>
+                  {isPetMediaLoading ? (
+                    <div className="grid grid-cols-3 gap-1">
+                      {Array.from({ length: 6 }).map((_, i) => (
+                        <div key={i} className="aspect-square bg-gray-100 rounded-sm animate-pulse" />
+                      ))}
+                    </div>
+                  ) : petMedia && petMedia.length > 0 ? (
+                    <div className="grid grid-cols-3 gap-1">
+                      {petMedia.map((item) => (
+                        <div key={item.id} className="aspect-square overflow-hidden rounded-sm bg-gray-100">
+                          <img
+                            src={item.media_url}
+                            alt="Pet post"
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center py-10 text-center text-muted-foreground gap-2">
+                      <Grid3X3 className="h-8 w-8 opacity-30" />
+                      <p className="text-sm font-medium">No posts yet</p>
+                      {user?.id === (selectedPet as any).user_id && (
+                        <p className="text-xs">Tap <strong>New Post</strong> to share your first photo.</p>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
 
