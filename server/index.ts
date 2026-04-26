@@ -91,8 +91,7 @@ app.use((req, res, next) => {
   const port = parseInt(process.env.PORT || "5000", 10);
 
   // Windows-friendly listen setup with dynamic host for production/local dev
-  const isProduction = process.env.NODE_ENV === "production";
-  const host = isProduction ? "0.0.0.0" : "127.0.0.1";
+  const host = "0.0.0.0";
 
   httpServer.listen(port, host, () => {
     log(`serving on ${host}:${port}`);
