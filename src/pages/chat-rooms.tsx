@@ -4,7 +4,6 @@ import { motion } from "framer-motion";
 import { 
   Menu,
   X,
-  Lock,
   PawPrint,
   Loader2
 } from "lucide-react";
@@ -198,7 +197,7 @@ export default function ChatRooms() {
                   key={category.id}
                   variants={itemVariants}
                   onClick={() => handleRoomClick(String(category.name))}
-                  className="group relative flex flex-col items-center justify-center w-full cursor-pointer"
+                  className="group relative flex flex-col items-center justify-center w-full cursor-pointer transition-transform duration-200 hover:scale-105"
                 >
                   <div className="relative w-40 h-40 md:w-48 md:h-48 mb-4">
                     <div className="w-full h-full rounded-full overflow-hidden shadow-lg group-hover:shadow-2xl transition-all duration-300 ring-4 ring-transparent group-hover:ring-primary/20">
@@ -221,12 +220,6 @@ export default function ChatRooms() {
                         <PawPrint size={80} className="text-[#007699]" fill="currentColor" />
                       </div>
                       
-                      {/* Locked Overlay */}
-                      {!isAuthenticated && (
-                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 backdrop-blur-sm">
-                          <Lock className="text-white w-10 h-10 drop-shadow-md" />
-                        </div>
-                      )}
                     </div>
                   </div>
                   
@@ -241,18 +234,13 @@ export default function ChatRooms() {
                 key="other"
                 variants={itemVariants}
                 onClick={() => handleRoomClick('other')}
-                className="group relative flex flex-col items-center justify-center w-full cursor-pointer"
+                className="group relative flex flex-col items-center justify-center w-full cursor-pointer transition-transform duration-200 hover:scale-105"
               >
                 <div className="relative w-40 h-40 md:w-48 md:h-48 mb-4">
                   <div className="w-full h-full rounded-full overflow-hidden shadow-lg group-hover:shadow-2xl transition-all duration-300 ring-4 ring-transparent group-hover:ring-primary/20">
                     <div className="w-full h-full bg-white border-4 border-[#007699] flex items-center justify-center">
                       <PawPrint size={80} className="text-[#007699]" fill="currentColor" />
                     </div>
-                    {!isAuthenticated && (
-                      <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 backdrop-blur-sm">
-                        <Lock className="text-white w-10 h-10 drop-shadow-md" />
-                      </div>
-                    )}
                   </div>
                 </div>
                 <h3 className="text-lg md:text-xl font-bold text-gray-800 group-hover:text-primary transition-colors">
