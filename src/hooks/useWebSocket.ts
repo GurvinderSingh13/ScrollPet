@@ -69,8 +69,6 @@ export function useWebSocket({ userId, petType, breed, location, onMessage }: Us
   }, [onMessage]);
 
   useEffect(() => {
-    if (!userId) return;
-
     const channelName = `chat-${petType}-${breed || 'all'}-${location}`;
 
     if (channelRef.current) {
@@ -80,7 +78,10 @@ export function useWebSocket({ userId, petType, breed, location, onMessage }: Us
 
     // Subscribe to ALL public message changes - we filter client-side 
     // because Supabase Realtime doesn't support array 'contains' filters easily.
-    const channel = supabase
+    // Public room INSERTs are streamed to everyone (including guests).
+    // The DM and reply-targeted listeners further down are added only for
+    // authenticated users, since their filters require a real userId.
+    let channelBuilder: any = supabase
       .channel(channelName)
       .on(
         'postgres_changes',
@@ -179,54 +180,59 @@ export function useWebSocket({ userId, petType, breed, location, onMessage }: Us
           const msg = mapRowToMessage({ ...newRow, users: userData });
           onMessageRef.current?.(msg);
         }
-      )
-      // Second listener: DMs targeted at this user (no location filter needed)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'messages',
-          filter: `receiver_id=eq.${userId}`,
-        },
-        async (payload) => {
-          const newRow = payload.new as any;
+      );
 
-          const { data: userData } = await supabase
-            .from('users')
-            .select('id, username, display_name')
-            .eq('id', newRow.user_id)
-            .single();
+    // DM and reply-targeted listeners require an authenticated user.
+    // Their Supabase filter expressions need a real userId; skip them for guests.
+    if (userId) {
+      channelBuilder = channelBuilder
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'messages',
+            filter: `receiver_id=eq.${userId}`,
+          },
+          async (payload: any) => {
+            const newRow = payload.new as any;
 
-          const msg = mapRowToMessage({ ...newRow, users: userData });
-          onMessageRef.current?.(msg);
-        }
-      )
-      // Third listener: Replies targeting this user
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'messages',
-          filter: `reply_to_user_id=eq.${userId}`,
-        },
-        async (payload) => {
-          const newRow = payload.new as any;
+            const { data: userData } = await supabase
+              .from('users')
+              .select('id, username, display_name')
+              .eq('id', newRow.user_id)
+              .single();
 
-          const { data: userData } = await supabase
-            .from('users')
-            .select('id, username, display_name')
-            .eq('id', newRow.user_id)
-            .single();
+            const msg = mapRowToMessage({ ...newRow, users: userData });
+            onMessageRef.current?.(msg);
+          }
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'messages',
+            filter: `reply_to_user_id=eq.${userId}`,
+          },
+          async (payload: any) => {
+            const newRow = payload.new as any;
 
-          const msg = mapRowToMessage({ ...newRow, users: userData });
-          onMessageRef.current?.(msg);
-        }
-      )
-      .subscribe((status) => {
-        setIsConnected(status === 'SUBSCRIBED');
-      });
+            const { data: userData } = await supabase
+              .from('users')
+              .select('id, username, display_name')
+              .eq('id', newRow.user_id)
+              .single();
+
+            const msg = mapRowToMessage({ ...newRow, users: userData });
+            onMessageRef.current?.(msg);
+          }
+        );
+    }
+
+    const channel = channelBuilder.subscribe((status: string) => {
+      setIsConnected(status === 'SUBSCRIBED');
+    });
 
     channelRef.current = channel;
 

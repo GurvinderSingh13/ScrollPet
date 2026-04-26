@@ -267,10 +267,6 @@ export default function ChatInterface() {
     "Anonymous";
   const { pinnedIds, togglePin, isPinned } = usePinnedStates();
 
-  useEffect(() => {
-    if (!authLoading && !isAuthenticated) window.location.href = "/login";
-  }, [authLoading, isAuthenticated]);
-
   // Fetch categories dynamically from Supabase
   const { data: dbCategories = [] } = useQuery({
     queryKey: ["chat-categories"],
@@ -522,15 +518,22 @@ export default function ChatInterface() {
   };
 
   useEffect(() => {
-    if (!isNewsRoom || activeDmUser || !userId) return;
+    if (!isNewsRoom || activeDmUser) return;
 
     const fetchAnnouncements = async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("announcements")
         .select(`*, users:users!author_id(id, username, display_name, role)`)
         .eq("target_location", chatRoomLocation)
-        .eq("target_pet", activePet)
-        .or(`status.eq.approved,author_id.eq.${userId}`)
+        .eq("target_pet", activePet);
+
+      if (userId) {
+        query = query.or(`status.eq.approved,author_id.eq.${userId}`);
+      } else {
+        query = query.eq("status", "approved");
+      }
+
+      const { data, error } = await query
         .order("created_at", { ascending: false })
         .limit(30);
 
@@ -543,7 +546,8 @@ export default function ChatInterface() {
   }, [isNewsRoom, chatRoomLocation, activePet, activeDmUser, userId]);
 
   useEffect(() => {
-    if (!userId || isNewsRoom) return;
+    if (isNewsRoom) return;
+    if (activeDmUser && !userId) return;
     let cancelled = false;
     setMessages([]);
 
@@ -2077,12 +2081,32 @@ export default function ChatInterface() {
                 <div ref={messagesEndRef} />
               </div>
 
-              <ChatInput
-                onSendMessage={handleSendMessage}
-                isConnected={isConnected || isNewsRoom}
-                initialValue={replyToUser ? `@${replyToUser.name} ` : undefined}
-                onClearInitialValue={() => setReplyToUser(null)}
-              />
+              {authLoading ? null : isAuthenticated ? (
+                <ChatInput
+                  onSendMessage={handleSendMessage}
+                  isConnected={isConnected || isNewsRoom}
+                  initialValue={replyToUser ? `@${replyToUser.name} ` : undefined}
+                  onClearInitialValue={() => setReplyToUser(null)}
+                />
+              ) : (
+                <div
+                  className="flex-none border-t border-border/40 bg-background/95 backdrop-blur-md px-4 py-4 md:py-5"
+                  data-testid="guest-login-cta"
+                >
+                  <div className="container mx-auto flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 max-w-2xl">
+                    <p className="text-sm md:text-base text-muted-foreground text-center font-medium">
+                      Log in or sign up to join the conversation
+                    </p>
+                    <button
+                      onClick={() => (window.location.href = "/login")}
+                      className="bg-primary text-primary-foreground hover:bg-primary/90 transition-colors font-semibold rounded-full px-6 py-2 text-sm cursor-pointer shadow-sm whitespace-nowrap"
+                      data-testid="button-guest-login"
+                    >
+                      Log in
+                    </button>
+                  </div>
+                </div>
+              )}
             </>
           )}
         </main>

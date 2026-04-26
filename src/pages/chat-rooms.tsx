@@ -41,12 +41,8 @@ export default function ChatRooms() {
   });
 
   const handleRoomClick = (categoryName: string) => {
-    if (isAuthenticated) {
-      const slug = encodeURIComponent(categoryName.toLowerCase().trim());
-      setLocation(`/chat-interface?category=${slug}`);
-    } else {
-      window.location.href = '/login';
-    }
+    const slug = encodeURIComponent(categoryName.toLowerCase().trim());
+    setLocation(`/chat-interface?category=${slug}`);
   };
 
   const handleAuthClick = () => {

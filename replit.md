@@ -41,6 +41,7 @@ Preferred communication style: Simple, everyday language.
 - **Session**: `supabase.auth.getSession()` in `src/hooks/use-auth.ts`
 - **Logout**: `supabase.auth.signOut()`
 - **Password Reset**: Manual via mailto link to scrollpet@gmail.com (MVP)
+- **Guest read mode**: Unauthenticated visitors can browse chat rooms and read public messages (and approved announcements) but cannot post. The composer is replaced with a "Log in or sign up to join the conversation" CTA. DM fetches and userId-filtered realtime listeners (DM/reply) are skipped for guests; the public-room realtime subscription still runs.
 
 ### Real-time Chat
 - **Provider**: Supabase Realtime Channels (postgres_changes)
