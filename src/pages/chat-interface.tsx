@@ -454,14 +454,14 @@ export default function ChatInterface() {
     }
   }, []);
 
-  const isFirstScroll = useRef(true);
+  const isInitialMount = useRef(true);
   useEffect(() => {
-    if (isFirstScroll.current) {
-      // Jump instantly on initial load so user never sees the scroll animation
-      messagesEndRef.current?.scrollIntoView({ behavior: "instant" as ScrollBehavior });
-      isFirstScroll.current = false;
+    if (isInitialMount.current) {
+      // Initial load: jump instantly so user never sees a scroll animation
+      messagesEndRef.current?.scrollIntoView({ behavior: "auto" });
+      isInitialMount.current = false;
     } else {
-      // Smooth scroll only for new messages arriving during an active session
+      // New messages during active chat: smooth scroll
       messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages, announcements]);
