@@ -297,7 +297,7 @@ export default function Home() {
                   ) : (
                     <Button
                       size="lg"
-                      className="text-lg px-8 py-7 rounded-full shadow-xl shadow-primary/20 hover:shadow-2xl hover:shadow-primary/30 hover:scale-[1.02] transition-all cursor-pointer group"
+                      className="text-sm px-4 py-3 rounded-full shadow-xl shadow-primary/20 hover:shadow-2xl hover:shadow-primary/30 hover:scale-[1.02] transition-all cursor-pointer group"
                       onClick={() => (window.location.href = "/signup")}
                     >
                       <Sparkles className="mr-2 h-5 w-5" />
@@ -309,7 +309,7 @@ export default function Home() {
                     <Button
                       variant="outline"
                       size="lg"
-                      className="text-lg px-8 py-7 rounded-full border-2 hover:bg-muted transition-all cursor-pointer"
+                      className="text-sm px-4 py-3 rounded-full border-2 hover:bg-muted transition-all cursor-pointer"
                     >
                       Community Guidelines
                     </Button>
