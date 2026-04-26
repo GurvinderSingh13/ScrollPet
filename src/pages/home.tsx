@@ -31,31 +31,11 @@ import heroImage from "@assets/generated_images/happy_community_of_pet_lovers_in
 import introImage from "@assets/generated_images/minimalist_pet_chat_concept_illustration.png";
 import logoImage from "@assets/Scrollpet_logo_1766997907297.png";
 
-import dogImg from "@assets/stock_images/happy_dog_portrait_o_6e5075a4.jpg";
-import catImg from "@assets/stock_images/ginger_cat_sitting_f_07d19cb3.jpg";
-import fishImg from "@assets/stock_images/goldfish_in_a_bowl_o_1769c4d6.jpg";
-import birdImg from "@assets/stock_images/colorful_parrot_bird_78491bbe.jpg";
-import rabbitImg from "@assets/stock_images/cute_white_rabbit_po_8b3eec97.jpg";
-import hamsterImg from "@assets/stock_images/cute_hamster_portrai_97a17a6a.jpg";
-import turtleImg from "@assets/stock_images/turtle_close_up_port_f8acb4e1.jpg";
-import guineaPigImg from "@assets/stock_images/guinea_pig_portrait_48d4dfd3.jpg";
-import horseImg from "@assets/stock_images/horse_portrait_in_na_95b7a90d.jpg";
 
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 
-const PET_AVATARS = [
-  { name: "Dogs", image: dogImg, emoji: "🐕" },
-  { name: "Cats", image: catImg, emoji: "🐱" },
-  { name: "Fish", image: fishImg, emoji: "🐠" },
-  { name: "Birds", image: birdImg, emoji: "🦜" },
-  { name: "Rabbits", image: rabbitImg, emoji: "🐰" },
-  { name: "Hamsters", image: hamsterImg, emoji: "🐹" },
-  { name: "Turtles", image: turtleImg, emoji: "🐢" },
-  { name: "Guinea Pigs", image: guineaPigImg, emoji: "🐹" },
-  { name: "Horses", image: horseImg, emoji: "🐴" },
-];
 
 const TESTIMONIALS = [
   {
@@ -122,16 +102,29 @@ export default function Home() {
     enabled: !!user?.id,
   });
 
+  const { data: dbHomeCategories = [], isLoading: isCategoriesLoading } = useQuery({
+    queryKey: ["chat-room-categories"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("categories")
+        .select("id, name, image_url")
+        .order("name", { ascending: true });
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
   const isModOrAbove =
     dbUser &&
     ["moderator", "super_moderator", "staff", "admin"].includes(dbUser.role);
 
   useEffect(() => {
+    if (!dbHomeCategories.length) return;
     const interval = setInterval(() => {
-      setActivePetIndex((prev) => (prev + 1) % PET_AVATARS.length);
+      setActivePetIndex((prev) => (prev + 1) % dbHomeCategories.length);
     }, 3000);
     return () => clearInterval(interval);
-  }, []);
+  }, [dbHomeCategories.length]);
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -325,28 +318,36 @@ export default function Home() {
                 {/* Scrolling pet avatars */}
                 <div className="flex items-center gap-4">
                   <div className="flex -space-x-3">
-                    {PET_AVATARS.slice(0, 5).map((pet, i) => (
+                    {dbHomeCategories.slice(0, 5).map((cat: any, i) => (
                       <motion.div
-                        key={pet.name}
+                        key={cat.id}
                         initial={{ scale: 0, opacity: 0 }}
                         animate={{ scale: 1, opacity: 1 }}
                         transition={{ delay: 0.6 + i * 0.1 }}
                         className="h-11 w-11 rounded-full border-[3px] border-background overflow-hidden shadow-sm"
                       >
-                        <img src={pet.image} alt={pet.name} className="w-full h-full object-cover" />
+                        {cat.image_url ? (
+                          <img src={cat.image_url} alt={cat.name} className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full bg-sky-100 flex items-center justify-center">
+                            <PawPrint size={20} className="text-[#007699]" />
+                          </div>
+                        )}
                       </motion.div>
                     ))}
-                    <motion.div
-                      initial={{ scale: 0, opacity: 0 }}
-                      animate={{ scale: 1, opacity: 1 }}
-                      transition={{ delay: 1.1 }}
-                      className="h-11 w-11 rounded-full border-[3px] border-background bg-primary flex items-center justify-center shadow-sm"
-                    >
-                      <span className="text-white text-xs font-bold">+4</span>
-                    </motion.div>
+                    {dbHomeCategories.length > 5 && (
+                      <motion.div
+                        initial={{ scale: 0, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        transition={{ delay: 1.1 }}
+                        className="h-11 w-11 rounded-full border-[3px] border-background bg-primary flex items-center justify-center shadow-sm"
+                      >
+                        <span className="text-white text-xs font-bold">+{dbHomeCategories.length - 5}</span>
+                      </motion.div>
+                    )}
                   </div>
                   <div className="text-sm">
-                    <p className="font-bold text-foreground">9 pet categories</p>
+                    <p className="font-bold text-foreground">{dbHomeCategories.length || "—"} pet categories</p>
                     <p className="text-muted-foreground">Dogs, cats, birds & more</p>
                   </div>
                 </div>
@@ -472,25 +473,39 @@ export default function Home() {
               viewport={{ once: true }}
               className="grid grid-cols-3 sm:grid-cols-5 lg:grid-cols-9 gap-4 md:gap-6"
             >
-              {PET_AVATARS.map((pet, i) => (
-                <motion.div
-                  key={pet.name}
-                  variants={itemVariants}
-                  whileHover={{ y: -8, scale: 1.05 }}
-                  className="flex flex-col items-center gap-3 cursor-pointer group"
-                >
-                  <div className={`w-16 h-16 md:w-20 md:h-20 rounded-full overflow-hidden border-[3px] shadow-md transition-all duration-300 ${
-                    activePetIndex === i
-                      ? "border-secondary ring-4 ring-secondary/20 scale-110"
-                      : "border-border group-hover:border-primary group-hover:ring-4 group-hover:ring-primary/20"
-                  }`}>
-                    <img src={pet.image} alt={pet.name} className="w-full h-full object-cover" />
-                  </div>
-                  <span className="text-xs md:text-sm font-bold text-foreground/80 group-hover:text-primary transition-colors">
-                    {pet.emoji} {pet.name}
-                  </span>
-                </motion.div>
-              ))}
+              {isCategoriesLoading
+                ? Array.from({ length: 9 }).map((_, i) => (
+                    <div key={i} className="flex flex-col items-center gap-3 animate-pulse">
+                      <div className="w-16 h-16 md:w-20 md:h-20 rounded-full bg-gray-200" />
+                      <div className="h-3 w-14 bg-gray-200 rounded-md" />
+                    </div>
+                  ))
+                : dbHomeCategories.map((cat: any, i) => (
+                    <motion.div
+                      key={cat.id}
+                      variants={itemVariants}
+                      whileHover={{ y: -8, scale: 1.05 }}
+                      className="flex flex-col items-center gap-3 cursor-pointer group"
+                    >
+                      <div className={`w-16 h-16 md:w-20 md:h-20 rounded-full overflow-hidden border-[3px] shadow-md transition-all duration-300 ${
+                        activePetIndex === i
+                          ? "border-secondary ring-4 ring-secondary/20 scale-110"
+                          : "border-border group-hover:border-primary group-hover:ring-4 group-hover:ring-primary/20"
+                      }`}>
+                        {cat.image_url ? (
+                          <img src={cat.image_url} alt={cat.name} className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full bg-gradient-to-br from-sky-50 to-sky-100 flex items-center justify-center">
+                            <PawPrint size={32} className="text-[#007699]" />
+                          </div>
+                        )}
+                      </div>
+                      <span className="text-xs md:text-sm font-bold text-foreground/80 group-hover:text-primary transition-colors">
+                        {cat.name}
+                      </span>
+                    </motion.div>
+                  ))
+              }
             </motion.div>
 
             <motion.div
