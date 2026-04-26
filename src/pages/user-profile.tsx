@@ -1444,18 +1444,18 @@ export default function UserProfile() {
 
           {selectedMedia && (
             <div
-              className="fixed inset-0 z-[200] flex items-center justify-center bg-black/85"
+              className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90"
               onClick={() => setSelectedMedia(null)}
             >
               <button
-                className="absolute top-4 right-4 text-white/80 hover:text-white bg-black/40 rounded-full p-1.5 cursor-pointer"
+                className="fixed top-6 right-6 text-white hover:text-white/70 bg-black/50 rounded-full p-2 cursor-pointer"
                 onClick={() => setSelectedMedia(null)}
                 aria-label="Close"
               >
-                <X className="w-5 h-5" />
+                <X className="w-7 h-7" />
               </button>
               <div
-                className="max-w-[92vw] max-h-[88vh] flex items-center justify-center"
+                className="flex items-center justify-center"
                 onClick={(e) => e.stopPropagation()}
               >
                 {selectedMedia.media_type === "video" ? (
@@ -1463,13 +1463,13 @@ export default function UserProfile() {
                     src={selectedMedia.media_url}
                     controls
                     autoPlay
-                    className="max-w-full max-h-[88vh] object-contain rounded-lg"
+                    className="max-w-5xl w-[90vw] max-h-[85vh] object-contain rounded-lg"
                   />
                 ) : (
                   <img
                     src={selectedMedia.media_url}
                     alt="Full size post"
-                    className="max-w-full max-h-[88vh] object-contain rounded-lg"
+                    className="max-w-5xl w-[90vw] max-h-[85vh] object-contain rounded-lg"
                   />
                 )}
               </div>
