@@ -84,6 +84,7 @@ export default function PetProfilePage() {
   } | null>(null);
   const [commentText, setCommentText] = useState("");
   const [isPostingComment, setIsPostingComment] = useState(false);
+  const [localComments, setLocalComments] = useState<{ id: string; media_id: string; user_id: string; content: string; created_at: string }[]>([]);
   const [editBirthDay, setEditBirthDay] = useState("");
   const [editBirthMonth, setEditBirthMonth] = useState("");
   const [editBirthYear, setEditBirthYear] = useState("");
@@ -160,23 +161,11 @@ export default function PetProfilePage() {
       if (!selectedMedia?.id) return [];
       const { data, error } = await supabase
         .from("media_comments")
-        .select("*, users(username, display_name, profile_image_url, avatar_url)")
+        .select("*")
         .eq("media_id", selectedMedia.id)
         .order("created_at", { ascending: true });
       if (error) throw error;
-      return data as {
-        id: string;
-        media_id: string;
-        user_id: string;
-        content: string;
-        created_at: string;
-        users: {
-          username: string;
-          display_name: string | null;
-          profile_image_url: string | null;
-          avatar_url: string | null;
-        } | null;
-      }[];
+      return data as { id: string; media_id: string; user_id: string; content: string; created_at: string }[];
     },
     enabled: !!selectedMedia?.id,
   });
@@ -202,20 +191,35 @@ export default function PetProfilePage() {
 
   const handlePostComment = async () => {
     if (!user?.id || !selectedMedia?.id || !commentText.trim()) return;
+    const trimmed = commentText.trim();
+    setCommentText("");
     setIsPostingComment(true);
+    const optimistic = {
+      id: `temp-${Date.now()}`,
+      media_id: selectedMedia.id,
+      user_id: user.id,
+      content: trimmed,
+      created_at: new Date().toISOString(),
+    };
+    setLocalComments((prev) => [...prev, optimistic]);
     try {
       const { error } = await supabase
         .from("media_comments")
-        .insert({ media_id: selectedMedia.id, user_id: user.id, content: commentText.trim() });
+        .insert({ media_id: selectedMedia.id, user_id: user.id, content: trimmed });
       if (error) throw error;
-      setCommentText("");
       refetchComments();
     } catch (err: any) {
+      setLocalComments((prev) => prev.filter((c) => c.id !== optimistic.id));
+      setCommentText(trimmed);
       toast({ description: err.message || "Failed to post comment", variant: "destructive" });
     } finally {
       setIsPostingComment(false);
     }
   };
+
+  useEffect(() => {
+    setLocalComments([]);
+  }, [selectedMedia?.id]);
 
   useEffect(() => {
     if (pet) {
@@ -1028,18 +1032,18 @@ export default function PetProfilePage() {
 
               {/* Comments list */}
               <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 min-h-0">
-                {(mediaComments ?? []).length === 0 ? (
+                {(() => {
+                  const fetched = mediaComments ?? [];
+                  const fetchedIds = new Set(fetched.map((c) => c.id));
+                  const merged = [...fetched, ...localComments.filter((c) => !fetchedIds.has(c.id))];
+                  return merged.length === 0 ? (
                   <p className="text-xs text-gray-400 text-center py-6">No comments yet. Be the first!</p>
                 ) : (
-                  (mediaComments ?? []).map((c) => (
+                  merged.map((c) => (
                     <div key={c.id} className="flex gap-2.5">
                       <div className="h-8 w-8 rounded-full overflow-hidden bg-gray-100 shrink-0">
                         <img
-                          src={
-                            c.users?.profile_image_url ||
-                            c.users?.avatar_url ||
-                            `https://api.dicebear.com/7.x/avataaars/svg?seed=${c.user_id}`
-                          }
+                          src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${c.user_id}`}
                           alt="avatar"
                           className="w-full h-full object-cover"
                         />
@@ -1047,7 +1051,7 @@ export default function PetProfilePage() {
                       <div className="flex-1 min-w-0">
                         <p className="text-xs leading-snug">
                           <span className="font-semibold text-gray-900 mr-1">
-                            {c.users?.display_name || c.users?.username || "User"}
+                            Pet Lover
                           </span>
                           <span className="text-gray-700">{c.content}</span>
                         </p>
@@ -1057,7 +1061,8 @@ export default function PetProfilePage() {
                       </div>
                     </div>
                   ))
-                )}
+                );
+              })()}
               </div>
 
               {/* Like row */}
