@@ -175,7 +175,29 @@ const PawIcon = ({ className }: { className?: string }) => (
 );
 
 export default function ChatInterface() {
-  const [activePet, setActivePet] = useState(() => sessionStorage.getItem("activePet") || "dog");
+  const [activePet, setActivePet] = useState(() => {
+    // URL param takes priority over cached "last visited" state
+    if (typeof window !== "undefined") {
+      const urlCategory = new URLSearchParams(window.location.search).get("category");
+      if (urlCategory && urlCategory.trim()) {
+        return urlCategory.toLowerCase().trim();
+      }
+    }
+    return sessionStorage.getItem("activePet") || "dog";
+  });
+
+  // Once consumed, strip ?category= from the URL so later in-app pet switches stick on refresh
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.has("category")) {
+      params.delete("category");
+      const qs = params.toString();
+      const newUrl = window.location.pathname + (qs ? `?${qs}` : "") + window.location.hash;
+      window.history.replaceState({}, "", newUrl);
+    }
+  }, []);
+
   const [activeBreed, setActiveBreed] = useState<string | null>(() => sessionStorage.getItem("activeBreed") || null);
   const [activeLocation, setActiveLocation] = useState(() => sessionStorage.getItem("activeLocation") || "global");
   const [activeDistrict, setActiveDistrict] = useState<string | null>(() => sessionStorage.getItem("activeDistrict") || null);

@@ -39,9 +39,10 @@ export default function ChatRooms() {
     },
   });
 
-  const handleRoomClick = (roomId: string) => {
+  const handleRoomClick = (categoryName: string) => {
     if (isAuthenticated) {
-      setLocation('/chat-interface');
+      const slug = encodeURIComponent(categoryName.toLowerCase().trim());
+      setLocation(`/chat-interface?category=${slug}`);
     } else {
       window.location.href = '/login';
     }
@@ -199,7 +200,7 @@ export default function ChatRooms() {
                 <motion.button
                   key={category.id}
                   variants={itemVariants}
-                  onClick={() => handleRoomClick(String(category.id))}
+                  onClick={() => handleRoomClick(String(category.name))}
                   className="group relative flex flex-col items-center justify-center w-full cursor-pointer"
                 >
                   <div className="relative w-40 h-40 md:w-48 md:h-48 mb-4">
