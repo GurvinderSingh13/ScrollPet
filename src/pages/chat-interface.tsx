@@ -227,6 +227,22 @@ export default function ChatInterface() {
   );
   const [isModCountryOpen, setIsModCountryOpen] = useState(false);
 
+  const [guestSelectedCountry, setGuestSelectedCountry] = useState<string | null>(
+    () => {
+      if (typeof window === "undefined") return null;
+      return localStorage.getItem("scrollpet:guest-country");
+    },
+  );
+  const [isGuestCountryOpen, setIsGuestCountryOpen] = useState(false);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (guestSelectedCountry) {
+      localStorage.setItem("scrollpet:guest-country", guestSelectedCountry);
+    } else {
+      localStorage.removeItem("scrollpet:guest-country");
+    }
+  }, [guestSelectedCountry]);
+
   const [isBanModalOpen, setIsBanModalOpen] = useState(false);
   const [userToBan, setUserToBan] = useState<{
     id: string;
@@ -381,7 +397,11 @@ export default function ChatInterface() {
   const cooldownHours = dbUser?.news_cooldown_hours ?? 24;
 
   const effectiveCountryName =
-    isModOrAbove && modSelectedCountry ? modSelectedCountry : dbUser?.country;
+    isModOrAbove && modSelectedCountry
+      ? modSelectedCountry
+      : !authLoading && !isAuthenticated && guestSelectedCountry
+        ? guestSelectedCountry
+        : dbUser?.country;
   const userCountryObj = effectiveCountryName
     ? Country.getAllCountries().find((c) => c.name === effectiveCountryName)
     : null;
@@ -1633,13 +1653,72 @@ export default function ChatInterface() {
                   </button>
                 )}
                 {!userCountryObj ? (
-                  <div className="mt-4 p-4 text-xs bg-orange-50 text-orange-600 rounded-lg border border-orange-200 flex items-start gap-2 shadow-sm">
-                    <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
-                    <p>
-                      Update your profile settings to unlock your private
-                      Country and State chat rooms!
-                    </p>
-                  </div>
+                  authLoading ? null : !isAuthenticated ? (
+                    <div
+                      className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-100 shadow-sm"
+                      data-testid="guest-location-picker"
+                    >
+                      <p className="text-xs font-semibold text-blue-700 mb-3 flex items-start gap-2">
+                        <Globe className="w-4 h-4 shrink-0 mt-0.5" />
+                        Select a location to explore local chats.
+                      </p>
+                      <Popover
+                        open={isGuestCountryOpen}
+                        onOpenChange={setIsGuestCountryOpen}
+                      >
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className="w-full justify-between bg-white cursor-pointer h-11"
+                            data-testid="button-guest-country-picker"
+                          >
+                            <span className="text-gray-700">
+                              Choose your country
+                            </span>
+                            <Globe className="w-4 h-4 text-gray-500" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent
+                          className="w-[300px] p-0"
+                          align="start"
+                        >
+                          <Command>
+                            <CommandInput placeholder="Search countries..." />
+                            <CommandList>
+                              <CommandEmpty>No country found.</CommandEmpty>
+                              <CommandGroup>
+                                {Country.getAllCountries().map((c) => (
+                                  <CommandItem
+                                    key={c.isoCode}
+                                    value={c.name}
+                                    onSelect={() => {
+                                      setGuestSelectedCountry(c.name);
+                                      setActiveLocation("country");
+                                      setActiveDistrict(null);
+                                      setIsGuestCountryOpen(false);
+                                    }}
+                                  >
+                                    <span className="mr-2 text-lg">
+                                      {c.flag}
+                                    </span>{" "}
+                                    {c.name}
+                                  </CommandItem>
+                                ))}
+                              </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                  ) : (
+                    <div className="mt-4 p-4 text-xs bg-orange-50 text-orange-600 rounded-lg border border-orange-200 flex items-start gap-2 shadow-sm">
+                      <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                      <p>
+                        Update your profile settings to unlock your private
+                        Country and State chat rooms!
+                      </p>
+                    </div>
+                  )
                 ) : (
                   <>
                     <div className="flex items-center gap-2 mb-2">
@@ -1659,7 +1738,7 @@ export default function ChatInterface() {
                           </span>
                         </div>
                       </button>
-                      {isModOrAbove && (
+                      {(isModOrAbove || (!authLoading && !isAuthenticated)) && (
                         <Popover
                           open={isModCountryOpen}
                           onOpenChange={setIsModCountryOpen}
@@ -1668,6 +1747,7 @@ export default function ChatInterface() {
                             <Button
                               variant="outline"
                               className="w-12 h-[52px] p-0 shrink-0 border-gray-200 cursor-pointer"
+                              data-testid="button-change-country"
                             >
                               <Globe className="w-5 h-5 text-gray-500" />
                             </Button>
@@ -1686,7 +1766,11 @@ export default function ChatInterface() {
                                       key={c.isoCode}
                                       value={c.name}
                                       onSelect={() => {
-                                        setModSelectedCountry(c.name);
+                                        if (isAuthenticated) {
+                                          setModSelectedCountry(c.name);
+                                        } else {
+                                          setGuestSelectedCountry(c.name);
+                                        }
                                         setActiveLocation("country");
                                         setActiveDistrict(null);
                                         setIsModCountryOpen(false);

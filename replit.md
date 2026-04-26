@@ -42,6 +42,7 @@ Preferred communication style: Simple, everyday language.
 - **Logout**: `supabase.auth.signOut()`
 - **Password Reset**: Manual via mailto link to scrollpet@gmail.com (MVP)
 - **Guest read mode**: Unauthenticated visitors can browse chat rooms and read public messages (and approved announcements) but cannot post. The composer is replaced with a "Log in or sign up to join the conversation" CTA. DM fetches and userId-filtered realtime listeners (DM/reply) are skipped for guests; the public-room realtime subscription still runs.
+- **Guest location picker** (sidebar in `chat-interface.tsx`): When the derived `userCountryObj` is null and the visitor is a guest, the orange "update your profile" warning is replaced with a blue panel containing a `Country.getAllCountries()` combobox (Popover + Command). The selection is stored in `guestSelectedCountry` state and persisted to `localStorage` under the key `scrollpet:guest-country`. The `effectiveCountryName` priority chain is: mod-selected → guest-selected (when not authenticated) → `dbUser?.country`. Once a guest picks a country, the standard country pill, state list, and pin/unpin UI render exactly as for logged-in users; the small change-country icon next to the country pill is also exposed to guests so they can swap selections.
 
 ### Real-time Chat
 - **Provider**: Supabase Realtime Channels (postgres_changes)
