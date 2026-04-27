@@ -2,6 +2,7 @@ import { useState } from "react";
 import { format } from "date-fns";
 import { Play, Pause, X, ChevronDown, Loader2, Ban, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Link } from "wouter";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -29,7 +30,9 @@ interface Message {
   createdAt: string;
   user: {
     id: string;
+    username?: string;
     displayName: string;
+    avatarUrl?: string | null;
     state?: string;
     country?: string;
     role?: string;
@@ -247,6 +250,27 @@ export function MessageBubble({
         )}
 
         <div className="group relative flex items-start gap-2">
+
+          {/* Clickable avatar for received messages */}
+          {!isOwnMessage && (
+            <Link href={`/profile/${message.user.username || message.user.displayName}`}>
+              <div className="h-8 w-8 shrink-0 rounded-full overflow-hidden bg-gray-100 border border-gray-200 cursor-pointer hover:opacity-80 transition-opacity mt-0.5 flex items-center justify-center">
+                {message.user.avatarUrl ? (
+                  <img
+                    src={message.user.avatarUrl}
+                    alt={message.user.displayName}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <img
+                    src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${message.user.id}`}
+                    alt={message.user.displayName}
+                    className="w-full h-full object-cover"
+                  />
+                )}
+              </div>
+            </Link>
+          )}
 
           {/* Delete button for own messages (Fixed for mobile) */}
           {isOwnMessage && onDeleteClick && (

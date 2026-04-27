@@ -579,7 +579,7 @@ export default function ChatInterface() {
         const result = await supabase
           .from("messages")
           .select(
-            `*, users:users!user_id(id, username, display_name, state, country, role)`,
+            `*, users:users!user_id(id, username, display_name, state, country, role, avatar_url, profile_image_url)`,
           )
           .or(
             `and(user_id.eq.${userId},receiver_id.eq.${activeDmUser.id}),and(user_id.eq.${activeDmUser.id},receiver_id.eq.${userId})`,
@@ -635,6 +635,7 @@ export default function ChatInterface() {
               state: userData.state || "",
               country: userData.country || "",
               role: userData.role || "user",
+              avatarUrl: userData.profile_image_url || userData.avatar_url || null,
             }
             : {
               id: row.user_id,
@@ -643,6 +644,7 @@ export default function ChatInterface() {
               state: "",
               country: "",
               role: "user",
+              avatarUrl: null,
             },
         };
       });
@@ -1958,9 +1960,26 @@ export default function ChatInterface() {
                     </button>
                     {/* ------------------------------ */}
                   </div>
-                  <h2 className="font-bold text-xl truncate whitespace-nowrap">
-                    {getHeaderDisplayName()}
-                  </h2>
+                  {activeDmUser ? (
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <Link href={`/profile/${activeDmUser.name}`}>
+                        <div className="h-9 w-9 shrink-0 rounded-full overflow-hidden border-2 border-white/40 bg-white/20 cursor-pointer hover:opacity-80 transition-opacity">
+                          <img
+                            src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${activeDmUser.id}`}
+                            alt={activeDmUser.name}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      </Link>
+                      <h2 className="font-bold text-xl truncate whitespace-nowrap">
+                        {getHeaderDisplayName()}
+                      </h2>
+                    </div>
+                  ) : (
+                    <h2 className="font-bold text-xl truncate whitespace-nowrap">
+                      {getHeaderDisplayName()}
+                    </h2>
+                  )}
                   {activeLocation !== "global" &&
                     activeLocation !== "country" &&
                     activeLocation !== "staff_lounge" &&
