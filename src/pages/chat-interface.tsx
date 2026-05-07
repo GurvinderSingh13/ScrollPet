@@ -710,6 +710,7 @@ export default function ChatInterface() {
 
           if (!matchesCurrentRoom) return prev;
         }
+        if (prev.some((m) => m.id === newMessage.id)) return prev;
         return [...prev, newMessage];
       });
     },
@@ -783,6 +784,14 @@ export default function ChatInterface() {
     } catch (err: any) {
       toast({ description: "Could not delete post.", variant: "destructive" });
     }
+  };
+
+  const handleTagUpdate = (messageId: string, tag: string | null) => {
+    setMessages((prev) =>
+      prev.map((m) =>
+        m.id === messageId ? { ...m, intentStatus: tag } : m,
+      ),
+    );
   };
 
   // --- NEW DELETE MESSAGE FUNCTION ---
@@ -2186,6 +2195,7 @@ export default function ChatInterface() {
                           onReplyClick={(userId: string, name: string) => setReplyToUser({ id: userId, name })}
                           onBanClick={() => handleOpenDirectBan(msg.user)}
                           onDeleteClick={handleDeleteMessage}
+                          onTagUpdate={handleTagUpdate}
                         />
                       </div>
                     );

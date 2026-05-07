@@ -18,19 +18,23 @@ import { Textarea } from "@/components/ui/textarea";
 const INTENT_OPTIONS = [
   "For Adoption",
   "For Sale",
-  "Pups for Adoption",
-  "Pups for Sale",
+  "His/Her pups for Adoption",
+  "His/Her pups for Sale",
   "Available for Mating",
   "Open for Exchange",
+  "Lost",
+  "Dead",
 ];
 
 const INTENT_BADGE_COLORS: Record<string, string> = {
   "For Adoption": "bg-green-100 text-green-700 border-green-200",
   "For Sale": "bg-blue-100 text-blue-700 border-blue-200",
-  "Pups for Adoption": "bg-emerald-100 text-emerald-700 border-emerald-200",
-  "Pups for Sale": "bg-sky-100 text-sky-700 border-sky-200",
+  "His/Her pups for Adoption": "bg-emerald-100 text-emerald-700 border-emerald-200",
+  "His/Her pups for Sale": "bg-sky-100 text-sky-700 border-sky-200",
   "Available for Mating": "bg-pink-100 text-pink-700 border-pink-200",
   "Open for Exchange": "bg-orange-100 text-orange-700 border-orange-200",
+  "Lost": "bg-amber-100 text-amber-700 border-amber-200",
+  "Dead": "bg-gray-100 text-gray-600 border-gray-200",
 };
 
 interface MediaPreview {
