@@ -29,6 +29,7 @@ import { supabase } from "@/lib/supabase";
 import { toast } from "@/hooks/use-toast";
 import { INDIA_LOCATIONS } from "@/data/indiaLocations";
 import { PET_BREEDS } from "@/data/petBreeds";
+import Footer from "@/components/Footer";
 
 type MediaItem = {
   id: string;
@@ -117,7 +118,7 @@ export default function ExplorePage() {
   const [filterIntent, setFilterIntent] = useState("all");
   const [filterCategory, setFilterCategory] = useState("all");
   const [filterBreed, setFilterBreed] = useState("all");
-  const [filterCountry, setFilterCountry] = useState("India");
+  const [filterCountry, setFilterCountry] = useState("all");
   const [filterState, setFilterState] = useState("all");
   const [filterDistrict, setFilterDistrict] = useState("all");
 
@@ -202,6 +203,10 @@ export default function ExplorePage() {
 
           if (filterIntent !== "all") q = q.eq("intent_status", filterIntent);
           if (filterCategory !== "all") q = q.eq("pet_type", filterCategory);
+          if (filterBreed !== "all") q = q.ilike("content", `%${filterBreed}%`);
+          if (filterCountry !== "all") q = q.ilike("content", `%${filterCountry}%`);
+          if (filterState !== "all") q = q.ilike("content", `%${filterState}%`);
+          if (filterDistrict !== "all") q = q.ilike("content", `%${filterDistrict}%`);
 
           const { data, error } = await q;
           if (!error && data) {
@@ -246,40 +251,22 @@ export default function ExplorePage() {
     };
 
     fetchFeed();
-  }, [filterSource, filterIntent, filterCategory]);
+  }, [filterSource, filterIntent, filterCategory, filterBreed, filterCountry, filterState, filterDistrict]);
 
-  // ── Client-side filter (breed + location — no extra network call) ──
+  // ── Client-side filter (breed on media items only — chat is filtered at query level) ──
   useEffect(() => {
-    let filtered = [...allFeedItems];
-
-    if (filterBreed !== "all") {
-      filtered = filtered.filter((item) =>
-        item.breed?.toLowerCase().includes(filterBreed.toLowerCase()),
+    if (filterBreed === "all") {
+      setFeedItems(allFeedItems);
+    } else {
+      setFeedItems(
+        allFeedItems.filter(
+          (item) =>
+            item.source_type !== "media" ||
+            item.breed?.toLowerCase().includes(filterBreed.toLowerCase()),
+        ),
       );
     }
-
-    if (filterCountry !== "all") {
-      filtered = filtered.filter(
-        (item) => item.source_type === "media" || item.country === filterCountry,
-      );
-    }
-
-    if (filterState !== "all") {
-      filtered = filtered.filter(
-        (item) => item.source_type === "media" || item.state_val === filterState,
-      );
-    }
-
-    if (filterDistrict !== "all") {
-      filtered = filtered.filter(
-        (item) =>
-          item.source_type === "media" ||
-          item.text_content?.toLowerCase().includes(filterDistrict.toLowerCase()),
-      );
-    }
-
-    setFeedItems(filtered);
-  }, [allFeedItems, filterBreed, filterCountry, filterState, filterDistrict]);
+  }, [allFeedItems, filterBreed]);
 
   const handleAuthClick = () => {
     if (isAuthenticated) {
@@ -939,6 +926,8 @@ export default function ExplorePage() {
           </div>
         </div>
       )}
+
+      <Footer />
     </div>
   );
 }
