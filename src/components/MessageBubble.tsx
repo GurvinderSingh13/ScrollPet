@@ -137,15 +137,19 @@ export function MessageBubble({
   };
 
   const handleUpdateTag = async (tag: string | null) => {
+    const previousTag = localIntentStatus;
+    setLocalIntentStatus(tag);
     const { error } = await supabase
       .from("messages")
       .update({ intent_status: tag })
-      .eq("id", message.id);
+      .eq("id", message.id)
+      .select();
     if (error) {
+      console.error("Failed to update tag:", error);
+      setLocalIntentStatus(previousTag);
       toast({ description: "Failed to update tag.", variant: "destructive" });
       return;
     }
-    setLocalIntentStatus(tag);
     onTagUpdate?.(message.id, tag);
   };
 
