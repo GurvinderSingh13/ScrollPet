@@ -16,6 +16,7 @@ import { supabase } from "@/lib/supabase";
 import { toast } from "@/hooks/use-toast";
 import { INDIA_LOCATIONS } from "@/data/indiaLocations";
 import { PET_BREEDS } from "@/data/petBreeds";
+import { State } from "country-state-city";
 import Footer from "@/components/Footer";
 import Navbar from "@/components/Navbar";
 
@@ -48,8 +49,8 @@ type FeedItem = {
   category: string | null;
   breed: string | null;
   location: string | null;
-  country: string | null;
-  state_val: string | null;
+  crosspost_rooms: string[];
+  raw_location: string | null;
   intent_status: string | null;
   created_at: string;
   raw_media: MediaItem | null;
@@ -103,8 +104,12 @@ export default function ExplorePage() {
   const [filterDistrict, setFilterDistrict] = useState("all");
 
   const availableBreeds = filterCategory !== "all" ? (PET_BREEDS[filterCategory] ?? []) : [];
-  const availableDistricts = filterState !== "all"
-    ? (INDIA_LOCATIONS.find((s) => s.name === filterState)?.districts ?? [])
+  const availableStates = filterCountry !== "all" ? State.getStatesOfCountry(filterCountry) : [];
+  const selectedStateName = filterState !== "all"
+    ? (availableStates.find((s) => s.isoCode === filterState)?.name ?? "")
+    : "";
+  const availableDistricts = selectedStateName
+    ? (INDIA_LOCATIONS.find((s) => s.name === selectedStateName)?.districts ?? [])
     : [];
 
   // ── Feed state ──
@@ -135,7 +140,7 @@ export default function ExplorePage() {
         // Step 1 — fetch both tables in parallel, NO embedded joins
         const [mediaResult, chatResult] = await Promise.all([
           supabase.from("pet_media").select("*, pets(id, name, image_url, user_id, type, breed)"),
-          supabase.from("messages").select("id, user_id, content, message_type, media_url, intent_status, created_at, pet_type, breed, location"),
+          supabase.from("messages").select("id, user_id, content, message_type, media_url, intent_status, created_at, pet_type, breed, location, crosspost_rooms"),
         ]);
 
         if (mediaResult.error) console.error("pet_media fetch error:", mediaResult.error);
@@ -173,8 +178,8 @@ export default function ExplorePage() {
           category: item.pets?.type?.toLowerCase() ?? null,
           breed: item.pets?.breed ?? null,
           location: null,
-          country: null,
-          state_val: null,
+          crosspost_rooms: [],
+          raw_location: null,
           intent_status: item.intent_status ?? null,
           created_at: item.created_at,
           raw_media: item as MediaItem,
@@ -201,8 +206,8 @@ export default function ExplorePage() {
             category: item.pet_type?.toLowerCase() ?? null,
             breed: item.breed ?? null,
             location: locationStr,
-            country: u?.country ?? null,
-            state_val: u?.state ?? null,
+            crosspost_rooms: Array.isArray(item.crosspost_rooms) ? item.crosspost_rooms : [],
+            raw_location: item.location ?? null,
             intent_status: item.intent_status ?? null,
             created_at: item.created_at,
             raw_media: null,
@@ -230,21 +235,42 @@ export default function ExplorePage() {
               item.display_text?.toLowerCase().includes(filterBreed.toLowerCase()),
           );
         }
+        // Helper: given a chat FeedItem, check if its location hierarchy matches a predicate.
+        // Prefers crosspost_rooms tags; falls back to raw_location for pre-crosspost messages.
+        const chatMatchesLoc = (item: FeedItem, pred: (loc: string) => boolean): boolean => {
+          if (item.crosspost_rooms.length > 0)
+            return item.crosspost_rooms.some((tag) => pred(tag.split("::")[0]));
+          return item.raw_location ? pred(item.raw_location) : false;
+        };
+
         if (filterCountry !== "all") {
           merged = merged.filter(
-            (item) => item.source_type === "media" || item.country === filterCountry,
+            (item) =>
+              item.source_type === "media" ||
+              chatMatchesLoc(item, (loc) =>
+                loc === `country:${filterCountry}` ||
+                loc.startsWith(`state:${filterCountry}:`) ||
+                loc.startsWith(`city:${filterCountry}:`),
+              ),
           );
         }
         if (filterState !== "all") {
           merged = merged.filter(
-            (item) => item.source_type === "media" || item.state_val === filterState,
+            (item) =>
+              item.source_type === "media" ||
+              chatMatchesLoc(item, (loc) =>
+                loc === `state:${filterCountry}:${filterState}` ||
+                loc.startsWith(`city:${filterCountry}:${filterState}:`),
+              ),
           );
         }
         if (filterDistrict !== "all") {
           merged = merged.filter(
             (item) =>
               item.source_type === "media" ||
-              item.display_text?.toLowerCase().includes(filterDistrict.toLowerCase()),
+              chatMatchesLoc(item, (loc) =>
+                loc === `city:${filterCountry}:${filterState}:${filterDistrict}`,
+              ),
           );
         }
 
@@ -438,7 +464,7 @@ export default function ExplorePage() {
                 className="text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-xl pl-3 pr-8 py-1.5 outline-none cursor-pointer appearance-none hover:border-[#007699] focus:border-[#007699] transition-colors"
               >
                 <option value="all">All Countries</option>
-                <option value="India">India</option>
+                <option value="IN">India</option>
               </select>
               <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
             </div>
@@ -452,8 +478,8 @@ export default function ExplorePage() {
                 className="text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-xl pl-3 pr-8 py-1.5 outline-none cursor-pointer appearance-none hover:border-[#007699] focus:border-[#007699] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 <option value="all">All States</option>
-                {INDIA_LOCATIONS.map((s) => (
-                  <option key={s.id} value={s.name}>{s.name}</option>
+                {availableStates.map((s) => (
+                  <option key={s.isoCode} value={s.isoCode}>{s.name}</option>
                 ))}
               </select>
               <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
