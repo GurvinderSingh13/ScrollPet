@@ -16,7 +16,7 @@ import { supabase } from "@/lib/supabase";
 import { toast } from "@/hooks/use-toast";
 import { INDIA_LOCATIONS } from "@/data/indiaLocations";
 import { PET_BREEDS } from "@/data/petBreeds";
-import { State } from "country-state-city";
+import { Country, State } from "country-state-city";
 import Footer from "@/components/Footer";
 import Navbar from "@/components/Navbar";
 
@@ -152,38 +152,62 @@ export default function ExplorePage() {
         );
         console.log("Tagged chats (raw):", taggedChats.length, taggedChats);
 
-        // Step 3 — fetch users for those chats separately (avoids FK join)
+        // Step 3 — fetch users for chats AND pet_media owners in one query
         let usersMap: Record<string, any> = {};
-        if (taggedChats.length > 0) {
-          const userIds = [...new Set(taggedChats.map((m: any) => m.user_id as string))];
+        const chatUserIds = taggedChats.map((m: any) => m.user_id as string);
+        const mediaOwnerIds = (mediaResult.data || [])
+          .map((m: any) => m.pets?.user_id as string | undefined)
+          .filter(Boolean) as string[];
+        const allUserIds = [...new Set([...chatUserIds, ...mediaOwnerIds])];
+        if (allUserIds.length > 0) {
           const { data: usersData, error: usersError } = await supabase
             .from("users")
             .select("id, display_name, username, country, state")
-            .in("id", userIds);
+            .in("id", allUserIds);
           if (usersError) console.error("users fetch error:", usersError);
           (usersData || []).forEach((u: any) => { usersMap[u.id] = u; });
         }
 
-        // Step 4 — normalize media
-        const normalizedMedia: FeedItem[] = (mediaResult.data || []).map((item: any) => ({
-          id: item.id,
-          source_type: "media" as const,
-          display_image: item.media_url ?? null,
-          display_text: null,
-          media_url: item.media_url ?? null,
-          media_type: item.media_type ?? null,
-          text_content: null,
-          user_display_name: item.pets?.name ?? "Unknown Pet",
-          user_id: item.pets?.user_id ?? null,
-          category: item.pets?.type?.toLowerCase() ?? null,
-          breed: item.pets?.breed ?? null,
-          location: null,
-          crosspost_rooms: [],
-          raw_location: null,
-          intent_status: item.intent_status ?? null,
-          created_at: item.created_at,
-          raw_media: item as MediaItem,
-        }));
+        // Build a country-name → ISO-code lookup once (used for media location mapping)
+        const countryNameToCode: Record<string, string> = Object.fromEntries(
+          Country.getAllCountries().map((c) => [c.name, c.isoCode]),
+        );
+
+        // Step 4 — normalize media (build synthetic crosspost_rooms from pet owner's profile)
+        const normalizedMedia: FeedItem[] = (mediaResult.data || []).map((item: any) => {
+          const owner = usersMap[item.pets?.user_id ?? ""] ?? null;
+          const syntheticRooms: string[] = [];
+          if (owner?.country) {
+            const cc = countryNameToCode[owner.country] ?? null;
+            if (cc) {
+              syntheticRooms.push(`country:${cc}::all::all`);
+              if (owner.state) {
+                const stateCode = State.getStatesOfCountry(cc)
+                  .find((s: any) => s.name === owner.state)?.isoCode ?? null;
+                if (stateCode) syntheticRooms.push(`state:${cc}:${stateCode}::all::all`);
+              }
+            }
+          }
+          return {
+            id: item.id,
+            source_type: "media" as const,
+            display_image: item.media_url ?? null,
+            display_text: null,
+            media_url: item.media_url ?? null,
+            media_type: item.media_type ?? null,
+            text_content: null,
+            user_display_name: item.pets?.name ?? "Unknown Pet",
+            user_id: item.pets?.user_id ?? null,
+            category: item.pets?.type?.toLowerCase() ?? null,
+            breed: item.pets?.breed?.toLowerCase() ?? null,
+            location: syntheticRooms[0] ?? null,
+            crosspost_rooms: syntheticRooms,
+            raw_location: syntheticRooms[0] ?? null,
+            intent_status: item.intent_status ?? null,
+            created_at: item.created_at,
+            raw_media: item as MediaItem,
+          };
+        });
 
         // Step 5 — normalize chats using the separate users lookup
         const normalizedChats: FeedItem[] = taggedChats.map((item: any) => {
@@ -229,48 +253,55 @@ export default function ExplorePage() {
           merged = merged.filter((item) => item.category?.toLowerCase() === filterCategory.toLowerCase());
         }
         if (filterBreed !== "all") {
-          merged = merged.filter(
-            (item) =>
-              item.breed?.toLowerCase().includes(filterBreed.toLowerCase()) ||
-              item.display_text?.toLowerCase().includes(filterBreed.toLowerCase()),
-          );
+          // filterBreed is now the breed slug (e.g. "labrador-retriever").
+          // messages.breed stores slug; pets.breed may store slug or name — normalise both.
+          merged = merged.filter((item) => {
+            const stored = item.breed?.toLowerCase() ?? "";
+            const slug   = filterBreed.toLowerCase();
+            const name   = slug.replace(/-/g, " ");
+            return (
+              stored === slug ||
+              stored === name ||
+              stored.replace(/\s+/g, "-") === slug ||
+              item.crosspost_rooms.some((tag) => tag.split("::")[2] === slug) ||
+              item.display_text?.toLowerCase().includes(name)
+            );
+          });
         }
-        // Helper: given a chat FeedItem, check if its location hierarchy matches a predicate.
-        // Prefers crosspost_rooms tags; falls back to raw_location for pre-crosspost messages.
-        const chatMatchesLoc = (item: FeedItem, pred: (loc: string) => boolean): boolean => {
+
+        // Checks any item's location hierarchy against a predicate.
+        // Uses crosspost_rooms first (works for both chat and media synthetic rooms).
+        // Falls back to raw_location for legacy messages without crosspost_rooms.
+        // Items with no location data at all (empty rooms + null raw_location) pass through.
+        const itemMatchesLoc = (item: FeedItem, pred: (loc: string) => boolean): boolean => {
+          if (item.crosspost_rooms.length === 0 && item.raw_location === null) return true;
           if (item.crosspost_rooms.length > 0)
             return item.crosspost_rooms.some((tag) => pred(tag.split("::")[0]));
           return item.raw_location ? pred(item.raw_location) : false;
         };
 
         if (filterCountry !== "all") {
-          merged = merged.filter(
-            (item) =>
-              item.source_type === "media" ||
-              chatMatchesLoc(item, (loc) =>
-                loc === `country:${filterCountry}` ||
-                loc.startsWith(`state:${filterCountry}:`) ||
-                loc.startsWith(`city:${filterCountry}:`),
-              ),
+          merged = merged.filter((item) =>
+            itemMatchesLoc(item, (loc) =>
+              loc === `country:${filterCountry}` ||
+              loc.startsWith(`state:${filterCountry}:`) ||
+              loc.startsWith(`city:${filterCountry}:`),
+            ),
           );
         }
         if (filterState !== "all") {
-          merged = merged.filter(
-            (item) =>
-              item.source_type === "media" ||
-              chatMatchesLoc(item, (loc) =>
-                loc === `state:${filterCountry}:${filterState}` ||
-                loc.startsWith(`city:${filterCountry}:${filterState}:`),
-              ),
+          merged = merged.filter((item) =>
+            itemMatchesLoc(item, (loc) =>
+              loc === `state:${filterCountry}:${filterState}` ||
+              loc.startsWith(`city:${filterCountry}:${filterState}:`),
+            ),
           );
         }
         if (filterDistrict !== "all") {
-          merged = merged.filter(
-            (item) =>
-              item.source_type === "media" ||
-              chatMatchesLoc(item, (loc) =>
-                loc === `city:${filterCountry}:${filterState}:${filterDistrict}`,
-              ),
+          merged = merged.filter((item) =>
+            itemMatchesLoc(item, (loc) =>
+              loc === `city:${filterCountry}:${filterState}:${filterDistrict}`,
+            ),
           );
         }
 
@@ -450,7 +481,7 @@ export default function ExplorePage() {
               >
                 <option value="all">All Breeds</option>
                 {availableBreeds.map((b) => (
-                  <option key={b.id} value={b.name}>{b.name}</option>
+                  <option key={b.id} value={b.id}>{b.name}</option>
                 ))}
               </select>
               <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
