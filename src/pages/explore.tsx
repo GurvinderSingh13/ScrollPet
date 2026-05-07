@@ -27,6 +27,8 @@ import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { toast } from "@/hooks/use-toast";
+import { INDIA_LOCATIONS } from "@/data/indiaLocations";
+import { PET_BREEDS } from "@/data/petBreeds";
 
 type MediaItem = {
   id: string;
@@ -53,7 +55,10 @@ type FeedItem = {
   user_display_name: string;
   user_id: string | null;
   category: string | null;
+  breed: string | null;
   location: string | null;
+  country: string | null;
+  state_val: string | null;
   intent_status: string | null;
   created_at: string;
   raw_media: MediaItem | null;
@@ -111,7 +116,15 @@ export default function ExplorePage() {
   const [filterSource, setFilterSource] = useState<"all" | "media" | "chat">("all");
   const [filterIntent, setFilterIntent] = useState("all");
   const [filterCategory, setFilterCategory] = useState("all");
-  const [filterLocation, setFilterLocation] = useState("");
+  const [filterBreed, setFilterBreed] = useState("all");
+  const [filterCountry, setFilterCountry] = useState("India");
+  const [filterState, setFilterState] = useState("all");
+  const [filterDistrict, setFilterDistrict] = useState("all");
+
+  const availableBreeds = filterCategory !== "all" ? (PET_BREEDS[filterCategory] ?? []) : [];
+  const availableDistricts = filterState !== "all"
+    ? (INDIA_LOCATIONS.find((s) => s.name === filterState)?.districts ?? [])
+    : [];
 
   // ── Feed state ──
   const [allFeedItems, setAllFeedItems] = useState<FeedItem[]>([]);
@@ -146,7 +159,7 @@ export default function ExplorePage() {
         if (filterSource === "all" || filterSource === "media") {
           let q = supabase
             .from("pet_media")
-            .select("*, pets(id, name, image_url, user_id, type)")
+            .select("*, pets(id, name, image_url, user_id, type, breed)")
             .order("created_at", { ascending: false });
 
           if (filterIntent !== "all") q = q.eq("intent_status", filterIntent);
@@ -167,7 +180,10 @@ export default function ExplorePage() {
                 user_display_name: item.pets?.name ?? "Unknown Pet",
                 user_id: item.pets?.user_id ?? null,
                 category: item.pets?.type ?? null,
+                breed: item.pets?.breed ?? null,
                 location: null,
+                country: null,
+                state_val: null,
                 intent_status: item.intent_status ?? null,
                 created_at: item.created_at,
                 raw_media: item as MediaItem,
@@ -179,7 +195,7 @@ export default function ExplorePage() {
         if (filterSource === "all" || filterSource === "chat") {
           let q = supabase
             .from("messages")
-            .select("id, user_id, content, message_type, media_url, intent_status, created_at, pet_type, users(display_name, username, country, state)")
+            .select("id, user_id, content, message_type, media_url, intent_status, created_at, pet_type, breed, users(display_name, username, country, state)")
             .not("intent_status", "is", null)
             .neq("intent_status", "None")
             .order("created_at", { ascending: false });
@@ -205,7 +221,10 @@ export default function ExplorePage() {
                 user_display_name: u?.display_name || u?.username || "Pet Lover",
                 user_id: item.user_id ?? null,
                 category: item.pet_type ?? null,
+                breed: item.breed ?? null,
                 location: locationStr,
+                country: u?.country ?? null,
+                state_val: u?.state ?? null,
                 intent_status: item.intent_status ?? null,
                 created_at: item.created_at,
                 raw_media: null,
@@ -229,15 +248,38 @@ export default function ExplorePage() {
     fetchFeed();
   }, [filterSource, filterIntent, filterCategory]);
 
-  // ── Client-side location filter (no network call) ──
+  // ── Client-side filter (breed + location — no extra network call) ──
   useEffect(() => {
-    const loc = filterLocation.trim().toLowerCase();
-    if (!loc) {
-      setFeedItems(allFeedItems);
-    } else {
-      setFeedItems(allFeedItems.filter((item) => item.location?.toLowerCase().includes(loc)));
+    let filtered = [...allFeedItems];
+
+    if (filterBreed !== "all") {
+      filtered = filtered.filter((item) =>
+        item.breed?.toLowerCase().includes(filterBreed.toLowerCase()),
+      );
     }
-  }, [allFeedItems, filterLocation]);
+
+    if (filterCountry !== "all") {
+      filtered = filtered.filter(
+        (item) => item.source_type === "media" || item.country === filterCountry,
+      );
+    }
+
+    if (filterState !== "all") {
+      filtered = filtered.filter(
+        (item) => item.source_type === "media" || item.state_val === filterState,
+      );
+    }
+
+    if (filterDistrict !== "all") {
+      filtered = filtered.filter(
+        (item) =>
+          item.source_type === "media" ||
+          item.text_content?.toLowerCase().includes(filterDistrict.toLowerCase()),
+      );
+    }
+
+    setFeedItems(filtered);
+  }, [allFeedItems, filterBreed, filterCountry, filterState, filterDistrict]);
 
   const handleAuthClick = () => {
     if (isAuthenticated) {
@@ -499,7 +541,7 @@ export default function ExplorePage() {
             <div className="relative">
               <select
                 value={filterCategory}
-                onChange={(e) => setFilterCategory(e.target.value)}
+                onChange={(e) => { setFilterCategory(e.target.value); setFilterBreed("all"); }}
                 className="text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-xl pl-3 pr-8 py-1.5 outline-none cursor-pointer appearance-none hover:border-[#007699] focus:border-[#007699] transition-colors"
               >
                 <option value="all">All Categories</option>
@@ -510,16 +552,65 @@ export default function ExplorePage() {
               <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
             </div>
 
-            {/* Location */}
-            <div className="relative flex items-center">
-              <MapPin className="absolute left-2.5 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
-              <input
-                type="text"
-                placeholder="City / State / Country"
-                value={filterLocation}
-                onChange={(e) => setFilterLocation(e.target.value)}
-                className="text-sm text-gray-700 bg-white border border-gray-200 rounded-xl pl-7 pr-3 py-1.5 outline-none hover:border-[#007699] focus:border-[#007699] transition-colors w-40 md:w-48"
-              />
+            {/* Breed */}
+            <div className="relative">
+              <select
+                value={filterBreed}
+                onChange={(e) => setFilterBreed(e.target.value)}
+                disabled={availableBreeds.length === 0}
+                className="text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-xl pl-3 pr-8 py-1.5 outline-none cursor-pointer appearance-none hover:border-[#007699] focus:border-[#007699] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <option value="all">All Breeds</option>
+                {availableBreeds.map((b) => (
+                  <option key={b.id} value={b.name}>{b.name}</option>
+                ))}
+              </select>
+              <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+            </div>
+
+            {/* Country */}
+            <div className="relative">
+              <select
+                value={filterCountry}
+                onChange={(e) => { setFilterCountry(e.target.value); setFilterState("all"); setFilterDistrict("all"); }}
+                className="text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-xl pl-3 pr-8 py-1.5 outline-none cursor-pointer appearance-none hover:border-[#007699] focus:border-[#007699] transition-colors"
+              >
+                <option value="all">All Countries</option>
+                <option value="India">India</option>
+              </select>
+              <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+            </div>
+
+            {/* State */}
+            <div className="relative">
+              <select
+                value={filterState}
+                onChange={(e) => { setFilterState(e.target.value); setFilterDistrict("all"); }}
+                disabled={filterCountry === "all"}
+                className="text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-xl pl-3 pr-8 py-1.5 outline-none cursor-pointer appearance-none hover:border-[#007699] focus:border-[#007699] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <option value="all">All States</option>
+                {INDIA_LOCATIONS.map((s) => (
+                  <option key={s.id} value={s.name}>{s.name}</option>
+                ))}
+              </select>
+              <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+            </div>
+
+            {/* District */}
+            <div className="relative">
+              <select
+                value={filterDistrict}
+                onChange={(e) => setFilterDistrict(e.target.value)}
+                disabled={availableDistricts.length === 0}
+                className="text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-xl pl-3 pr-8 py-1.5 outline-none cursor-pointer appearance-none hover:border-[#007699] focus:border-[#007699] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <option value="all">All Districts</option>
+                {availableDistricts.map((d) => (
+                  <option key={d.id} value={d.name}>{d.name}</option>
+                ))}
+              </select>
+              <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
             </div>
 
             {/* Result count */}
@@ -589,9 +680,10 @@ export default function ExplorePage() {
                   key={item.id}
                   className="bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow overflow-hidden flex flex-col"
                 >
-                  {item.media_url && (
-                    <div className="h-28 overflow-hidden bg-gray-100 shrink-0">
-                      {item.media_type === "video" ? (
+                  {/* Image / video — always square, badge overlaid top-right */}
+                  <div className="aspect-square bg-gray-100 relative overflow-hidden shrink-0">
+                    {item.media_url ? (
+                      item.media_type === "video" ? (
                         <video
                           src={item.media_url}
                           className="w-full h-full object-cover pointer-events-none"
@@ -599,41 +691,51 @@ export default function ExplorePage() {
                         />
                       ) : (
                         <img src={item.media_url} alt="Post attachment" className="w-full h-full object-cover" />
-                      )}
+                      )
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-200">
+                        <span className="text-4xl opacity-20">🐾</span>
+                      </div>
+                    )}
+                    {item.intent_status && INTENT_BADGE_COLORS[item.intent_status] && (
+                      <div className="absolute top-2 right-2 pointer-events-none">
+                        <span className={cn("text-[9px] font-bold px-1.5 py-0.5 rounded-full border shadow-sm", INTENT_BADGE_COLORS[item.intent_status])}>
+                          {item.intent_status}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Text content — full text, pre-wrap so line breaks show */}
+                  {item.text_content && (
+                    <div className="px-2.5 pt-2 pb-1">
+                      <p className="text-xs text-gray-700 whitespace-pre-wrap leading-relaxed">{item.text_content}</p>
                     </div>
                   )}
-                  <div className="p-2.5 flex flex-col gap-1.5 flex-1">
-                    {item.intent_status && INTENT_BADGE_COLORS[item.intent_status] && (
-                      <span className={cn("self-start text-[9px] font-bold px-1.5 py-0.5 rounded-full border", INTENT_BADGE_COLORS[item.intent_status])}>
-                        {item.intent_status}
-                      </span>
-                    )}
-                    {item.text_content && (
-                      <p className="text-xs text-gray-700 line-clamp-3 leading-relaxed">{item.text_content}</p>
-                    )}
-                    <div className="flex items-center gap-1.5 mt-auto pt-1 border-t border-gray-50">
-                      <div className="h-5 w-5 rounded-full overflow-hidden bg-gray-100 shrink-0">
-                        <img
-                          src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${item.user_id ?? item.id}`}
-                          alt="avatar"
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[10px] font-semibold text-gray-700 truncate">{item.user_display_name}</p>
-                        {item.location && (
-                          <p className="text-[9px] text-gray-400 truncate flex items-center gap-0.5">
-                            <MapPin className="w-2.5 h-2.5 shrink-0" />
-                            {item.location}
-                          </p>
-                        )}
-                      </div>
-                      {item.category && (
-                        <span className="text-[9px] font-semibold bg-[#007699]/10 text-[#007699] px-1.5 py-0.5 rounded-md capitalize shrink-0">
-                          {item.category}
-                        </span>
+
+                  {/* Footer */}
+                  <div className="flex items-center gap-1.5 px-2.5 py-2 mt-auto border-t border-gray-50">
+                    <div className="h-5 w-5 rounded-full overflow-hidden bg-gray-100 shrink-0">
+                      <img
+                        src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${item.user_id ?? item.id}`}
+                        alt="avatar"
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[10px] font-semibold text-gray-700 truncate">{item.user_display_name}</p>
+                      {item.location && (
+                        <p className="text-[9px] text-gray-400 truncate flex items-center gap-0.5">
+                          <MapPin className="w-2.5 h-2.5 shrink-0" />
+                          {item.location}
+                        </p>
                       )}
                     </div>
+                    {item.category && (
+                      <span className="text-[9px] font-semibold bg-[#007699]/10 text-[#007699] px-1.5 py-0.5 rounded-md capitalize shrink-0">
+                        {item.category}
+                      </span>
+                    )}
                   </div>
                 </div>
               )
