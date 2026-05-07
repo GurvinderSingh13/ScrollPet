@@ -23,6 +23,7 @@ import ContactUs from "@/pages/contact";
 import UpdatePassword from "@/pages/update-password";
 import PetProfilePage from "@/pages/pet-profile";
 import GlobalLocationDetector from "@/components/GlobalLocationDetector";
+import { Analytics } from "@vercel/analytics/react";
 
 function Router() {
   return (
@@ -60,6 +61,7 @@ function App() {
         <Router />
       </TooltipProvider>
 
+      <Analytics />
     </QueryClientProvider>
   );
 }
