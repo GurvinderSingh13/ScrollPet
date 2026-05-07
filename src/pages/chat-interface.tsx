@@ -106,8 +106,11 @@ function isMessageTargetedToCurrentRoom(
     let locMatch = false;
     if (tLoc === roomLocation) {
         locMatch = true;
-    } else if (roomLocation === 'global' || tLoc === 'global') {
+    } else if (tLoc !== 'global' && roomLocation === 'global') {
         locMatch = true;
+    } else if (tLoc === 'global' && roomLocation !== 'global') {
+        // message targeted at global must stay in global room only
+        locMatch = false;
     } else {
         const tLocParts = tLoc.split(':');
         const rLocParts = roomLocation.split(':');

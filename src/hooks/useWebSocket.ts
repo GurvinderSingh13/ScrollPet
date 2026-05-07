@@ -144,8 +144,11 @@ export function useWebSocket({ userId, petType, breed, location, onMessage }: Us
                     let locMatch = false;
                     if (tLoc === location) {
                         locMatch = true;
-                    } else if (location === 'global' || tLoc === 'global') {
+                    } else if (tLoc !== 'global' && location === 'global') {
                         locMatch = true;
+                    } else if (tLoc === 'global' && location !== 'global') {
+                        // message targeted at global must stay in global room only
+                        locMatch = false;
                     } else {
                         const tLocParts = tLoc.split(':');
                         const rLocParts = location.split(':');
