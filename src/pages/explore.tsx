@@ -170,25 +170,52 @@ export default function ExplorePage() {
           }
         }
 
-        // ── Chat Room Posts ──
+        // ── Chat Room Posts — fetch everything, filter in React ──
         if (filterSource === "all" || filterSource === "chat") {
-          let q = supabase
+          const { data, error } = await supabase
             .from("messages")
             .select("id, user_id, content, message_type, media_url, intent_status, created_at, pet_type, breed, users(display_name, username, country, state)")
-            .not("intent_status", "is", null)
-            .neq("intent_status", "None")
             .order("created_at", { ascending: false });
 
-          if (filterIntent !== "all") q = q.eq("intent_status", filterIntent);
-          if (filterCategory !== "all") q = q.eq("pet_type", filterCategory);
-          if (filterBreed !== "all") q = q.ilike("content", `%${filterBreed}%`);
-          if (filterCountry !== "all") q = q.ilike("content", `%${filterCountry}%`);
-          if (filterState !== "all") q = q.ilike("content", `%${filterState}%`);
-          if (filterDistrict !== "all") q = q.ilike("content", `%${filterDistrict}%`);
-
-          const { data, error } = await q;
           if (!error && data) {
-            chatItems = (data as any[]).map((item) => {
+            // Step 1 — keep only tagged posts
+            let tagged = (data as any[]).filter(
+              (item) => item.intent_status && item.intent_status !== "None",
+            );
+
+            // Step 2 — apply every dropdown filter in JavaScript
+            if (filterIntent !== "all") {
+              tagged = tagged.filter((item) => item.intent_status === filterIntent);
+            }
+            if (filterCategory !== "all") {
+              tagged = tagged.filter((item) => item.pet_type === filterCategory);
+            }
+            if (filterBreed !== "all") {
+              tagged = tagged.filter(
+                (item) =>
+                  item.breed?.toLowerCase().includes(filterBreed.toLowerCase()) ||
+                  item.content?.toLowerCase().includes(filterBreed.toLowerCase()),
+              );
+            }
+            if (filterCountry !== "all") {
+              tagged = tagged.filter(
+                (item) => (item.users as any)?.country === filterCountry,
+              );
+            }
+            if (filterState !== "all") {
+              tagged = tagged.filter(
+                (item) => (item.users as any)?.state === filterState,
+              );
+            }
+            if (filterDistrict !== "all") {
+              tagged = tagged.filter((item) =>
+                item.content?.toLowerCase().includes(filterDistrict.toLowerCase()),
+              );
+            }
+
+            console.log("Filtered Chat Data:", tagged);
+
+            chatItems = tagged.map((item) => {
               const u = item.users as any;
               const locationStr = [u?.state, u?.country].filter(Boolean).join(", ") || null;
               const mediaType =
@@ -231,20 +258,10 @@ export default function ExplorePage() {
     fetchFeed();
   }, [filterSource, filterIntent, filterCategory, filterBreed, filterCountry, filterState, filterDistrict]);
 
-  // ── Client-side filter (breed on media items only — chat is filtered at query level) ──
+  // ── Sync allFeedItems → feedItems (all filtering already done inside fetchFeed) ──
   useEffect(() => {
-    if (filterBreed === "all") {
-      setFeedItems(allFeedItems);
-    } else {
-      setFeedItems(
-        allFeedItems.filter(
-          (item) =>
-            item.source_type !== "media" ||
-            item.breed?.toLowerCase().includes(filterBreed.toLowerCase()),
-        ),
-      );
-    }
-  }, [allFeedItems, filterBreed]);
+    setFeedItems(allFeedItems);
+  }, [allFeedItems]);
 
   // ── Lightbox queries ──
   const { data: mediaLikes, refetch: refetchLikes } = useQuery({
