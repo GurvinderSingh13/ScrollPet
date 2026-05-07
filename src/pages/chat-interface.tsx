@@ -480,8 +480,16 @@ export default function ChatInterface() {
     needsInstantScroll.current = true;
   }, [chatRoomLocation, activePet, activeBreed, activeDmUser]);
 
+  const prevMessagesLengthRef = useRef(0);
+
   useEffect(() => {
     if (messages.length === 0) return; // Wait for data
+
+    // Prevent auto-scroll if this is just a state update (like a Tag change) and not a new message/room change
+    if (!needsInstantScroll.current && messages.length === prevMessagesLengthRef.current) {
+      return;
+    }
+    prevMessagesLengthRef.current = messages.length;
 
     const scrollDelay = setTimeout(() => {
       if (needsInstantScroll.current) {
@@ -801,15 +809,33 @@ export default function ChatInterface() {
       if (!isModOrAbove) {
         query = query.eq("user_id", userId); // Security check
       }
-      const { error } = await query;
+      
+      // Append .select() so we know exactly how many rows were deleted.
+      // If RLS blocks it, data will be empty.
+      const { data, error } = await query.select();
 
-      if (error) throw error;
+      if (error) {
+        console.error("Failed to delete message error:", error);
+        toast({ description: "Failed to delete message", variant: "destructive" });
+        return;
+      }
 
-      // Remove from screen
+      if (!data || data.length === 0) {
+        toast({ 
+          title: "Permission Denied",
+          description: "Could not delete. If you are a moderator, your Supabase RLS policy is missing.", 
+          variant: "destructive" 
+        });
+        return;
+      }
+
+      // Sync the UI AFTER successful database deletion
       setMessages((prev) => prev.filter((msg) => msg.id !== messageId));
       toast({ description: isModOrAbove ? "Message deleted." : "Message unsent." });
     } catch (err: any) {
-      toast({ description: "Could not delete message.", variant: "destructive" });
+      console.error("Exception during message deletion:", err);
+      toast({ description: "Failed to delete message", variant: "destructive" });
+      return;
     }
   };
   // -----------------------------------
@@ -1285,21 +1311,41 @@ export default function ChatInterface() {
         if (banError) throw banError;
       }
 
+      let deleteFailed = false;
+
       if (shouldDeleteMessages) {
         if (banScope === "global") {
-          await supabase.from("messages").delete().eq("user_id", userToBan.id);
-          setMessages((prev) => prev.filter((m) => m.userId !== userToBan?.id));
+          const { data: delData, error: delError } = await supabase.from("messages").delete().eq("user_id", userToBan.id).select();
+          if (delError || !delData || delData.length === 0) {
+            console.error("Global delete error or no rows deleted (RLS block):", delError);
+            deleteFailed = true;
+          } else {
+            setMessages((prev) => prev.filter((m) => m.userId !== userToBan?.id));
+          }
         } else {
           for (const room of selectedBanRooms) {
              let query = supabase.from("messages").delete().eq("user_id", userToBan.id)
                 .eq("location", room.location).eq("pet_type", room.petType);
              if (room.breed) query = query.eq("breed", room.breed);
-             await query;
+             
+             const { data: delData, error: delError } = await query.select();
+             if (delError || !delData || delData.length === 0) {
+               console.error("Room delete error or no rows deleted (RLS block):", delError);
+               deleteFailed = true;
+             }
           }
-          setMessages((prev) => prev.filter((m) => m.userId !== userToBan?.id));
+          if (!deleteFailed) {
+            setMessages((prev) => prev.filter((m) => m.userId !== userToBan?.id));
+          }
         }
       }
-      toast({ description: `Ban issued successfully for ${banDuration}.` });
+      
+      if (deleteFailed) {
+        toast({ description: `Ban issued, but message deletion failed. Check Supabase RLS.`, variant: "destructive" });
+      } else {
+        toast({ description: `Ban issued successfully for ${banDuration}.` });
+      }
+      
       setIsBanModalOpen(false);
       setUserToBan(null);
     } catch (err: any) {

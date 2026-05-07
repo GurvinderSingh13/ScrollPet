@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { format } from "date-fns";
 import { Play, Pause, X, ChevronDown, Loader2, Ban, Trash2, Tag } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -102,6 +102,25 @@ export function MessageBubble({
     message.intentStatus ?? null,
   );
   const [showTagMenu, setShowTagMenu] = useState(false);
+  const [menuDirection, setMenuDirection] = useState<"up" | "down">("up");
+  const tagButtonRef = useRef<HTMLButtonElement>(null);
+
+  const handleTagClick = () => {
+    if (!showTagMenu && tagButtonRef.current) {
+      const rect = tagButtonRef.current.getBoundingClientRect();
+      const spaceAbove = rect.top;
+      const spaceBelow = window.innerHeight - rect.bottom;
+      
+      // If there's more space below than above, open down. Otherwise open up.
+      // 240px is roughly the height of the dropdown (max-h-60 is 240px).
+      if (spaceBelow > 240 || spaceBelow > spaceAbove) {
+        setMenuDirection("down");
+      } else {
+        setMenuDirection("up");
+      }
+    }
+    setShowTagMenu((v) => !v);
+  };
 
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [isSubmittingReport, setIsSubmittingReport] = useState(false);
@@ -330,7 +349,8 @@ export function MessageBubble({
               </button>
               <div className="relative">
                 <button
-                  onClick={() => setShowTagMenu((v) => !v)}
+                  ref={tagButtonRef}
+                  onClick={handleTagClick}
                   className="p-2 text-gray-400 hover:bg-gray-100 hover:text-primary rounded-full outline-none cursor-pointer"
                   title="Edit tag"
                 >
@@ -342,9 +362,14 @@ export function MessageBubble({
                       className="fixed inset-0 z-40"
                       onClick={() => setShowTagMenu(false)}
                     />
-                    <div className="absolute right-0 bottom-full mb-1 z-50 w-52 bg-white border border-gray-200 rounded-lg shadow-lg py-1 text-sm">
+                    <div 
+                      className={cn(
+                        "absolute right-0 z-50 w-52 bg-white border border-gray-200 rounded-lg shadow-lg py-1 text-sm max-h-60 overflow-y-auto flex flex-col gap-0.5",
+                        menuDirection === "up" ? "bottom-full mb-1" : "top-full mt-1"
+                      )}
+                    >
                       <button
-                        className="w-full text-left px-3 py-2 text-gray-500 hover:bg-gray-100 cursor-pointer"
+                        className="w-full text-left px-3 py-1.5 text-gray-500 hover:bg-gray-100 cursor-pointer text-sm"
                         onClick={() => { handleUpdateTag(null); setShowTagMenu(false); }}
                       >
                         None
@@ -352,7 +377,7 @@ export function MessageBubble({
                       {INTENT_OPTIONS.map((opt) => (
                         <button
                           key={opt}
-                          className="w-full text-left px-3 py-2 text-gray-700 hover:bg-gray-100 cursor-pointer"
+                          className="w-full text-left px-3 py-1.5 text-gray-700 hover:bg-gray-100 cursor-pointer text-sm"
                           onClick={() => { handleUpdateTag(opt); setShowTagMenu(false); }}
                         >
                           {opt}
