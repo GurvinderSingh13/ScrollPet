@@ -1,5 +1,12 @@
 import { useState, useEffect } from "react";
+import { Link } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
 import {
   Grid3X3,
   Loader2,
