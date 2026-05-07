@@ -38,6 +38,8 @@ type MediaItem = {
 type FeedItem = {
   id: string;
   source_type: "media" | "chat";
+  display_image: string | null;
+  display_text: string | null;
   media_url: string | null;
   media_type: string | null;
   text_content: string | null;
@@ -126,127 +128,118 @@ export default function ExplorePage() {
     setLocalIntentStatus(selectedMedia?.intent_status || "");
   }, [selectedMedia?.id]);
 
-  // ── Unified fetch (source / intent / category) ──
+  // ── Unified fetch — raw parallel fetch, normalize + filter entirely in React ──
   useEffect(() => {
     const fetchFeed = async () => {
       setIsFeedLoading(true);
       try {
-        let mediaItems: FeedItem[] = [];
-        let chatItems: FeedItem[] = [];
-
-        // ── Profile Media ──
-        if (filterSource === "all" || filterSource === "media") {
-          let q = supabase
+        // Fetch both tables in parallel with no server-side filters
+        const [{ data: mediaData }, { data: chatData }] = await Promise.all([
+          supabase
             .from("pet_media")
-            .select("*, pets(id, name, image_url, user_id, type, breed)")
-            .order("created_at", { ascending: false });
-
-          if (filterIntent !== "all") q = q.eq("intent_status", filterIntent);
-
-          const { data, error } = await q;
-          if (!error && data) {
-            mediaItems = (data as any[])
-              .filter((item) => {
-                if (filterCategory !== "all" && item.pets?.type !== filterCategory) return false;
-                return true;
-              })
-              .map((item) => ({
-                id: item.id,
-                source_type: "media" as const,
-                media_url: item.media_url ?? null,
-                media_type: item.media_type ?? null,
-                text_content: null,
-                user_display_name: item.pets?.name ?? "Unknown Pet",
-                user_id: item.pets?.user_id ?? null,
-                category: item.pets?.type ?? null,
-                breed: item.pets?.breed ?? null,
-                location: null,
-                country: null,
-                state_val: null,
-                intent_status: item.intent_status ?? null,
-                created_at: item.created_at,
-                raw_media: item as MediaItem,
-              }));
-          }
-        }
-
-        // ── Chat Room Posts — fetch everything, filter in React ──
-        if (filterSource === "all" || filterSource === "chat") {
-          const { data, error } = await supabase
+            .select("*, pets(id, name, image_url, user_id, type, breed)"),
+          supabase
             .from("messages")
-            .select("id, user_id, content, message_type, media_url, intent_status, created_at, pet_type, breed, users(display_name, username, country, state)")
-            .order("created_at", { ascending: false });
+            .select("id, user_id, content, message_type, media_url, intent_status, created_at, pet_type, breed, users(display_name, username, country, state)"),
+        ]);
 
-          if (!error && data) {
-            // Step 1 — keep only tagged posts
-            let tagged = (data as any[]).filter(
-              (item) => item.intent_status && item.intent_status !== "None",
-            );
+        // Filter chats: keep only tagged posts
+        const taggedChats = (chatData || []).filter(
+          (msg: any) => msg.intent_status && msg.intent_status !== "None",
+        );
 
-            // Step 2 — apply every dropdown filter in JavaScript
-            if (filterIntent !== "all") {
-              tagged = tagged.filter((item) => item.intent_status === filterIntent);
-            }
-            if (filterCategory !== "all") {
-              tagged = tagged.filter((item) => item.pet_type === filterCategory);
-            }
-            if (filterBreed !== "all") {
-              tagged = tagged.filter(
-                (item) =>
-                  item.breed?.toLowerCase().includes(filterBreed.toLowerCase()) ||
-                  item.content?.toLowerCase().includes(filterBreed.toLowerCase()),
-              );
-            }
-            if (filterCountry !== "all") {
-              tagged = tagged.filter(
-                (item) => (item.users as any)?.country === filterCountry,
-              );
-            }
-            if (filterState !== "all") {
-              tagged = tagged.filter(
-                (item) => (item.users as any)?.state === filterState,
-              );
-            }
-            if (filterDistrict !== "all") {
-              tagged = tagged.filter((item) =>
-                item.content?.toLowerCase().includes(filterDistrict.toLowerCase()),
-              );
-            }
+        // Normalize media items
+        const normalizedMedia: FeedItem[] = (mediaData || []).map((item: any) => ({
+          id: item.id,
+          source_type: "media" as const,
+          display_image: item.media_url ?? null,
+          display_text: null,
+          media_url: item.media_url ?? null,
+          media_type: item.media_type ?? null,
+          text_content: null,
+          user_display_name: item.pets?.name ?? "Unknown Pet",
+          user_id: item.pets?.user_id ?? null,
+          category: item.pets?.type ?? null,
+          breed: item.pets?.breed ?? null,
+          location: null,
+          country: null,
+          state_val: null,
+          intent_status: item.intent_status ?? null,
+          created_at: item.created_at,
+          raw_media: item as MediaItem,
+        }));
 
-            console.log("Filtered Chat Data:", tagged);
+        // Normalize chat items
+        const normalizedChats: FeedItem[] = taggedChats.map((item: any) => {
+          const u = item.users as any;
+          const locationStr = [u?.state, u?.country].filter(Boolean).join(", ") || null;
+          const mediaType =
+            item.message_type === "image" ? "image"
+            : item.message_type === "video" ? "video"
+            : null;
+          return {
+            id: item.id,
+            source_type: "chat" as const,
+            display_image: item.media_url ?? null,
+            display_text: item.content ?? null,
+            media_url: item.media_url ?? null,
+            media_type: mediaType,
+            text_content: item.content ?? null,
+            user_display_name: u?.display_name || u?.username || "Pet Lover",
+            user_id: item.user_id ?? null,
+            category: item.pet_type ?? null,
+            breed: item.breed ?? null,
+            location: locationStr,
+            country: u?.country ?? null,
+            state_val: u?.state ?? null,
+            intent_status: item.intent_status ?? null,
+            created_at: item.created_at,
+            raw_media: null,
+          };
+        });
 
-            chatItems = tagged.map((item) => {
-              const u = item.users as any;
-              const locationStr = [u?.state, u?.country].filter(Boolean).join(", ") || null;
-              const mediaType =
-                item.message_type === "image" ? "image"
-                : item.message_type === "video" ? "video"
-                : null;
-              return {
-                id: item.id,
-                source_type: "chat" as const,
-                media_url: item.media_url ?? null,
-                media_type: mediaType,
-                text_content: item.content ?? null,
-                user_display_name: u?.display_name || u?.username || "Pet Lover",
-                user_id: item.user_id ?? null,
-                category: item.pet_type ?? null,
-                breed: item.breed ?? null,
-                location: locationStr,
-                country: u?.country ?? null,
-                state_val: u?.state ?? null,
-                intent_status: item.intent_status ?? null,
-                created_at: item.created_at,
-                raw_media: null,
-              };
-            });
-          }
+        // Merge, then apply all dropdown filters in JavaScript
+        let merged = [...normalizedMedia, ...normalizedChats];
+
+        if (filterSource !== "all") {
+          merged = merged.filter((item) => item.source_type === filterSource);
+        }
+        if (filterIntent !== "all") {
+          merged = merged.filter((item) => item.intent_status === filterIntent);
+        }
+        if (filterCategory !== "all") {
+          merged = merged.filter((item) => item.category === filterCategory);
+        }
+        if (filterBreed !== "all") {
+          merged = merged.filter(
+            (item) =>
+              item.breed?.toLowerCase().includes(filterBreed.toLowerCase()) ||
+              item.display_text?.toLowerCase().includes(filterBreed.toLowerCase()),
+          );
+        }
+        if (filterCountry !== "all") {
+          merged = merged.filter(
+            (item) => item.source_type === "media" || item.country === filterCountry,
+          );
+        }
+        if (filterState !== "all") {
+          merged = merged.filter(
+            (item) => item.source_type === "media" || item.state_val === filterState,
+          );
+        }
+        if (filterDistrict !== "all") {
+          merged = merged.filter(
+            (item) =>
+              item.source_type === "media" ||
+              item.display_text?.toLowerCase().includes(filterDistrict.toLowerCase()),
+          );
         }
 
-        const merged = [...mediaItems, ...chatItems].sort(
+        merged.sort(
           (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
         );
 
+        console.log("Filtered Chat Data:", merged.filter((i) => i.source_type === "chat"));
         setAllFeedItems(merged);
       } catch (err: any) {
         toast({ description: "Failed to load feed.", variant: "destructive" });
@@ -541,15 +534,15 @@ export default function ExplorePage() {
                 >
                   {/* Image / video — always square, badge overlaid top-right */}
                   <div className="aspect-square bg-gray-100 relative overflow-hidden shrink-0">
-                    {item.media_url ? (
+                    {item.display_image ? (
                       item.media_type === "video" ? (
                         <video
-                          src={item.media_url}
+                          src={item.display_image}
                           className="w-full h-full object-cover pointer-events-none"
                           autoPlay muted loop playsInline
                         />
                       ) : (
-                        <img src={item.media_url} alt="Post attachment" className="w-full h-full object-cover" />
+                        <img src={item.display_image} alt="Post attachment" className="w-full h-full object-cover" />
                       )
                     ) : (
                       <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-200">
@@ -566,9 +559,9 @@ export default function ExplorePage() {
                   </div>
 
                   {/* Text content — full text, pre-wrap so line breaks show */}
-                  {item.text_content && (
+                  {item.display_text && (
                     <div className="px-2.5 pt-2 pb-1">
-                      <p className="text-xs text-gray-700 whitespace-pre-wrap leading-relaxed">{item.text_content}</p>
+                      <p className="text-xs text-gray-700 whitespace-pre-wrap leading-relaxed">{item.display_text}</p>
                     </div>
                   )}
 
