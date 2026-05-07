@@ -23,6 +23,7 @@ import {
   Cat,
   Bird,
   Activity,
+  Tag,
 } from "lucide-react";
 import logoImage from "@assets/Scrollpet_logo_1766997907297.png";
 import { cn } from "@/lib/utils";
@@ -36,11 +37,31 @@ type MediaItem = {
   media_url: string;
   media_type: string;
   created_at: string;
+  intent_status?: string | null;
   pets: {
     id: string;
     name: string;
     image_url: string | null;
+    user_id?: string | null;
   } | null;
+};
+
+const INTENT_OPTIONS = [
+  "For Adoption",
+  "For Sale",
+  "Pups for Adoption",
+  "Pups for Sale",
+  "Available for Mating",
+  "Open for Exchange",
+];
+
+const INTENT_BADGE_COLORS: Record<string, string> = {
+  "For Adoption": "bg-green-100 text-green-700 border-green-200",
+  "For Sale": "bg-blue-100 text-blue-700 border-blue-200",
+  "Pups for Adoption": "bg-emerald-100 text-emerald-700 border-emerald-200",
+  "Pups for Sale": "bg-sky-100 text-sky-700 border-sky-200",
+  "Available for Mating": "bg-pink-100 text-pink-700 border-pink-200",
+  "Open for Exchange": "bg-orange-100 text-orange-700 border-orange-200",
 };
 
 const VIEW_OPTIONS = [
@@ -71,6 +92,7 @@ export default function ExplorePage() {
 
   // ── media feed state ──
   const [selectedMedia, setSelectedMedia] = useState<MediaItem | null>(null);
+  const [localIntentStatus, setLocalIntentStatus] = useState<string>("");
   const [commentText, setCommentText] = useState("");
   const [isPostingComment, setIsPostingComment] = useState(false);
   const [localComments, setLocalComments] = useState<
@@ -85,6 +107,7 @@ export default function ExplorePage() {
   useEffect(() => {
     setLocalComments([]);
     setCommentText("");
+    setLocalIntentStatus(selectedMedia?.intent_status || "");
   }, [selectedMedia?.id]);
 
   const handleAuthClick = () => {
@@ -102,7 +125,7 @@ export default function ExplorePage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("pet_media")
-        .select("*, pets(id, name, image_url)")
+        .select("*, pets(id, name, image_url, user_id)")
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data as MediaItem[];
@@ -157,6 +180,21 @@ export default function ExplorePage() {
 
   const userHasLiked = !!user?.id && (mediaLikes ?? []).some((l) => l.user_id === user.id);
   const likeCount = (mediaLikes ?? []).length;
+
+  const handleUpdateIntentStatus = async (status: string) => {
+    if (!selectedMedia?.id) return;
+    const newStatus = status === "" ? null : status;
+    const { error } = await supabase
+      .from("pet_media")
+      .update({ intent_status: newStatus })
+      .eq("id", selectedMedia.id);
+    if (error) {
+      toast({ description: "Failed to update status.", variant: "destructive" });
+      return;
+    }
+    setLocalIntentStatus(status);
+    setSelectedMedia((prev) => prev ? { ...prev, intent_status: newStatus } : prev);
+  };
 
   const handleToggleLike = async () => {
     if (!user?.id || !selectedMedia?.id) return;
@@ -391,6 +429,13 @@ export default function ExplorePage() {
                       </span>
                     </div>
                   )}
+                  {item.intent_status && INTENT_BADGE_COLORS[item.intent_status] && (
+                    <div className="absolute top-1.5 left-1.5 pointer-events-none">
+                      <span className={cn("text-[9px] font-bold px-1.5 py-0.5 rounded-full border shadow-sm", INTENT_BADGE_COLORS[item.intent_status])}>
+                        {item.intent_status}
+                      </span>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -547,6 +592,44 @@ export default function ExplorePage() {
                   </span>
                 </Link>
               </div>
+
+              {/* Status row — badge for all, edit dropdown for owner */}
+              {(localIntentStatus || selectedMedia.pets?.user_id === user?.id) && (
+                <div className="flex items-center gap-2 px-4 py-2 border-b border-gray-50 shrink-0">
+                  {localIntentStatus && INTENT_BADGE_COLORS[localIntentStatus] && (
+                    <span className={cn("text-[11px] font-semibold px-2.5 py-0.5 rounded-full border", INTENT_BADGE_COLORS[localIntentStatus])}>
+                      {localIntentStatus}
+                    </span>
+                  )}
+                  {selectedMedia.pets?.user_id === user?.id && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button className="ml-auto flex items-center gap-1 text-xs text-gray-400 hover:text-[#007699] transition-colors">
+                          <Tag className="w-3.5 h-3.5" />
+                          {localIntentStatus ? "Change" : "Add Status"}
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-48">
+                        <DropdownMenuItem
+                          className="text-xs text-gray-500 cursor-pointer"
+                          onClick={() => handleUpdateIntentStatus("")}
+                        >
+                          None
+                        </DropdownMenuItem>
+                        {INTENT_OPTIONS.map((opt) => (
+                          <DropdownMenuItem
+                            key={opt}
+                            className="text-xs cursor-pointer"
+                            onClick={() => handleUpdateIntentStatus(opt)}
+                          >
+                            {opt}
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
+                </div>
+              )}
 
               {/* Comments list */}
               <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 min-h-0">
