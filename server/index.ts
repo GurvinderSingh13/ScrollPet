@@ -3,6 +3,7 @@ import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
 import { setupAuth, registerAuthRoutes } from "./auth";
+import pg from "pg";
 
 const app = express();
 const httpServer = createServer(app);
@@ -61,6 +62,25 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  // Grant DELETE (and other needed privileges) to anon/authenticated roles on Supabase.
+  // This runs once at startup and persists in the Supabase DB permanently.
+  const supabaseDbUrl = process.env.SUPABASE_DATABASE_URL;
+  if (supabaseDbUrl) {
+    const pgClient = new pg.Client({ connectionString: supabaseDbUrl, ssl: { rejectUnauthorized: false } });
+    try {
+      await pgClient.connect();
+      await pgClient.query(`
+        GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO anon;
+        GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO authenticated;
+      `);
+      log("Supabase table grants applied successfully", "db-setup");
+    } catch (err: any) {
+      log(`Supabase grant warning: ${err.message}`, "db-setup");
+    } finally {
+      await pgClient.end().catch(() => {});
+    }
+  }
+
   // Setup custom local auth BEFORE registering other routes
   setupAuth(app);
   registerAuthRoutes(app);
