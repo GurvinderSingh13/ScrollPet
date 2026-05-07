@@ -101,6 +101,7 @@ export function MessageBubble({
   const [localIntentStatus, setLocalIntentStatus] = useState<string | null>(
     message.intentStatus ?? null,
   );
+  const [showTagMenu, setShowTagMenu] = useState(false);
 
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [isSubmittingReport, setIsSubmittingReport] = useState(false);
@@ -315,42 +316,49 @@ export function MessageBubble({
 
           {/* Delete + Tag buttons for own messages */}
           {isOwnMessage && onDeleteClick && (
-            <button
-              onClick={() => onDeleteClick(message.id)}
-              className="md:opacity-0 md:group-hover:opacity-100 opacity-100 transition-opacity p-2 mt-1 text-gray-400 hover:bg-gray-100 hover:text-red-500 rounded-full focus:opacity-100 outline-none cursor-pointer"
-              title="Unsend message"
-            >
-              <Trash2 className="w-4 h-4" />
-            </button>
-          )}
-          {isOwnMessage && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
+            <div className="md:opacity-0 md:group-hover:opacity-100 opacity-100 transition-opacity flex items-center gap-0.5 mt-1">
+              <button
+                onClick={() => onDeleteClick(message.id)}
+                className="p-2 text-gray-400 hover:bg-gray-100 hover:text-red-500 rounded-full outline-none cursor-pointer"
+                title="Unsend message"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+              <div className="relative">
                 <button
-                  className="md:opacity-0 md:group-hover:opacity-100 opacity-100 transition-opacity p-2 mt-1 text-gray-400 hover:bg-gray-100 hover:text-primary rounded-full focus:opacity-100 outline-none cursor-pointer"
+                  onClick={() => setShowTagMenu((v) => !v)}
+                  className="p-2 text-gray-400 hover:bg-gray-100 hover:text-primary rounded-full outline-none cursor-pointer"
                   title="Edit tag"
                 >
                   <Tag className="w-4 h-4" />
                 </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-52 bg-white shadow-md border rounded-md">
-                <DropdownMenuItem
-                  className="cursor-pointer text-gray-500 hover:bg-gray-100 px-3 py-2 text-sm"
-                  onClick={() => handleUpdateTag(null)}
-                >
-                  None
-                </DropdownMenuItem>
-                {INTENT_OPTIONS.map((opt) => (
-                  <DropdownMenuItem
-                    key={opt}
-                    className="cursor-pointer hover:bg-gray-100 px-3 py-2 text-sm"
-                    onClick={() => handleUpdateTag(opt)}
-                  >
-                    {opt}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
+                {showTagMenu && (
+                  <>
+                    <div
+                      className="fixed inset-0 z-40"
+                      onClick={() => setShowTagMenu(false)}
+                    />
+                    <div className="absolute right-0 bottom-full mb-1 z-50 w-52 bg-white border border-gray-200 rounded-lg shadow-lg py-1 text-sm">
+                      <button
+                        className="w-full text-left px-3 py-2 text-gray-500 hover:bg-gray-100 cursor-pointer"
+                        onClick={() => { handleUpdateTag(null); setShowTagMenu(false); }}
+                      >
+                        None
+                      </button>
+                      {INTENT_OPTIONS.map((opt) => (
+                        <button
+                          key={opt}
+                          className="w-full text-left px-3 py-2 text-gray-700 hover:bg-gray-100 cursor-pointer"
+                          onClick={() => { handleUpdateTag(opt); setShowTagMenu(false); }}
+                        >
+                          {opt}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
           )}
 
           <div
