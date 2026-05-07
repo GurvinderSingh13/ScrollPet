@@ -170,7 +170,7 @@ export default function ExplorePage() {
           text_content: null,
           user_display_name: item.pets?.name ?? "Unknown Pet",
           user_id: item.pets?.user_id ?? null,
-          category: item.pets?.type ?? null,
+          category: item.pets?.type?.toLowerCase() ?? null,
           breed: item.pets?.breed ?? null,
           location: null,
           country: null,
@@ -198,7 +198,7 @@ export default function ExplorePage() {
             text_content: item.content ?? null,
             user_display_name: u?.display_name || u?.username || "Pet Lover",
             user_id: item.user_id ?? null,
-            category: item.pet_type ?? null,
+            category: item.pet_type?.toLowerCase() ?? null,
             breed: item.breed ?? null,
             location: locationStr,
             country: u?.country ?? null,
@@ -221,7 +221,7 @@ export default function ExplorePage() {
           merged = merged.filter((item) => item.intent_status === filterIntent);
         }
         if (filterCategory !== "all") {
-          merged = merged.filter((item) => item.category === filterCategory);
+          merged = merged.filter((item) => item.category?.toLowerCase() === filterCategory.toLowerCase());
         }
         if (filterBreed !== "all") {
           merged = merged.filter(
