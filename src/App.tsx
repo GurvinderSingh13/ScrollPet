@@ -23,7 +23,6 @@ import ContactUs from "@/pages/contact";
 import UpdatePassword from "@/pages/update-password";
 import PetProfilePage from "@/pages/pet-profile";
 import ExplorePage from "@/pages/explore";
-import PetDirectoryPage from "@/pages/directory";
 import GlobalLocationDetector from "@/components/GlobalLocationDetector";
 import { Analytics } from "@vercel/analytics/react";
 
@@ -50,7 +49,6 @@ function Router() {
       <Route path="/update-password" component={UpdatePassword} />
       <Route path="/pet/:petId" component={PetProfilePage} />
       <Route path="/explore" component={ExplorePage} />
-      <Route path="/directory" component={PetDirectoryPage} />
       <Route component={NotFound} />
     </Switch>
   );

@@ -18,6 +18,11 @@ import {
   Heart,
   Send,
   Compass,
+  ChevronDown,
+  Dog,
+  Cat,
+  Bird,
+  Activity,
 } from "lucide-react";
 import logoImage from "@assets/Scrollpet_logo_1766997907297.png";
 import { cn } from "@/lib/utils";
@@ -38,16 +43,49 @@ type MediaItem = {
   } | null;
 };
 
+const VIEW_OPTIONS = [
+  { value: "feed",                label: "Global Feed" },
+  { value: "status_for_adoption", label: "For Adoption" },
+  { value: "status_for_sell",     label: "For Sale" },
+  { value: "status_pups_adoption",label: "Pups for Adoption" },
+  { value: "status_pups_sell",    label: "Pups for Sale" },
+  { value: "status_mating",       label: "Available for Mating" },
+  { value: "status_exchange",     label: "Open for Exchange" },
+] as const;
+
+type ViewValue = typeof VIEW_OPTIONS[number]["value"];
+
+const navLinks = [
+  { href: "/", label: "Home" },
+  { href: "/chat", label: "Chat Rooms" },
+  { href: "/explore", label: "Explore" },
+  { href: "/faq", label: "FAQ" },
+  { href: "/contact", label: "Contact" },
+];
+
 export default function ExplorePage() {
   const { user, isLoading, isAuthenticated, logout } = useAuth();
   const [currentPath] = useLocation();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [activeView, setActiveView] = useState<ViewValue>("feed");
+
+  // ── media feed state ──
   const [selectedMedia, setSelectedMedia] = useState<MediaItem | null>(null);
   const [commentText, setCommentText] = useState("");
   const [isPostingComment, setIsPostingComment] = useState(false);
   const [localComments, setLocalComments] = useState<
     { id: string; media_id: string; user_id: string; content: string; created_at: string }[]
   >([]);
+
+  // close lightbox when switching views
+  useEffect(() => {
+    setSelectedMedia(null);
+  }, [activeView]);
+
+  useEffect(() => {
+    setLocalComments([]);
+    setCommentText("");
+  }, [selectedMedia?.id]);
 
   const handleAuthClick = () => {
     if (isAuthenticated) {
@@ -58,6 +96,7 @@ export default function ExplorePage() {
     }
   };
 
+  // ── MEDIA FEED query ──
   const { data: allMedia, isLoading: isMediaLoading } = useQuery({
     queryKey: ["explore_media"],
     queryFn: async () => {
@@ -68,8 +107,25 @@ export default function ExplorePage() {
       if (error) throw error;
       return data as MediaItem[];
     },
+    enabled: activeView === "feed",
   });
 
+  // ── PET DIRECTORY query ──
+  const { data: filteredPets, isLoading: isPetsLoading } = useQuery({
+    queryKey: ["explore_pets", activeView],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("pets")
+        .select("*")
+        .eq(activeView, true)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data as any[];
+    },
+    enabled: activeView !== "feed",
+  });
+
+  // ── lightbox queries ──
   const { data: mediaLikes, refetch: refetchLikes } = useQuery({
     queryKey: ["media_likes", selectedMedia?.id],
     queryFn: async () => {
@@ -99,26 +155,15 @@ export default function ExplorePage() {
     enabled: !!selectedMedia?.id,
   });
 
-  useEffect(() => {
-    setLocalComments([]);
-    setCommentText("");
-  }, [selectedMedia?.id]);
-
   const userHasLiked = !!user?.id && (mediaLikes ?? []).some((l) => l.user_id === user.id);
   const likeCount = (mediaLikes ?? []).length;
 
   const handleToggleLike = async () => {
     if (!user?.id || !selectedMedia?.id) return;
     if (userHasLiked) {
-      await supabase
-        .from("media_likes")
-        .delete()
-        .eq("media_id", selectedMedia.id)
-        .eq("user_id", user.id);
+      await supabase.from("media_likes").delete().eq("media_id", selectedMedia.id).eq("user_id", user.id);
     } else {
-      await supabase
-        .from("media_likes")
-        .insert({ media_id: selectedMedia.id, user_id: user.id });
+      await supabase.from("media_likes").insert({ media_id: selectedMedia.id, user_id: user.id });
     }
     refetchLikes();
   };
@@ -151,14 +196,7 @@ export default function ExplorePage() {
     }
   };
 
-  const navLinks = [
-    { href: "/", label: "Home" },
-    { href: "/chat", label: "Chat Rooms" },
-    { href: "/explore", label: "Explore" },
-    { href: "/directory", label: "Directory" },
-    { href: "/faq", label: "FAQ" },
-    { href: "/contact", label: "Contact" },
-  ];
+  const activeLabel = VIEW_OPTIONS.find((o) => o.value === activeView)?.label ?? "Global Feed";
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -206,9 +244,7 @@ export default function ExplorePage() {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56 mt-2 rounded-xl shadow-lg border-gray-100">
                   <div className="px-3 py-2.5 border-b border-gray-100">
-                    <p className="font-semibold text-sm text-gray-900 truncate">
-                      {user?.email}
-                    </p>
+                    <p className="font-semibold text-sm text-gray-900 truncate">{user?.email}</p>
                   </div>
                   <DropdownMenuItem asChild>
                     <Link href="/user-profile" className="w-full cursor-pointer flex items-center gap-2 py-2">
@@ -258,7 +294,6 @@ export default function ExplorePage() {
                 {link.label}
               </Link>
             ))}
-
             {isAuthenticated ? (
               <>
                 <Link
@@ -287,64 +322,169 @@ export default function ExplorePage() {
           <div className="max-w-5xl mx-auto px-4 h-14 flex items-center gap-2">
             <Compass className="w-5 h-5 text-[#007699]" />
             <h1 className="text-base font-bold text-gray-900">Explore</h1>
-            <span className="text-sm text-gray-400 font-normal">— discover the newest pet posts</span>
+            <span className="text-sm text-gray-400 font-normal hidden sm:inline">— discover pets &amp; media</span>
+          </div>
+        </div>
+
+        {/* ── FILTER BAR ── */}
+        <div className="bg-white border-b border-gray-200">
+          <div className="max-w-5xl mx-auto px-4 py-2.5 flex items-center gap-3">
+            <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider shrink-0">View:</span>
+            <div className="relative">
+              <select
+                value={activeView}
+                onChange={(e) => setActiveView(e.target.value as ViewValue)}
+                className="text-sm font-semibold text-gray-800 bg-white border border-gray-200 rounded-xl pl-4 pr-8 py-1.5 outline-none cursor-pointer appearance-none hover:border-[#007699] focus:border-[#007699] transition-colors"
+              >
+                {VIEW_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+            </div>
+            {activeView !== "feed" && (
+              <span className="text-xs text-gray-500">
+                {isPetsLoading ? "Loading…" : <><span className="font-bold text-gray-800">{filteredPets?.length ?? 0}</span> pets found</>}
+              </span>
+            )}
           </div>
         </div>
       </div>
 
-      {/* ── MEDIA GRID ── */}
+      {/* ── CONTENT ── */}
       <div className="max-w-5xl mx-auto px-4 py-6">
-        {isMediaLoading ? (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
-            {Array.from({ length: 16 }).map((_, i) => (
-              <div key={i} className="aspect-square bg-gray-200 rounded-sm animate-pulse" />
-            ))}
-          </div>
-        ) : allMedia && allMedia.length > 0 ? (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
-            {allMedia.map((item) => (
-              <div
-                key={item.id}
-                className="aspect-square overflow-hidden rounded-sm bg-gray-100 cursor-pointer relative group"
-                onClick={() => setSelectedMedia(item)}
-              >
-                {item.media_type === "video" ? (
-                  <video
-                    src={item.media_url}
-                    className="w-full h-full object-cover pointer-events-none"
-                    autoPlay
-                    muted
-                    loop
-                    playsInline
-                  />
-                ) : (
-                  <img
-                    src={item.media_url}
-                    alt="Pet post"
-                    className="w-full h-full object-cover"
-                  />
-                )}
-                {/* hover overlay with pet name */}
-                {item.pets?.name && (
-                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-end p-2 pointer-events-none">
-                    <span className="text-white text-xs font-semibold opacity-0 group-hover:opacity-100 transition-opacity drop-shadow">
-                      {item.pets.name}
-                    </span>
+
+        {/* ════ GLOBAL FEED VIEW ════ */}
+        {activeView === "feed" && (
+          isMediaLoading ? (
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+              {Array.from({ length: 16 }).map((_, i) => (
+                <div key={i} className="aspect-square bg-gray-200 rounded-sm animate-pulse" />
+              ))}
+            </div>
+          ) : allMedia && allMedia.length > 0 ? (
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+              {allMedia.map((item) => (
+                <div
+                  key={item.id}
+                  className="aspect-square overflow-hidden rounded-sm bg-gray-100 cursor-pointer relative group"
+                  onClick={() => setSelectedMedia(item)}
+                >
+                  {item.media_type === "video" ? (
+                    <video
+                      src={item.media_url}
+                      className="w-full h-full object-cover pointer-events-none"
+                      autoPlay
+                      muted
+                      loop
+                      playsInline
+                    />
+                  ) : (
+                    <img src={item.media_url} alt="Pet post" className="w-full h-full object-cover" />
+                  )}
+                  {item.pets?.name && (
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-end p-2 pointer-events-none">
+                      <span className="text-white text-xs font-semibold opacity-0 group-hover:opacity-100 transition-opacity drop-shadow">
+                        {item.pets.name}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-24 text-center text-muted-foreground gap-3">
+              <Grid3X3 className="h-10 w-10 opacity-20" />
+              <p className="text-sm font-medium">No posts yet</p>
+              <p className="text-xs">Be the first to share a pet photo!</p>
+            </div>
+          )
+        )}
+
+        {/* ════ PET CARDS VIEW ════ */}
+        {activeView !== "feed" && (
+          isPetsLoading ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {Array.from({ length: 9 }).map((_, i) => (
+                <div key={i} className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm animate-pulse">
+                  <div className="h-40 bg-gray-100" />
+                  <div className="p-4 space-y-2">
+                    <div className="h-4 bg-gray-100 rounded w-2/3" />
+                    <div className="h-3 bg-gray-100 rounded w-1/2" />
                   </div>
-                )}
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="flex flex-col items-center justify-center py-24 text-center text-muted-foreground gap-3">
-            <Grid3X3 className="h-10 w-10 opacity-20" />
-            <p className="text-sm font-medium">No posts yet</p>
-            <p className="text-xs">Be the first to share a pet photo!</p>
-          </div>
+                </div>
+              ))}
+            </div>
+          ) : filteredPets && filteredPets.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredPets.map((pet: any) => (
+                <Link key={pet.id} href={`/pet/${pet.id}`}>
+                  <div className="group bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer">
+                    <div
+                      className="h-40 relative overflow-hidden"
+                      style={{ background: "linear-gradient(135deg, #e8f4f8 0%, #fef3e8 100%)" }}
+                    >
+                      {pet.image_url ? (
+                        <img
+                          src={pet.image_url}
+                          alt={pet.name}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          {pet.type === "dog" ? <Dog className="h-16 w-16 text-[#007699]/25" /> :
+                           pet.type === "cat" ? <Cat className="h-16 w-16 text-[#007699]/25" /> :
+                           pet.type === "bird" ? <Bird className="h-16 w-16 text-[#007699]/25" /> :
+                           <Activity className="h-16 w-16 text-[#007699]/25" />}
+                        </div>
+                      )}
+                      <div className="absolute top-3 left-3">
+                        <span
+                          className="text-xs font-bold uppercase tracking-wider px-2.5 py-1 rounded-lg text-white shadow-sm capitalize"
+                          style={{ background: "rgba(0,118,153,0.85)", backdropFilter: "blur(4px)" }}
+                        >
+                          {pet.type || "pet"}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="p-4">
+                      <h3 className="font-bold text-lg text-gray-900 capitalize leading-tight">{pet.name}</h3>
+                      <p className="text-sm text-gray-500 capitalize mt-0.5">{pet.breed || "Unknown breed"}</p>
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        {pet.gender && (
+                          <span className="text-[11px] font-semibold bg-blue-50 text-blue-700 px-2 py-0.5 rounded-md capitalize">
+                            {pet.gender}
+                          </span>
+                        )}
+                        {pet.dob && (
+                          <span className="text-[11px] font-semibold bg-purple-50 text-purple-700 px-2 py-0.5 rounded-md">
+                            {pet.dob}
+                          </span>
+                        )}
+                        {pet.location && (
+                          <span className="text-[11px] font-semibold bg-amber-50 text-amber-700 px-2 py-0.5 rounded-md truncate max-w-[120px]">
+                            {pet.location}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-24 text-center gap-3">
+              <Compass className="h-10 w-10 text-gray-200" />
+              <p className="text-sm font-medium text-gray-700">No pets found</p>
+              <p className="text-xs text-gray-400">No pets currently listed as "{activeLabel}".</p>
+            </div>
+          )
         )}
       </div>
 
-      {/* ── LIGHTBOX ── */}
+      {/* ── LIGHTBOX (feed only) ── */}
       {selectedMedia && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4"

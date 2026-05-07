@@ -502,7 +502,6 @@ export default function PetProfilePage() {
               { href: "/", label: "Home" },
               { href: "/chat", label: "Chat Rooms" },
               { href: "/explore", label: "Explore" },
-              { href: "/directory", label: "Directory" },
               { href: "/faq", label: "FAQ" },
               { href: "/contact", label: "Contact" },
             ].map((link) => (
@@ -591,13 +590,13 @@ export default function PetProfilePage() {
 
         {isMenuOpen && (
           <div className="md:hidden border-t border-gray-100 p-4 space-y-1 bg-white shadow-xl absolute w-full z-50">
-            {["/", "/chat", "/explore", "/directory", "/faq", "/contact"].map((href, i) => (
+            {["/", "/chat", "/explore", "/faq", "/contact"].map((href, i) => (
               <Link
                 key={href}
                 href={href}
                 className="block text-sm font-medium py-2.5 px-4 rounded-lg hover:bg-[#007699]/5 text-gray-700 cursor-pointer"
               >
-                {["Home", "Chat Rooms", "Explore", "Directory", "FAQ", "Contact"][i]}
+                {["Home", "Chat Rooms", "Explore", "FAQ", "Contact"][i]}
               </Link>
             ))}
             {isAuthenticated ? (

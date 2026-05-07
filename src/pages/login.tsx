@@ -118,7 +118,6 @@ export default function Login() {
             <Link href="/" className="text-sm font-semibold hover:text-primary transition-colors cursor-pointer">Home</Link>
             <Link href="/chat" className="text-sm font-semibold hover:text-primary transition-colors cursor-pointer">Chat Rooms</Link>
             <Link href="/explore" className="text-sm font-semibold hover:text-primary transition-colors cursor-pointer">Explore</Link>
-            <Link href="/directory" className="text-sm font-semibold hover:text-primary transition-colors cursor-pointer">Directory</Link>
             <Link href="/faq" className="text-sm font-semibold hover:text-primary transition-colors cursor-pointer">FAQ</Link>
             <Link href="/contact" className="text-sm font-semibold hover:text-primary transition-colors cursor-pointer">Contact Us</Link>
           </nav>
@@ -147,7 +146,6 @@ export default function Login() {
             <Link href="/" className="block text-base font-semibold py-3 px-4 rounded-lg hover:bg-muted cursor-pointer">Home</Link>
             <Link href="/chat" className="block text-base font-semibold py-3 px-4 rounded-lg hover:bg-muted cursor-pointer">Chat Rooms</Link>
             <Link href="/explore" className="block text-base font-semibold py-3 px-4 rounded-lg hover:bg-muted cursor-pointer">Explore</Link>
-            <Link href="/directory" className="block text-base font-semibold py-3 px-4 rounded-lg hover:bg-muted cursor-pointer">Directory</Link>
             <Link href="/faq" className="block text-base font-semibold py-3 px-4 rounded-lg hover:bg-muted cursor-pointer">FAQ</Link>
             <Link href="/contact" className="block text-base font-semibold py-3 px-4 rounded-lg hover:bg-muted cursor-pointer">Contact Us</Link>
             <Link href="/signup">

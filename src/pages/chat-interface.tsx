@@ -1351,12 +1351,6 @@ export default function ChatInterface() {
               Explore
             </Link>
             <Link
-              href="/directory"
-              className="text-sm font-semibold hover:text-primary transition-colors cursor-pointer"
-            >
-              Directory
-            </Link>
-            <Link
               href="/faq"
               className="text-sm font-semibold hover:text-primary transition-colors cursor-pointer"
             >
@@ -1445,7 +1439,6 @@ export default function ChatInterface() {
             <Link href="/" onClick={() => setIsMenuOpen(false)} className="text-foreground/80 hover:text-primary transition-colors py-2 font-medium">Home</Link>
             <Link href="/chat" onClick={() => setIsMenuOpen(false)} className="text-primary font-medium py-2">Chat Rooms</Link>
             <Link href="/explore" onClick={() => setIsMenuOpen(false)} className="text-foreground/80 hover:text-primary transition-colors py-2 font-medium">Explore</Link>
-            <Link href="/directory" onClick={() => setIsMenuOpen(false)} className="text-foreground/80 hover:text-primary transition-colors py-2 font-medium">Directory</Link>
             <Link href="/faq" onClick={() => setIsMenuOpen(false)} className="text-foreground/80 hover:text-primary transition-colors py-2 font-medium">FAQ</Link>
             <Link href="/contact" onClick={() => setIsMenuOpen(false)} className="text-foreground/80 hover:text-primary transition-colors py-2 font-medium">Contact Us</Link>
             
