@@ -158,7 +158,7 @@ export default function AboutUs() {
                     <nav className="hidden md:flex items-center gap-8 bg-muted/50 px-6 py-2 rounded-full border border-border/50">
                         <Link href="/" className="text-sm font-semibold hover:text-primary transition-colors cursor-pointer">Home</Link>
                         <Link href="/chat" className="text-sm font-semibold hover:text-primary transition-colors cursor-pointer">Chat Rooms</Link>
-                        <Link href="/about" className="text-sm font-semibold text-primary cursor-pointer">About Us</Link>
+                        <Link href="/explore" className="text-sm font-semibold hover:text-primary transition-colors cursor-pointer">Explore</Link>
                         <Link href="/faq" className="text-sm font-semibold hover:text-primary transition-colors cursor-pointer">FAQ</Link>
                         <Link href="/contact" className="text-sm font-semibold hover:text-primary transition-colors cursor-pointer">Contact Us</Link>
                     </nav>
@@ -214,7 +214,7 @@ export default function AboutUs() {
                     <div className="md:hidden border-t p-4 space-y-4 bg-background animate-in slide-in-from-top-5 shadow-2xl">
                         <Link href="/" className="block text-base font-semibold py-3 px-4 rounded-lg hover:bg-muted cursor-pointer">Home</Link>
                         <Link href="/chat" className="block text-base font-semibold py-3 px-4 rounded-lg hover:bg-muted cursor-pointer">Chat Rooms</Link>
-                        <Link href="/about" className="block text-base font-semibold py-3 px-4 rounded-lg bg-muted text-primary cursor-pointer">About Us</Link>
+                        <Link href="/explore" className="block text-base font-semibold py-3 px-4 rounded-lg hover:bg-muted cursor-pointer">Explore</Link>
                         <Link href="/faq" className="block text-base font-semibold py-3 px-4 rounded-lg hover:bg-muted cursor-pointer">FAQ</Link>
                         <Link href="/contact" className="block text-base font-semibold py-3 px-4 rounded-lg hover:bg-muted cursor-pointer">Contact Us</Link>
                         {!isAuthenticated && (

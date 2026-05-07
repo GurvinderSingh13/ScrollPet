@@ -1345,10 +1345,10 @@ export default function ChatInterface() {
               Chat Rooms
             </Link>
             <Link
-              href="/about"
+              href="/explore"
               className="text-sm font-semibold hover:text-primary transition-colors cursor-pointer"
             >
-              About Us
+              Explore
             </Link>
             <Link
               href="/faq"
@@ -1438,7 +1438,7 @@ export default function ChatInterface() {
           <div className="md:hidden absolute top-full left-0 right-0 bg-background border-b border-border/40 shadow-lg p-4 flex flex-col gap-4 z-40">
             <Link href="/" onClick={() => setIsMenuOpen(false)} className="text-foreground/80 hover:text-primary transition-colors py-2 font-medium">Home</Link>
             <Link href="/chat" onClick={() => setIsMenuOpen(false)} className="text-primary font-medium py-2">Chat Rooms</Link>
-            <Link href="/about" onClick={() => setIsMenuOpen(false)} className="text-foreground/80 hover:text-primary transition-colors py-2 font-medium">About Us</Link>
+            <Link href="/explore" onClick={() => setIsMenuOpen(false)} className="text-foreground/80 hover:text-primary transition-colors py-2 font-medium">Explore</Link>
             <Link href="/faq" onClick={() => setIsMenuOpen(false)} className="text-foreground/80 hover:text-primary transition-colors py-2 font-medium">FAQ</Link>
             <Link href="/contact" onClick={() => setIsMenuOpen(false)} className="text-foreground/80 hover:text-primary transition-colors py-2 font-medium">Contact Us</Link>
             

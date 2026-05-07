@@ -110,7 +110,7 @@ export default function PublicProfile() {
                         {[
                             { href: "/", label: "Home" },
                             { href: "/chat", label: "Chat Rooms" },
-                            { href: "/about", label: "About" },
+                            { href: "/explore", label: "Explore" },
                             { href: "/faq", label: "FAQ" },
                             { href: "/contact", label: "Contact" },
                         ].map((link) => (
