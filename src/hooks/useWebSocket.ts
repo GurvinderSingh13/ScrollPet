@@ -45,6 +45,7 @@ function mapRowToMessage(row: any): Message {
     createdAt: row.created_at,
     receiverId: row.receiver_id,
     replyToUserId: row.reply_to_user_id,
+    intentStatus: row.intent_status || null,
     user: userData
       ? {
           id: userData.id,

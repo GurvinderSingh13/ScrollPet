@@ -9,10 +9,29 @@ import {
   Pause,
   Square,
   Loader2,
+  Tag,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { EmojiPicker } from "./EmojiPicker";
 import { Textarea } from "@/components/ui/textarea";
+
+const INTENT_OPTIONS = [
+  "For Adoption",
+  "For Sale",
+  "Pups for Adoption",
+  "Pups for Sale",
+  "Available for Mating",
+  "Open for Exchange",
+];
+
+const INTENT_BADGE_COLORS: Record<string, string> = {
+  "For Adoption": "bg-green-100 text-green-700 border-green-200",
+  "For Sale": "bg-blue-100 text-blue-700 border-blue-200",
+  "Pups for Adoption": "bg-emerald-100 text-emerald-700 border-emerald-200",
+  "Pups for Sale": "bg-sky-100 text-sky-700 border-sky-200",
+  "Available for Mating": "bg-pink-100 text-pink-700 border-pink-200",
+  "Open for Exchange": "bg-orange-100 text-orange-700 border-orange-200",
+};
 
 interface MediaPreview {
   file: File;
@@ -32,6 +51,7 @@ interface ChatInputProps {
     type: "text" | "image" | "video" | "audio",
     file?: File,
     duration?: number,
+    intentStatus?: string,
   ) => Promise<boolean>;
   isConnected: boolean;
   initialValue?: string;
@@ -45,6 +65,20 @@ export function ChatInput({
   onClearInitialValue,
 }: ChatInputProps) {
   const [message, setMessage] = useState("");
+  const [intentStatus, setIntentStatus] = useState("");
+  const [showTagMenu, setShowTagMenu] = useState(false);
+  const tagMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (tagMenuRef.current && !tagMenuRef.current.contains(event.target as Node)) {
+        setShowTagMenu(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   useEffect(() => {
     if (initialValue) {
       setMessage(initialValue);
@@ -269,10 +303,12 @@ export function ChatInput({
         "audio",
         audioPreview.blob,
         audioPreview.duration,
+        intentStatus || undefined,
       );
       setIsUploading(false);
       if (success) {
         setMessage("");
+        setIntentStatus("");
         removeAudioPreview();
       }
     } else if (mediaPreview) {
@@ -282,16 +318,20 @@ export function ChatInput({
         message.trim(),
         messageType,
         mediaPreview.file,
+        undefined,
+        intentStatus || undefined,
       );
       setIsUploading(false);
       if (success) {
         setMessage("");
+        setIntentStatus("");
         removeMediaPreview();
       }
     } else if (message.trim()) {
-      const success = await onSendMessage(message.trim(), "text");
+      const success = await onSendMessage(message.trim(), "text", undefined, undefined, intentStatus || undefined);
       if (success) {
         setMessage("");
+        setIntentStatus("");
       }
     }
   };
@@ -404,6 +444,47 @@ export function ChatInput({
           onChange={handleFileSelect}
           className="hidden"
         />
+
+        {/* Tag / Intent Status Button */}
+        <div className="relative shrink-0" ref={tagMenuRef}>
+          {intentStatus ? (
+            <button
+              onClick={() => setIntentStatus("")}
+              className={cn(
+                "flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-full border transition-colors",
+                INTENT_BADGE_COLORS[intentStatus],
+              )}
+              title="Clear tag"
+              data-testid="button-intent-clear"
+            >
+              {intentStatus}
+              <X className="w-3 h-3 ml-0.5" />
+            </button>
+          ) : (
+            <button
+              onClick={() => setShowTagMenu((v) => !v)}
+              className="p-2.5 hover:bg-gray-100 rounded-full text-gray-400 transition-colors"
+              title="Add status tag"
+              data-testid="button-intent-tag"
+            >
+              <Tag className="w-5 h-5" />
+            </button>
+          )}
+          {showTagMenu && (
+            <div className="absolute bottom-12 left-0 z-50 bg-white border border-gray-200 rounded-xl shadow-lg py-1 min-w-[190px]">
+              {INTENT_OPTIONS.map((opt) => (
+                <button
+                  key={opt}
+                  onClick={() => { setIntentStatus(opt); setShowTagMenu(false); }}
+                  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                  data-testid={`intent-option-${opt.replace(/\s+/g, "-").toLowerCase()}`}
+                >
+                  {opt}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
 
         {/* Text Input */}
         <Textarea

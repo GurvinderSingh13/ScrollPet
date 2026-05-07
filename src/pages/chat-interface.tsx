@@ -630,6 +630,7 @@ export default function ChatInterface() {
           mediaDuration: row.media_duration,
           createdAt: row.created_at,
           receiverId: row.receiver_id,
+          intentStatus: row.intent_status || null,
           user: userData
             ? {
               id: userData.id,
@@ -809,6 +810,7 @@ export default function ChatInterface() {
     messageType: string = "text",
     mediaFile?: File | Blob,
     mediaDuration?: number,
+    intentStatus?: string,
   ): Promise<boolean> => {
     if (!isConnected && !isNewsRoom) return false;
 
@@ -942,7 +944,8 @@ export default function ChatInterface() {
         media_duration: mediaDuration || null,
         receiver_id: activeDmUser ? activeDmUser.id : null,
         reply_to_user_id: replyToUser ? replyToUser.id : null,
-        crosspost_rooms: [currentRoomId]
+        crosspost_rooms: [currentRoomId],
+        intent_status: intentStatus || null,
       };
 
       if (activeBreed && !activeDmUser && chatRoomLocation !== "staff_lounge")
@@ -1010,6 +1013,7 @@ export default function ChatInterface() {
           mediaDuration: insertedMsg.media_duration,
           createdAt: insertedMsg.created_at,
           receiverId: insertedMsg.receiver_id,
+          intentStatus: insertedMsg.intent_status || null,
           user: userData
             ? {
               id: userData.id,
@@ -1174,6 +1178,7 @@ export default function ChatInterface() {
           createdAt: insertedMsg.created_at,
           receiverId: insertedMsg.receiver_id,
           crosspostRooms: insertedMsg.crosspost_rooms,
+          intentStatus: insertedMsg.intent_status || null,
           user: userData ? {
             id: userData.id,
             username: userData.username || "",
