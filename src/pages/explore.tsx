@@ -128,28 +128,40 @@ export default function ExplorePage() {
     setLocalIntentStatus(selectedMedia?.intent_status || "");
   }, [selectedMedia?.id]);
 
-  // ── Unified fetch — raw parallel fetch, normalize + filter entirely in React ──
+  // ── Unified fetch — no inline PostgREST joins; users fetched separately ──
   useEffect(() => {
     const fetchFeed = async () => {
       setIsFeedLoading(true);
       try {
-        // Fetch both tables in parallel with no server-side filters
-        const [{ data: mediaData }, { data: chatData }] = await Promise.all([
-          supabase
-            .from("pet_media")
-            .select("*, pets(id, name, image_url, user_id, type, breed)"),
-          supabase
-            .from("messages")
-            .select("id, user_id, content, message_type, media_url, intent_status, created_at, pet_type, breed, users(display_name, username, country, state)"),
+        // Step 1 — fetch both tables in parallel, NO embedded joins
+        const [mediaResult, chatResult] = await Promise.all([
+          supabase.from("pet_media").select("*, pets(id, name, image_url, user_id, type, breed)"),
+          supabase.from("messages").select("id, user_id, content, message_type, media_url, intent_status, created_at, pet_type, breed, location"),
         ]);
 
-        // Filter chats: keep only tagged posts
-        const taggedChats = (chatData || []).filter(
+        if (mediaResult.error) console.error("pet_media fetch error:", mediaResult.error);
+        if (chatResult.error)  console.error("messages fetch error:",  chatResult.error);
+
+        // Step 2 — keep only tagged chat posts
+        const taggedChats = (chatResult.data || []).filter(
           (msg: any) => msg.intent_status && msg.intent_status !== "None",
         );
+        console.log("Tagged chats (raw):", taggedChats.length, taggedChats);
 
-        // Normalize media items
-        const normalizedMedia: FeedItem[] = (mediaData || []).map((item: any) => ({
+        // Step 3 — fetch users for those chats separately (avoids FK join)
+        let usersMap: Record<string, any> = {};
+        if (taggedChats.length > 0) {
+          const userIds = [...new Set(taggedChats.map((m: any) => m.user_id as string))];
+          const { data: usersData, error: usersError } = await supabase
+            .from("users")
+            .select("id, display_name, username, country, state")
+            .in("id", userIds);
+          if (usersError) console.error("users fetch error:", usersError);
+          (usersData || []).forEach((u: any) => { usersMap[u.id] = u; });
+        }
+
+        // Step 4 — normalize media
+        const normalizedMedia: FeedItem[] = (mediaResult.data || []).map((item: any) => ({
           id: item.id,
           source_type: "media" as const,
           display_image: item.media_url ?? null,
@@ -169,10 +181,10 @@ export default function ExplorePage() {
           raw_media: item as MediaItem,
         }));
 
-        // Normalize chat items
+        // Step 5 — normalize chats using the separate users lookup
         const normalizedChats: FeedItem[] = taggedChats.map((item: any) => {
-          const u = item.users as any;
-          const locationStr = [u?.state, u?.country].filter(Boolean).join(", ") || null;
+          const u = usersMap[item.user_id] ?? null;
+          const locationStr = [u?.state, u?.country].filter(Boolean).join(", ") || item.location || null;
           const mediaType =
             item.message_type === "image" ? "image"
             : item.message_type === "video" ? "video"
@@ -198,7 +210,9 @@ export default function ExplorePage() {
           };
         });
 
-        // Merge, then apply all dropdown filters in JavaScript
+        console.log("Normalized chats:", normalizedChats.length, normalizedChats);
+
+        // Step 6 — merge and apply dropdown filters in JavaScript
         let merged = [...normalizedMedia, ...normalizedChats];
 
         if (filterSource !== "all") {
@@ -239,9 +253,10 @@ export default function ExplorePage() {
           (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
         );
 
-        console.log("Filtered Chat Data:", merged.filter((i) => i.source_type === "chat"));
+        console.log("Final feed:", merged.length, "chat items:", merged.filter((i) => i.source_type === "chat").length);
         setAllFeedItems(merged);
       } catch (err: any) {
+        console.error("fetchFeed exception:", err);
         toast({ description: "Failed to load feed.", variant: "destructive" });
       } finally {
         setIsFeedLoading(false);
