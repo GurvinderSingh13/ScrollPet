@@ -696,15 +696,17 @@ export default function ChatInterface() {
           if (!isFromMeToThem && !isFromThemToMe) return prev;
         } else {
           if (newMessage.receiverId) return prev;
-          
+
           let matchesCurrentRoom = false;
           if (chatRoomLocation === "staff_lounge") {
-             matchesCurrentRoom = newMessage.location === "staff_lounge";
+            matchesCurrentRoom = newMessage.location === "staff_lounge";
           } else {
-             const crosspostRoomsArray = newMessage.crosspost_rooms || newMessage.crosspostRooms || [];
-             matchesCurrentRoom = isMessageTargetedToCurrentRoom(crosspostRoomsArray, chatRoomLocation, activePet, activeBreed);
+            // Exact room check — must be explicitly listed in crosspost_rooms.
+            const currentRoomId = `${chatRoomLocation}::${activePet}::${activeBreed || 'all'}`;
+            const crosspostRoomsArray: string[] = newMessage.crosspostRooms || newMessage.crosspost_rooms || [];
+            matchesCurrentRoom = Array.isArray(crosspostRoomsArray) && crosspostRoomsArray.includes(currentRoomId);
           }
-          
+
           if (!matchesCurrentRoom) return prev;
         }
         return [...prev, newMessage];

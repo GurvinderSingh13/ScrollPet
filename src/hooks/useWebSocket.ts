@@ -76,11 +76,9 @@ export function useWebSocket({ userId, petType, breed, location, onMessage }: Us
       channelRef.current = null;
     }
 
-    // Subscribe to ALL public message changes - we filter client-side 
-    // because Supabase Realtime doesn't support array 'contains' filters easily.
-    // Public room INSERTs are streamed to everyone (including guests).
-    // The DM and reply-targeted listeners further down are added only for
-    // authenticated users, since their filters require a real userId.
+    // Layer 1 — server-side filter: Supabase only sends INSERTs for this pet type.
+    // DM messages also carry a pet_type so they still arrive; the receiver_id
+    // check below handles them. The breed / location guard is layer 2 (client-side).
     let channelBuilder: any = supabase
       .channel(channelName)
       .on(
@@ -89,89 +87,38 @@ export function useWebSocket({ userId, petType, breed, location, onMessage }: Us
           event: 'INSERT',
           schema: 'public',
           table: 'messages',
-          // REMOVED DB-level filter to capture crossposts from other rooms
+          filter: `pet_type=eq.${petType}`,
         },
         async (payload: any) => {
           const newRow = payload.new;
           const currentRoomId = `${location}::${petType}::${breed || 'all'}`;
 
-          // 1. DMs handling
+          // 1. DMs: only the sender and receiver should process them.
           if (newRow.receiver_id) {
-             if (newRow.receiver_id !== userId && newRow.user_id !== userId) return;
+            if (newRow.receiver_id !== userId && newRow.user_id !== userId) return;
           } else {
-            // 2. Strict Target Matching for non-DMs
-            let crosspostRooms = newRow.crosspost_rooms || newRow.crosspostRooms || [];
-            
-            // Handle Supabase Realtime stringified Postgres arrays
+            // Layer 2 — client-side exact room check.
+            // Every sent message stores its own room in crosspost_rooms, so a plain
+            // Array.includes() on currentRoomId is sufficient — no fuzzy matching.
+            let crosspostRooms: string[] = newRow.crosspost_rooms || [];
+
+            // Supabase Realtime can deliver Postgres arrays as "{val1,val2}" strings.
             if (typeof crosspostRooms === 'string') {
-               try {
-                 if (crosspostRooms.startsWith('{') && crosspostRooms.endsWith('}')) {
-                   crosspostRooms = crosspostRooms.slice(1, -1).split(',').map((s: string) => s.replace(/^"|"$/g, ''));
-                 } else {
-                   crosspostRooms = JSON.parse(crosspostRooms);
-                 }
-               } catch (e) {
-                 crosspostRooms = [];
-               }
-            }
-            if (!Array.isArray(crosspostRooms)) {
-               crosspostRooms = [];
-            }
-            
-            let isTargeted = false;
-            const currentBreed = breed || 'all';
-
-            if (crosspostRooms.includes(currentRoomId)) {
-                isTargeted = true;
-            } else {
-                for (const target of crosspostRooms) {
-                    if (typeof target !== 'string') continue;
-                    const parts = target.split('::');
-                    if (parts.length !== 3) continue;
-                    
-                    const tLoc = parts[0];
-                    const tPet = parts[1];
-                    const tBreed = parts[2];
-
-                    let petMatch = false;
-                    if (tPet === 'all' || petType === 'all' || tPet === petType) petMatch = true;
-                    if (!petMatch) continue;
-
-                    let breedMatch = false;
-                    if (tBreed === 'all' || currentBreed === 'all' || tBreed === currentBreed) breedMatch = true;
-                    if (!breedMatch) continue;
-
-                    let locMatch = false;
-                    if (tLoc === location) {
-                        locMatch = true;
-                    } else if (tLoc !== 'global' && location === 'global') {
-                        locMatch = true;
-                    } else if (tLoc === 'global' && location !== 'global') {
-                        // message targeted at global must stay in global room only
-                        locMatch = false;
-                    } else {
-                        const tLocParts = tLoc.split(':');
-                        const rLocParts = location.split(':');
-
-                        if (tLocParts[0] === 'country' && rLocParts[1] === tLocParts[1]) {
-                            locMatch = true;
-                        } else if (tLocParts[0] === 'state' && rLocParts[1] === tLocParts[1] && rLocParts[2] === tLocParts[2]) {
-                            locMatch = true;
-                        } else if (rLocParts[0] === 'country' && tLocParts[1] === rLocParts[1]) {
-                            locMatch = true;
-                        } else if (rLocParts[0] === 'state' && tLocParts[1] === rLocParts[1] && tLocParts[2] === rLocParts[2]) {
-                            locMatch = true;
-                        }
-                    }
-
-                    if (locMatch) {
-                        isTargeted = true;
-                        break;
-                    }
+              try {
+                const s = crosspostRooms as string;
+                if (s.startsWith('{') && s.endsWith('}')) {
+                  crosspostRooms = s.slice(1, -1).split(',').map((v: string) => v.replace(/^"|"$/g, ''));
+                } else {
+                  crosspostRooms = JSON.parse(s);
                 }
+              } catch {
+                crosspostRooms = [];
+              }
             }
-            
-            if (!isTargeted) return;
+            if (!Array.isArray(crosspostRooms)) crosspostRooms = [];
+
+            // Strict: the current room must be explicitly listed.
+            if (!crosspostRooms.includes(currentRoomId)) return;
           }
 
           const { data: userData } = await supabase
