@@ -108,7 +108,6 @@ export default function ExplorePage() {
     : [];
 
   // ── Feed state ──
-  const [allFeedItems, setAllFeedItems] = useState<FeedItem[]>([]);
   const [feedItems, setFeedItems] = useState<FeedItem[]>([]);
   const [isFeedLoading, setIsFeedLoading] = useState(true);
 
@@ -254,7 +253,7 @@ export default function ExplorePage() {
         );
 
         console.log("Final feed:", merged.length, "chat items:", merged.filter((i) => i.source_type === "chat").length);
-        setAllFeedItems(merged);
+        setFeedItems(merged);
       } catch (err: any) {
         console.error("fetchFeed exception:", err);
         toast({ description: "Failed to load feed.", variant: "destructive" });
@@ -266,10 +265,6 @@ export default function ExplorePage() {
     fetchFeed();
   }, [filterSource, filterIntent, filterCategory, filterBreed, filterCountry, filterState, filterDistrict]);
 
-  // ── Sync allFeedItems → feedItems (all filtering already done inside fetchFeed) ──
-  useEffect(() => {
-    setFeedItems(allFeedItems);
-  }, [allFeedItems]);
 
   // ── Lightbox queries ──
   const { data: mediaLikes, refetch: refetchLikes } = useQuery({
