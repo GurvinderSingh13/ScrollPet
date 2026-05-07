@@ -15,7 +15,6 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { toast } from "@/hooks/use-toast";
 import { INDIA_LOCATIONS } from "@/data/indiaLocations";
-import { PET_BREEDS } from "@/data/petBreeds";
 import { Country, State } from "country-state-city";
 import Footer from "@/components/Footer";
 import Navbar from "@/components/Navbar";
@@ -103,7 +102,42 @@ export default function ExplorePage() {
   const [filterState, setFilterState] = useState("all");
   const [filterDistrict, setFilterDistrict] = useState("all");
 
-  const availableBreeds = filterCategory !== "all" ? (PET_BREEDS[filterCategory] ?? []) : [];
+  // ── Categories from DB (same source as chat room) ──
+  const { data: dbCategories = [] } = useQuery({
+    queryKey: ["explore-categories"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("categories")
+        .select("*")
+        .order("name", { ascending: true });
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const filterCategoryId: string | null =
+    filterCategory !== "all"
+      ? ((dbCategories.find(
+          (c: any) => c.name.toLowerCase() === filterCategory.toLowerCase(),
+        ) as any)?.id ?? null)
+      : null;
+
+  // ── Breeds from DB filtered by category — mirrors chat room's breed query ──
+  const { data: availableBreeds = [] } = useQuery({
+    queryKey: ["explore-breeds", filterCategoryId],
+    queryFn: async () => {
+      if (!filterCategoryId) return [];
+      const { data, error } = await supabase
+        .from("breeds")
+        .select("id, name")
+        .eq("category_id", filterCategoryId)
+        .order("name", { ascending: true });
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!filterCategoryId,
+  });
+
   const availableStates = filterCountry !== "all" ? State.getStatesOfCountry(filterCountry) : [];
   const selectedStateName = filterState !== "all"
     ? (availableStates.find((s) => s.isoCode === filterState)?.name ?? "")
