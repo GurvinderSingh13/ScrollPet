@@ -9,6 +9,7 @@ import {
   ChevronDown,
   Tag,
   MapPin,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
