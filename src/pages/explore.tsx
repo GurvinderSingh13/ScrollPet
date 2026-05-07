@@ -155,6 +155,7 @@ export default function ExplorePage() {
     { href: "/", label: "Home" },
     { href: "/chat", label: "Chat Rooms" },
     { href: "/explore", label: "Explore" },
+    { href: "/directory", label: "Directory" },
     { href: "/faq", label: "FAQ" },
     { href: "/contact", label: "Contact" },
   ];
