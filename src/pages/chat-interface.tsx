@@ -70,6 +70,7 @@ import { Separator } from "@/components/ui/separator";
 import { format, isToday, isYesterday } from "date-fns";
 
 import { PawPrint } from "lucide-react";
+import { PET_CATEGORIES } from "@/constants/config";
 
 function isMessageTargetedToCurrentRoom(
   crosspostRoomsArray: string[],
@@ -1522,62 +1523,75 @@ export default function ChatInterface() {
       {sidebarView === "public" && (
         <div className="flex-none bg-white border-b z-20 shadow-sm">
           <div className="flex items-center justify-start md:justify-center gap-3 md:gap-4 p-2 md:p-4 overflow-x-auto no-scrollbar bg-white">
-            {dbCategories.map((cat: any) => (
-              <button
-                key={cat.id}
-                onClick={() => {
-                  setActivePet(cat.name?.toLowerCase() || cat.id);
-                  setIsNewsRoom(false);
-                }}
-                className={cn(
-                  "flex-none relative rounded-full p-0.5 md:p-1 transition-all duration-200 cursor-pointer",
-                  activePet === (cat.name?.toLowerCase() || cat.id)
-                    ? "ring-2 ring-primary ring-offset-2 scale-105"
-                    : "opacity-70 hover:opacity-100 hover:scale-105",
-                )}
-              >
-                <div className="w-10 h-10 md:w-12 md:h-12 rounded-full overflow-hidden bg-gray-100 shadow-sm">
-                  {cat.image_url ? (
-                    <img
-                      src={cat.image_url}
-                      alt={cat.name}
-                      className="w-full h-full object-cover"
-                      onError={(e: any) => {
-                        e.currentTarget.style.display = 'none';
-                        if (e.currentTarget.nextSibling) e.currentTarget.nextSibling.style.display = 'flex';
-                      }}
-                    />
-                  ) : null}
-                  <div
-                    className="w-full h-full items-center justify-center bg-white border-2 border-[#007699]"
-                    style={{ display: cat.image_url ? 'none' : 'flex' }}
+            {PET_CATEGORIES.map((petCat) => {
+              if (petCat.value === "other") {
+                return (
+                  <button
+                    key="other"
+                    onClick={() => {
+                      setActivePet("other");
+                      setIsNewsRoom(false);
+                    }}
+                    className={cn(
+                      "flex-none relative rounded-full p-0.5 md:p-1 transition-all duration-200 cursor-pointer",
+                      activePet === "other"
+                        ? "ring-2 ring-primary ring-offset-2 scale-105"
+                        : "opacity-70 hover:opacity-100 hover:scale-105",
+                    )}
                   >
-                    <PawPrint className="w-5 h-5 text-[#007699]" fill="currentColor" />
+                    <div className="w-10 h-10 md:w-12 md:h-12 rounded-full overflow-hidden bg-gray-100 shadow-sm">
+                      <div className="w-full h-full flex items-center justify-center bg-white border-2 border-[#007699]">
+                        <div className="text-[#007699] font-bold text-[10px] md:text-xs">
+                          Other
+                        </div>
+                      </div>
+                    </div>
+                  </button>
+                );
+              }
+
+              const dbCat = dbCategories.find(
+                (c: any) => c.name?.toLowerCase() === petCat.value
+              );
+
+              const catImage = dbCat?.image_url;
+
+              return (
+                <button
+                  key={petCat.value}
+                  onClick={() => {
+                    setActivePet(petCat.value);
+                    setIsNewsRoom(false);
+                  }}
+                  className={cn(
+                    "flex-none relative rounded-full p-0.5 md:p-1 transition-all duration-200 cursor-pointer",
+                    activePet === petCat.value
+                      ? "ring-2 ring-primary ring-offset-2 scale-105"
+                      : "opacity-70 hover:opacity-100 hover:scale-105",
+                  )}
+                >
+                  <div className="w-10 h-10 md:w-12 md:h-12 rounded-full overflow-hidden bg-gray-100 shadow-sm">
+                    {catImage ? (
+                      <img
+                        src={catImage}
+                        alt={petCat.label}
+                        className="w-full h-full object-cover"
+                        onError={(e: any) => {
+                          e.currentTarget.style.display = 'none';
+                          if (e.currentTarget.nextSibling) e.currentTarget.nextSibling.style.display = 'flex';
+                        }}
+                      />
+                    ) : null}
+                    <div
+                      className="w-full h-full items-center justify-center bg-white border-2 border-[#007699]"
+                      style={{ display: catImage ? 'none' : 'flex' }}
+                    >
+                      <PawPrint className="w-5 h-5 text-[#007699]" fill="currentColor" />
+                    </div>
                   </div>
-                </div>
-              </button>
-            ))}
-            {/* "Other" catch-all */}
-            <button
-              onClick={() => {
-                setActivePet("other");
-                setIsNewsRoom(false);
-              }}
-              className={cn(
-                "flex-none relative rounded-full p-0.5 md:p-1 transition-all duration-200 cursor-pointer",
-                activePet === "other"
-                  ? "ring-2 ring-primary ring-offset-2 scale-105"
-                  : "opacity-70 hover:opacity-100 hover:scale-105",
-              )}
-            >
-              <div className="w-10 h-10 md:w-12 md:h-12 rounded-full overflow-hidden bg-gray-100 shadow-sm">
-                <div className="w-full h-full flex items-center justify-center bg-white border-2 border-[#007699]">
-                  <div className="text-[#007699] font-bold text-[10px] md:text-xs">
-                    Other
-                  </div>
-                </div>
-              </div>
-            </button>
+                </button>
+              );
+            })}
           </div>
         </div>
       )}

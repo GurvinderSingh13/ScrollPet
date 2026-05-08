@@ -85,18 +85,7 @@ const INTENT_BADGE_COLORS: Record<string, string> = {
   "Dead": "bg-gray-100 text-gray-600 border-gray-200",
 };
 
-const PET_CATEGORIES = [
-  { value: "dog",        label: "Dog" },
-  { value: "cat",        label: "Cat" },
-  { value: "fish",       label: "Fish" },
-  { value: "bird",       label: "Bird" },
-  { value: "rabbit",     label: "Rabbit" },
-  { value: "hamster",    label: "Hamster" },
-  { value: "reptile",    label: "Reptile" },
-  { value: "guinea_pig", label: "Guinea Pig" },
-  { value: "turtle",     label: "Turtle" },
-  { value: "horse",      label: "Horse" },
-];
+import { PET_CATEGORIES } from "@/constants/config";
 
 export default function ExplorePage() {
   const { user, isLoading, isAuthenticated } = useAuth();
@@ -157,6 +146,7 @@ export default function ExplorePage() {
   // ── Feed state ──
   const [feedItems, setFeedItems] = useState<FeedItem[]>([]);
   const [isFeedLoading, setIsFeedLoading] = useState(true);
+  const [selectedPost, setSelectedPost] = useState<FeedItem | null>(null);
 
   // ── Lightbox state ──
   const [selectedMedia, setSelectedMedia] = useState<MediaItem | null>(null);
@@ -608,7 +598,7 @@ export default function ExplorePage() {
                 <div
                   key={item.id}
                   className="aspect-square overflow-hidden rounded-xl bg-gray-100 cursor-pointer relative group"
-                  onClick={() => item.raw_media && setSelectedMedia(item.raw_media)}
+                  onClick={() => setSelectedPost(item)}
                 >
                   {item.media_type === "video" ? (
                     <video
@@ -639,7 +629,8 @@ export default function ExplorePage() {
                 /* ── Chat Marketplace Card ── */
                 <div
                   key={item.id}
-                  className="bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow overflow-hidden flex flex-col"
+                  className="bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow overflow-hidden flex flex-col cursor-pointer"
+                  onClick={() => setSelectedPost(item)}
                 >
                   {/* Image / video — always square, badge overlaid top-right */}
                   <div className="aspect-square bg-gray-100 relative overflow-hidden shrink-0">
@@ -704,6 +695,124 @@ export default function ExplorePage() {
           </div>
         )}
       </div>
+
+      {/* ── FULL-SCREEN MODAL (All Posts) ── */}
+      {selectedPost && (
+        <div
+          className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4"
+          onClick={() => setSelectedPost(null)}
+        >
+          <button
+            className="fixed top-4 right-4 text-white hover:text-white/70 bg-black/50 rounded-full p-2 cursor-pointer z-[60]"
+            onClick={() => setSelectedPost(null)}
+            aria-label="Close"
+          >
+            <X className="w-6 h-6" />
+          </button>
+          
+          <div
+            className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col md:flex-row relative z-50 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Media Area */}
+            <div className="md:w-[60%] bg-black flex items-center justify-center min-h-[40vh] md:min-h-0">
+              {selectedPost.display_image ? (
+                selectedPost.media_type === "video" ? (
+                  <video
+                    src={selectedPost.display_image}
+                    controls
+                    autoPlay
+                    className="w-full h-full max-h-[55vh] md:max-h-[90vh] object-contain"
+                  />
+                ) : (
+                  <img
+                    src={selectedPost.display_image}
+                    alt="Post media"
+                    className="w-full h-full max-h-[55vh] md:max-h-[90vh] object-contain"
+                  />
+                )
+              ) : (
+                <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-gray-50 to-gray-200 min-h-[300px]">
+                  <span className="text-6xl opacity-20 mb-4">🐾</span>
+                  <span className="text-sm font-medium text-gray-400">No media attached</span>
+                </div>
+              )}
+            </div>
+            
+            {/* Details Area */}
+            <div className="md:w-[40%] flex flex-col bg-white">
+              {/* Header: User Info */}
+              <div className="flex items-center gap-3 p-4 border-b border-gray-100 shrink-0">
+                <div className="h-10 w-10 rounded-full overflow-hidden bg-gray-100 shrink-0">
+                  <img
+                    src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${selectedPost.user_id ?? selectedPost.id}`}
+                    alt="avatar"
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-bold text-gray-900 truncate">{selectedPost.user_display_name}</h3>
+                  <p className="text-xs text-gray-500">
+                    {new Date(selectedPost.created_at).toLocaleDateString(undefined, { 
+                      year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+                    })}
+                  </p>
+                </div>
+              </div>
+              
+              {/* Content body */}
+              <div className="p-4 overflow-y-auto flex-1 space-y-5">
+                {/* Text Content */}
+                {selectedPost.display_text && (
+                  <div className="bg-gray-50 p-3.5 rounded-xl border border-gray-100">
+                    <p className="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">
+                      {selectedPost.display_text}
+                    </p>
+                  </div>
+                )}
+                
+                {/* Details Grid */}
+                <div>
+                  <h4 className="text-xs font-bold text-gray-900 uppercase tracking-wider mb-3">Post Details</h4>
+                  <div className="grid grid-cols-2 gap-y-4 gap-x-2 text-sm">
+                    {selectedPost.category && (
+                      <div>
+                        <span className="text-gray-500 block text-[10px] uppercase tracking-wide">Category</span>
+                        <span className="font-medium text-gray-900 capitalize">{selectedPost.category}</span>
+                      </div>
+                    )}
+                    {selectedPost.breed && (
+                      <div>
+                        <span className="text-gray-500 block text-[10px] uppercase tracking-wide">Breed</span>
+                        <span className="font-medium text-gray-900 capitalize">{selectedPost.breed.replace(/-/g, ' ')}</span>
+                      </div>
+                    )}
+                    {selectedPost.location && (
+                      <div className="col-span-2">
+                        <span className="text-gray-500 block text-[10px] uppercase tracking-wide">Location</span>
+                        <span className="font-medium text-gray-900 flex items-center gap-1">
+                          <MapPin className="w-3.5 h-3.5 text-gray-400" />
+                          {selectedPost.location}
+                        </span>
+                      </div>
+                    )}
+                    {selectedPost.intent_status && (
+                      <div className="col-span-2">
+                        <span className="text-gray-500 block text-[10px] uppercase tracking-wide">Status</span>
+                        <div className="mt-1">
+                          <span className={cn("text-[10px] font-bold px-2 py-1 rounded-full border shadow-sm", INTENT_BADGE_COLORS[selectedPost.intent_status])}>
+                            {selectedPost.intent_status}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── LIGHTBOX (media items only) ── */}
       {selectedMedia && (

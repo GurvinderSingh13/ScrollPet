@@ -41,3 +41,17 @@ export const getAvailableDurations = (role: string) => {
     { label: "Permanent", value: "permanent" },
   ];
 };
+
+export const PET_CATEGORIES = [
+  { value: "cat", label: "Cat" },
+  { value: "dog", label: "Dog" },
+  { value: "fish", label: "Fish" },
+  { value: "guinea pig", label: "Guinea Pig" },
+  { value: "hamster", label: "Hamster" },
+  { value: "horse", label: "Horse" },
+  { value: "parrot", label: "Parrot" },
+  { value: "pigeon", label: "Pigeon" },
+  { value: "rabbit", label: "Rabbit" },
+  { value: "turtle", label: "Turtle" },
+  { value: "other", label: "Other" },
+];
