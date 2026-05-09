@@ -35,6 +35,7 @@ import {
   Loader2,
   Newspaper,
   Trash2,
+  X,
 } from "lucide-react";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { cn } from "@/lib/utils";
@@ -132,6 +133,7 @@ function isMessageTargetedToCurrentRoom(
 
 function usePinnedStates() {
   const [pinnedIds, setPinnedIds] = useState<string[]>(() => {
+    if (typeof window === "undefined") return [];
     const saved = localStorage.getItem("pinnedStates");
     return saved ? JSON.parse(saved) : [];
   });
@@ -184,6 +186,7 @@ export default function ChatInterface() {
         return urlCategory.toLowerCase().trim();
       }
     }
+    if (typeof window === "undefined") return "dog";
     return sessionStorage.getItem("activePet") || "dog";
   });
 
@@ -199,9 +202,18 @@ export default function ChatInterface() {
     }
   }, []);
 
-  const [activeBreed, setActiveBreed] = useState<string | null>(() => sessionStorage.getItem("activeBreed") || null);
-  const [activeLocation, setActiveLocation] = useState(() => sessionStorage.getItem("activeLocation") || "global");
-  const [activeDistrict, setActiveDistrict] = useState<string | null>(() => sessionStorage.getItem("activeDistrict") || null);
+  const [activeBreed, setActiveBreed] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    return sessionStorage.getItem("activeBreed") || null;
+  });
+  const [activeLocation, setActiveLocation] = useState(() => {
+    if (typeof window === "undefined") return "global";
+    return sessionStorage.getItem("activeLocation") || "global";
+  });
+  const [activeDistrict, setActiveDistrict] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    return sessionStorage.getItem("activeDistrict") || null;
+  });
   const [activeDmUser, setActiveDmUser] = useState<{
     id: string;
     name: string;
@@ -213,9 +225,14 @@ export default function ChatInterface() {
   useEffect(() => { if (activeDistrict) sessionStorage.setItem("activeDistrict", activeDistrict); else sessionStorage.removeItem("activeDistrict"); }, [activeDistrict]);
   const { user, isLoading: authLoading, isAuthenticated, logout } = useAuth();
   const [, setLocation] = useLocation();
-  const [sidebarView, setSidebarView] = useState<"public" | "private">(
-    "public",
-  );
+  const [sidebarView, setSidebarView] = useState<"public" | "private">("public");
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("view") === "private" || window.location.pathname === "/inbox") {
+      setSidebarView("private");
+    }
+  }, []);
   const [messages, setMessages] = useState<any[]>([]);
   const [unreadDmCount, setUnreadDmCount] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -1377,7 +1394,7 @@ export default function ChatInterface() {
       : [];
 
   return (
-    <div className="h-[100dvh] pt-16 md:pt-20 flex flex-col bg-background font-sans overflow-hidden">
+    <div className="h-[100dvh] pt-20 flex flex-col bg-background font-sans overflow-hidden">
 
       {sidebarView === "public" && (
         <div className="flex-none bg-white border-b z-20 shadow-sm">

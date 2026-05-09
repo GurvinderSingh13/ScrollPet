@@ -67,33 +67,34 @@ export default function Navbar() {
           ))}
         </nav>
 
-        <div className="flex items-center gap-4">
-          {/* Conditional icon logic for Profile Page vs others */}
-          {currentPath === "/user-profile" ? (
-            isAuthenticated && (
+        <div className="flex items-center gap-3 md:gap-4">
+          {/* Action Icon: Message Circle (or Logout on Profile page) */}
+          {isAuthenticated && (
+            currentPath === "/user-profile" ? (
               <button
                 aria-label="Log Out"
                 onClick={logout}
-                className="flex items-center justify-center w-10 h-10 rounded-full hover:bg-muted text-destructive transition-all cursor-pointer"
+                className="flex items-center justify-center w-10 h-10 rounded-full hover:bg-red-50 text-destructive transition-all cursor-pointer"
                 title="Log Out"
               >
                 <LogOut className="w-5 h-5" strokeWidth={1.8} />
               </button>
+            ) : (
+              <button
+                aria-label="Direct Messages"
+                onClick={() => setLocation("/inbox")}
+                className="flex items-center justify-center w-10 h-10 rounded-full hover:bg-muted text-muted-foreground hover:text-[#007699] transition-all cursor-pointer"
+                title="Direct Messages"
+              >
+                <MessageCircle className="w-5 h-5" strokeWidth={1.8} />
+              </button>
             )
-          ) : (
-            <button
-              aria-label="Direct Messages"
-              onClick={() => setLocation(isAuthenticated ? "/chat-interface" : "/login")}
-              className="flex items-center justify-center w-10 h-10 rounded-full hover:bg-muted text-muted-foreground hover:text-[#007699] transition-all cursor-pointer"
-              title={isAuthenticated ? "Direct Messages" : "Log in to view messages"}
-            >
-              <MessageCircle className="w-5 h-5" strokeWidth={1.8} />
-            </button>
           )}
 
-          <div className="hidden md:flex items-center gap-4">
+          {/* Profile Section - Now visible on all screen sizes */}
+          <div className="flex items-center">
             {isLoading ? (
-              <Button variant="ghost" disabled>...</Button>
+              <div className="w-10 h-10 rounded-full bg-muted animate-pulse" />
             ) : isAuthenticated ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -142,7 +143,7 @@ export default function Navbar() {
             ) : (
               <Button
                 onClick={() => (window.location.href = "/login")}
-                className="font-bold cursor-pointer rounded-full px-6"
+                className="font-bold cursor-pointer rounded-full px-5 md:px-6 h-9 md:h-10 text-sm md:text-base"
               >
                 Login
               </Button>

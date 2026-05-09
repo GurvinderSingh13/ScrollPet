@@ -463,7 +463,7 @@ export default function UserProfile() {
               )}
             </div>
             {/* Actions */}
-            <div className="flex items-center gap-2 pb-2 md:pb-1">
+            <div className="flex flex-wrap items-center gap-2 pb-2 md:pb-1">
               <Link href={`/profile/${user?.username}`}>
                 <button className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white border border-gray-200 text-sm font-semibold text-gray-700 hover:border-[#007699] hover:text-[#007699] hover:shadow-md transition-all cursor-pointer">
                   <User className="w-4 h-4" /> View Profile
@@ -471,6 +471,12 @@ export default function UserProfile() {
               </Link>
               <button onClick={() => { openEditProfile(); }} className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#007699] text-white text-sm font-semibold hover:bg-[#005a75] shadow-md hover:shadow-lg transition-all cursor-pointer">
                 <Edit3 className="w-4 h-4" /> Edit
+              </button>
+              <button
+                onClick={logout}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-red-50 border border-red-200 text-sm font-semibold text-red-600 hover:bg-red-100 hover:shadow-md transition-all cursor-pointer"
+              >
+                <LogOut className="w-4 h-4" /> Logout
               </button>
             </div>
           </div>

@@ -30,6 +30,7 @@ import {
   UserPlus,
   UserCheck,
   Tag,
+  X,
 } from "lucide-react";
 import logoImage from "@assets/Scrollpet_logo_1766997907297.png";
 import { cn } from "@/lib/utils";
