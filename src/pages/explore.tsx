@@ -740,19 +740,14 @@ export default function ExplorePage() {
         )}
       </div>
 
-      {/* ── FULL-SCREEN MODAL (All Posts) ── */}
+      {/* ── FULL-SCREEN MODAL (All Posts) — Reels-style cinematic ── */}
       {selectedPost && (
-        <div
-          className="fixed inset-0 z-50 bg-black flex flex-col"
-          onClick={() => setSelectedPost(null)}
-        >
-          {/* ── Dark header with Back button ── */}
-          <div
-            className="flex-none flex items-center bg-black/80 backdrop-blur-sm px-2 py-3 z-[100]"
-            onClick={(e) => e.stopPropagation()}
-          >
+        <div className="fixed inset-0 z-[9999] bg-black h-[100dvh] flex flex-col overflow-hidden">
+
+          {/* ── Floating gradient header / Back button ── */}
+          <div className="absolute top-0 left-0 w-full p-4 bg-gradient-to-b from-black/80 to-transparent z-[10000] pointer-events-none">
             <button
-              className="flex items-center gap-1.5 text-white text-lg font-semibold p-2 rounded-lg hover:bg-white/10 active:bg-white/20 transition-colors"
+              className="pointer-events-auto text-white font-bold text-lg flex items-center gap-2 active:opacity-70 transition-opacity"
               onClick={() => setSelectedPost(null)}
               aria-label="Back"
             >
@@ -761,105 +756,89 @@ export default function ExplorePage() {
             </button>
           </div>
 
-          <div
-            className="flex-1 flex flex-col md:flex-row overflow-hidden"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Media Area */}
-            <div className="md:w-[60%] bg-black flex items-center justify-center">
-              {selectedPost.display_image ? (
-                selectedPost.media_type === "video" ? (
-                  <video
-                    src={selectedPost.display_image}
-                    controls
-                    autoPlay
-                    className="w-full object-contain max-h-[70vh]"
-                  />
-                ) : (
-                  <img
-                    src={selectedPost.display_image}
-                    alt="Post media"
-                    className="w-full object-contain max-h-[70vh]"
-                  />
-                )
+          {/* ── Cinematic media area ── */}
+          <div className="flex-1 relative flex items-center justify-center overflow-hidden bg-black">
+            {selectedPost.display_image ? (
+              selectedPost.media_type === "video" ? (
+                <video
+                  src={selectedPost.display_image}
+                  controls
+                  autoPlay
+                  playsInline
+                  className="max-h-full w-full object-contain"
+                />
               ) : (
-                <div className="w-full flex flex-col items-center justify-center bg-gradient-to-br from-gray-800 to-gray-900 py-20">
-                  <span className="text-6xl opacity-20 mb-4">🐾</span>
-                  <span className="text-sm font-medium text-gray-400">No media attached</span>
-                </div>
+                <img
+                  src={selectedPost.display_image}
+                  alt="Post media"
+                  className="max-h-full w-full object-contain"
+                />
+              )
+            ) : (
+              <div className="flex flex-col items-center justify-center gap-3 opacity-40">
+                <span className="text-7xl">🐾</span>
+                <span className="text-sm font-medium text-gray-400">No media attached</span>
+              </div>
+            )}
+          </div>
+
+          {/* ── Reels-style dark details drawer ── */}
+          <div className="bg-zinc-900 text-white rounded-t-2xl p-5 overflow-y-auto max-h-[40vh] shrink-0">
+
+            {/* User row */}
+            <div className="flex items-center gap-3 mb-4">
+              <div className="h-9 w-9 rounded-full overflow-hidden bg-zinc-700 shrink-0 ring-2 ring-white/20">
+                <img
+                  src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${selectedPost.user_id ?? selectedPost.id}`}
+                  alt="avatar"
+                  className="w-full h-full object-cover"
+                />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-bold text-white truncate">{selectedPost.user_display_name}</p>
+                <p className="text-xs text-zinc-400">
+                  {new Date(selectedPost.created_at).toLocaleDateString(undefined, {
+                    year: 'numeric', month: 'short', day: 'numeric',
+                  })}
+                </p>
+              </div>
+              {selectedPost.intent_status && INTENT_BADGE_COLORS[selectedPost.intent_status] && (
+                <span className={cn("text-[10px] font-bold px-2.5 py-1 rounded-full border shrink-0", INTENT_BADGE_COLORS[selectedPost.intent_status])}>
+                  {selectedPost.intent_status}
+                </span>
               )}
             </div>
-            
-            {/* Details Area */}
-            <div className="md:w-[40%] flex flex-col bg-white">
-              {/* Header: User Info */}
-              <div className="flex items-center gap-3 p-4 border-b border-gray-100 shrink-0">
-                <div className="h-10 w-10 rounded-full overflow-hidden bg-gray-100 shrink-0">
-                  <img
-                    src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${selectedPost.user_id ?? selectedPost.id}`}
-                    alt="avatar"
-                    className="w-full h-full object-cover"
-                  />
+
+            {/* Text content */}
+            {selectedPost.display_text && (
+              <p className="text-sm text-zinc-200 whitespace-pre-wrap leading-relaxed mb-4">
+                {selectedPost.display_text}
+              </p>
+            )}
+
+            {/* Details chips */}
+            <div className="flex flex-wrap gap-2">
+              {selectedPost.category && (
+                <div className="bg-zinc-800 rounded-lg px-3 py-1.5">
+                  <span className="text-[9px] text-zinc-400 uppercase tracking-wide block">Category</span>
+                  <span className="text-xs font-semibold text-white capitalize">{selectedPost.category}</span>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-bold text-gray-900 truncate">{selectedPost.user_display_name}</h3>
-                  <p className="text-xs text-gray-500">
-                    {new Date(selectedPost.created_at).toLocaleDateString(undefined, { 
-                      year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
-                    })}
-                  </p>
+              )}
+              {selectedPost.breed && (
+                <div className="bg-zinc-800 rounded-lg px-3 py-1.5">
+                  <span className="text-[9px] text-zinc-400 uppercase tracking-wide block">Breed</span>
+                  <span className="text-xs font-semibold text-white capitalize">{selectedPost.breed.replace(/-/g, ' ')}</span>
                 </div>
-              </div>
-              
-              {/* Content body */}
-              <div className="p-4 overflow-y-auto flex-1 space-y-5">
-                {/* Text Content */}
-                {selectedPost.display_text && (
-                  <div className="bg-gray-50 p-3.5 rounded-xl border border-gray-100">
-                    <p className="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">
-                      {selectedPost.display_text}
-                    </p>
-                  </div>
-                )}
-                
-                {/* Details Grid */}
-                <div>
-                  <h4 className="text-xs font-bold text-gray-900 uppercase tracking-wider mb-3">Post Details</h4>
-                  <div className="grid grid-cols-2 gap-y-4 gap-x-2 text-sm">
-                    {selectedPost.category && (
-                      <div>
-                        <span className="text-gray-500 block text-[10px] uppercase tracking-wide">Category</span>
-                        <span className="font-medium text-gray-900 capitalize">{selectedPost.category}</span>
-                      </div>
-                    )}
-                    {selectedPost.breed && (
-                      <div>
-                        <span className="text-gray-500 block text-[10px] uppercase tracking-wide">Breed</span>
-                        <span className="font-medium text-gray-900 capitalize">{selectedPost.breed.replace(/-/g, ' ')}</span>
-                      </div>
-                    )}
-                    {selectedPost.location && (
-                      <div className="col-span-2">
-                        <span className="text-gray-500 block text-[10px] uppercase tracking-wide">Location</span>
-                        <span className="font-medium text-gray-900 flex items-center gap-1">
-                          <MapPin className="w-3.5 h-3.5 text-gray-400" />
-                          {selectedPost.location}
-                        </span>
-                      </div>
-                    )}
-                    {selectedPost.intent_status && (
-                      <div className="col-span-2">
-                        <span className="text-gray-500 block text-[10px] uppercase tracking-wide">Status</span>
-                        <div className="mt-1">
-                          <span className={cn("text-[10px] font-bold px-2 py-1 rounded-full border shadow-sm", INTENT_BADGE_COLORS[selectedPost.intent_status])}>
-                            {selectedPost.intent_status}
-                          </span>
-                        </div>
-                      </div>
-                    )}
+              )}
+              {selectedPost.location && (
+                <div className="bg-zinc-800 rounded-lg px-3 py-1.5 flex items-start gap-1.5">
+                  <MapPin className="w-3 h-3 text-zinc-400 mt-0.5 shrink-0" />
+                  <div>
+                    <span className="text-[9px] text-zinc-400 uppercase tracking-wide block">Location</span>
+                    <span className="text-xs font-semibold text-white">{selectedPost.location}</span>
                   </div>
                 </div>
-              </div>
+              )}
             </div>
           </div>
         </div>
