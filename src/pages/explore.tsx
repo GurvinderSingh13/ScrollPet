@@ -17,7 +17,15 @@ import {
   Tag,
   MapPin,
   X,
+  Filter,
 } from "lucide-react";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
@@ -441,6 +449,123 @@ export default function ExplorePage() {
     }
   };
 
+  const renderFilters = () => (
+    <>
+      {/* Source — segmented control */}
+      <div className="flex flex-row gap-1.5 overflow-x-auto no-scrollbar w-full md:w-auto">
+        {([
+          { value: "all", label: "All Posts" },
+          { value: "media", label: "Photos & Videos" },
+          { value: "chat", label: "Chat Posts" },
+        ] as { value: "all" | "media" | "chat"; label: string }[]).map(({ value, label }) => (
+          <button
+            key={value}
+            onClick={() => setFilterSource(value)}
+            className={cn(
+              "flex-none text-sm font-medium rounded-xl px-3.5 py-1.5 whitespace-nowrap transition-colors",
+              filterSource === value
+                ? "bg-[#007699] text-white shadow-sm"
+                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+            )}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {/* Intent */}
+      <div className="relative w-full md:w-auto">
+        <select
+          value={filterIntent}
+          onChange={(e) => setFilterIntent(e.target.value)}
+          className="w-full md:w-auto text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-xl pl-3 pr-8 py-1.5 outline-none cursor-pointer appearance-none hover:border-[#007699] focus:border-[#007699] transition-colors"
+        >
+          <option value="all">All Intents</option>
+          {INTENT_OPTIONS.map((opt) => (
+            <option key={opt} value={opt}>{opt}</option>
+          ))}
+        </select>
+        <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+      </div>
+
+      {/* Category */}
+      <div className="relative w-full md:w-auto">
+        <select
+          value={filterCategory}
+          onChange={(e) => { setFilterCategory(e.target.value); setFilterBreed("all"); }}
+          className="w-full md:w-auto text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-xl pl-3 pr-8 py-1.5 outline-none cursor-pointer appearance-none hover:border-[#007699] focus:border-[#007699] transition-colors"
+        >
+          <option value="all">All Categories</option>
+          {PET_CATEGORIES.map((c) => (
+            <option key={c.value} value={c.value}>{c.label}</option>
+          ))}
+        </select>
+        <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+      </div>
+
+      {/* Breed */}
+      <div className="relative w-full md:w-auto">
+        <select
+          value={filterBreed}
+          onChange={(e) => setFilterBreed(e.target.value)}
+          disabled={availableBreeds.length === 0}
+          className="w-full md:w-auto text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-xl pl-3 pr-8 py-1.5 outline-none cursor-pointer appearance-none hover:border-[#007699] focus:border-[#007699] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          <option value="all">All Breeds</option>
+          {availableBreeds.map((b) => (
+            <option key={b.id} value={b.id}>{b.name}</option>
+          ))}
+        </select>
+        <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+      </div>
+
+      {/* Country */}
+      <div className="relative w-full md:w-auto">
+        <select
+          value={filterCountry}
+          onChange={(e) => { setFilterCountry(e.target.value); setFilterState("all"); setFilterDistrict("all"); }}
+          className="w-full md:w-auto text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-xl pl-3 pr-8 py-1.5 outline-none cursor-pointer appearance-none hover:border-[#007699] focus:border-[#007699] transition-colors"
+        >
+          <option value="all">All Countries</option>
+          <option value="IN">India</option>
+        </select>
+        <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+      </div>
+
+      {/* State */}
+      <div className="relative w-full md:w-auto">
+        <select
+          value={filterState}
+          onChange={(e) => { setFilterState(e.target.value); setFilterDistrict("all"); }}
+          disabled={filterCountry === "all"}
+          className="w-full md:w-auto text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-xl pl-3 pr-8 py-1.5 outline-none cursor-pointer appearance-none hover:border-[#007699] focus:border-[#007699] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          <option value="all">All States</option>
+          {availableStates.map((s) => (
+            <option key={s.isoCode} value={s.isoCode}>{s.name}</option>
+          ))}
+        </select>
+        <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+      </div>
+
+      {/* District */}
+      <div className="relative w-full md:w-auto">
+        <select
+          value={filterDistrict}
+          onChange={(e) => setFilterDistrict(e.target.value)}
+          disabled={availableDistricts.length === 0}
+          className="w-full md:w-auto text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-xl pl-3 pr-8 py-1.5 outline-none cursor-pointer appearance-none hover:border-[#007699] focus:border-[#007699] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          <option value="all">All Districts</option>
+          {availableDistricts.map((d) => (
+            <option key={d.id} value={d.name}>{d.name}</option>
+          ))}
+        </select>
+        <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+      </div>
+    </>
+  );
+
   return (
     <div className="min-h-screen bg-gray-50">
       <Navbar />
@@ -457,111 +582,30 @@ export default function ExplorePage() {
 
         {/* ── FILTER BAR ── */}
         <div className="bg-white border-b border-gray-200">
-          <div className="max-w-5xl mx-auto px-4 py-3 flex flex-wrap items-center gap-2 md:gap-3">
-
-            {/* Source */}
-            <div className="relative">
-              <select
-                value={filterSource}
-                onChange={(e) => setFilterSource(e.target.value as "all" | "media" | "chat")}
-                className="text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-xl pl-3 pr-8 py-1.5 outline-none cursor-pointer appearance-none hover:border-[#007699] focus:border-[#007699] transition-colors"
-              >
-                <option value="all">All Posts</option>
-                <option value="media">Profile Media</option>
-                <option value="chat">Chat Room Posts</option>
-              </select>
-              <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+          <div className="max-w-5xl mx-auto px-4 py-3 flex items-center gap-2 md:gap-3">
+            {/* Mobile Sheet Filter */}
+            <div className="md:hidden">
+              <Sheet>
+                <SheetTrigger asChild>
+                  <button className="flex items-center gap-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-xl px-4 py-1.5 hover:border-[#007699] transition-colors">
+                    <Filter className="w-4 h-4" />
+                    Filters
+                  </button>
+                </SheetTrigger>
+                <SheetContent side="bottom" className="h-[80vh] rounded-t-2xl overflow-y-auto">
+                  <SheetHeader className="mb-4">
+                    <SheetTitle>Filters</SheetTitle>
+                  </SheetHeader>
+                  <div className="flex flex-col gap-4">
+                    {renderFilters()}
+                  </div>
+                </SheetContent>
+              </Sheet>
             </div>
 
-            {/* Intent */}
-            <div className="relative">
-              <select
-                value={filterIntent}
-                onChange={(e) => setFilterIntent(e.target.value)}
-                className="text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-xl pl-3 pr-8 py-1.5 outline-none cursor-pointer appearance-none hover:border-[#007699] focus:border-[#007699] transition-colors"
-              >
-                <option value="all">All Intents</option>
-                {INTENT_OPTIONS.map((opt) => (
-                  <option key={opt} value={opt}>{opt}</option>
-                ))}
-              </select>
-              <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
-            </div>
-
-            {/* Category */}
-            <div className="relative">
-              <select
-                value={filterCategory}
-                onChange={(e) => { setFilterCategory(e.target.value); setFilterBreed("all"); }}
-                className="text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-xl pl-3 pr-8 py-1.5 outline-none cursor-pointer appearance-none hover:border-[#007699] focus:border-[#007699] transition-colors"
-              >
-                <option value="all">All Categories</option>
-                {PET_CATEGORIES.map((c) => (
-                  <option key={c.value} value={c.value}>{c.label}</option>
-                ))}
-              </select>
-              <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
-            </div>
-
-            {/* Breed */}
-            <div className="relative">
-              <select
-                value={filterBreed}
-                onChange={(e) => setFilterBreed(e.target.value)}
-                disabled={availableBreeds.length === 0}
-                className="text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-xl pl-3 pr-8 py-1.5 outline-none cursor-pointer appearance-none hover:border-[#007699] focus:border-[#007699] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                <option value="all">All Breeds</option>
-                {availableBreeds.map((b) => (
-                  <option key={b.id} value={b.id}>{b.name}</option>
-                ))}
-              </select>
-              <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
-            </div>
-
-            {/* Country */}
-            <div className="relative">
-              <select
-                value={filterCountry}
-                onChange={(e) => { setFilterCountry(e.target.value); setFilterState("all"); setFilterDistrict("all"); }}
-                className="text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-xl pl-3 pr-8 py-1.5 outline-none cursor-pointer appearance-none hover:border-[#007699] focus:border-[#007699] transition-colors"
-              >
-                <option value="all">All Countries</option>
-                <option value="IN">India</option>
-              </select>
-              <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
-            </div>
-
-            {/* State */}
-            <div className="relative">
-              <select
-                value={filterState}
-                onChange={(e) => { setFilterState(e.target.value); setFilterDistrict("all"); }}
-                disabled={filterCountry === "all"}
-                className="text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-xl pl-3 pr-8 py-1.5 outline-none cursor-pointer appearance-none hover:border-[#007699] focus:border-[#007699] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                <option value="all">All States</option>
-                {availableStates.map((s) => (
-                  <option key={s.isoCode} value={s.isoCode}>{s.name}</option>
-                ))}
-              </select>
-              <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
-            </div>
-
-            {/* District */}
-            <div className="relative">
-              <select
-                value={filterDistrict}
-                onChange={(e) => setFilterDistrict(e.target.value)}
-                disabled={availableDistricts.length === 0}
-                className="text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-xl pl-3 pr-8 py-1.5 outline-none cursor-pointer appearance-none hover:border-[#007699] focus:border-[#007699] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                <option value="all">All Districts</option>
-                {availableDistricts.map((d) => (
-                  <option key={d.id} value={d.name}>{d.name}</option>
-                ))}
-              </select>
-              <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+            {/* Desktop Inline Filters */}
+            <div className="hidden md:flex flex-wrap items-center gap-3">
+              {renderFilters()}
             </div>
 
             {/* Result count */}
@@ -699,40 +743,47 @@ export default function ExplorePage() {
       {/* ── FULL-SCREEN MODAL (All Posts) ── */}
       {selectedPost && (
         <div
-          className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4"
+          className="fixed inset-0 z-50 bg-black flex flex-col"
           onClick={() => setSelectedPost(null)}
         >
-          <button
-            className="fixed top-4 right-4 text-white hover:text-white/70 bg-black/50 rounded-full p-2 cursor-pointer z-[60]"
-            onClick={() => setSelectedPost(null)}
-            aria-label="Close"
-          >
-            <X className="w-6 h-6" />
-          </button>
-          
+          {/* ── Dark header with Back button ── */}
           <div
-            className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col md:flex-row relative z-50 shadow-2xl"
+            className="flex-none flex items-center bg-black/80 backdrop-blur-sm px-2 py-3 z-[100]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              className="flex items-center gap-1.5 text-white text-lg font-semibold p-2 rounded-lg hover:bg-white/10 active:bg-white/20 transition-colors"
+              onClick={() => setSelectedPost(null)}
+              aria-label="Back"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+              Back
+            </button>
+          </div>
+
+          <div
+            className="flex-1 flex flex-col md:flex-row overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Media Area */}
-            <div className="md:w-[60%] bg-black flex items-center justify-center min-h-[40vh] md:min-h-0">
+            <div className="md:w-[60%] bg-black flex items-center justify-center">
               {selectedPost.display_image ? (
                 selectedPost.media_type === "video" ? (
                   <video
                     src={selectedPost.display_image}
                     controls
                     autoPlay
-                    className="w-full h-full max-h-[55vh] md:max-h-[90vh] object-contain"
+                    className="w-full object-contain max-h-[70vh]"
                   />
                 ) : (
                   <img
                     src={selectedPost.display_image}
                     alt="Post media"
-                    className="w-full h-full max-h-[55vh] md:max-h-[90vh] object-contain"
+                    className="w-full object-contain max-h-[70vh]"
                   />
                 )
               ) : (
-                <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-gray-50 to-gray-200 min-h-[300px]">
+                <div className="w-full flex flex-col items-center justify-center bg-gradient-to-br from-gray-800 to-gray-900 py-20">
                   <span className="text-6xl opacity-20 mb-4">🐾</span>
                   <span className="text-sm font-medium text-gray-400">No media attached</span>
                 </div>
@@ -821,8 +872,8 @@ export default function ExplorePage() {
           onClick={() => setSelectedMedia(null)}
         >
           <button
-            className="fixed top-4 right-4 text-white hover:text-white/70 bg-black/50 rounded-full p-2 cursor-pointer z-10"
-            onClick={() => setSelectedMedia(null)}
+            className="fixed top-4 right-4 text-white hover:text-white/70 bg-black/50 rounded-full p-2 cursor-pointer z-[70]"
+            onClick={(e) => { e.stopPropagation(); setSelectedMedia(null); }}
             aria-label="Close"
           >
             <X className="w-6 h-6" />

@@ -1522,7 +1522,7 @@ export default function ChatInterface() {
 
       {sidebarView === "public" && (
         <div className="flex-none bg-white border-b z-20 shadow-sm">
-          <div className="flex items-center justify-start md:justify-center gap-3 md:gap-4 p-2 md:p-4 overflow-x-auto no-scrollbar bg-white">
+          <div className="flex items-center justify-start md:justify-center gap-3 md:gap-4 p-2 md:p-4 overflow-x-auto no-scrollbar bg-white snap-x snap-mandatory scroll-px-4">
             {PET_CATEGORIES.map((petCat) => {
               if (petCat.value === "other") {
                 return (
@@ -1533,7 +1533,7 @@ export default function ChatInterface() {
                       setIsNewsRoom(false);
                     }}
                     className={cn(
-                      "flex-none relative rounded-full p-0.5 md:p-1 transition-all duration-200 cursor-pointer",
+                      "flex-none relative rounded-full p-0.5 md:p-1 transition-all duration-200 cursor-pointer snap-center",
                       activePet === "other"
                         ? "ring-2 ring-primary ring-offset-2 scale-105"
                         : "opacity-70 hover:opacity-100 hover:scale-105",
@@ -1564,7 +1564,7 @@ export default function ChatInterface() {
                     setIsNewsRoom(false);
                   }}
                   className={cn(
-                    "flex-none relative rounded-full p-0.5 md:p-1 transition-all duration-200 cursor-pointer",
+                    "flex-none relative rounded-full p-0.5 md:p-1 transition-all duration-200 cursor-pointer snap-center",
                     activePet === petCat.value
                       ? "ring-2 ring-primary ring-offset-2 scale-105"
                       : "opacity-70 hover:opacity-100 hover:scale-105",
