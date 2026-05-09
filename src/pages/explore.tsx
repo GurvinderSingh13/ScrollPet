@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { Link } from "wouter";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import {
   DropdownMenu,
@@ -155,6 +155,30 @@ export default function ExplorePage() {
   const [feedItems, setFeedItems] = useState<FeedItem[]>([]);
   const [isFeedLoading, setIsFeedLoading] = useState(true);
   const [selectedPost, setSelectedPost] = useState<FeedItem | null>(null);
+
+  // ── Reels / snap-scroll refs ──
+  const reelsScrollRef = useRef<HTMLDivElement>(null);
+  const itemRefsMap = useRef<Record<string, HTMLDivElement | null>>({});
+  const [, setLocation] = useLocation();
+
+  // When the reels feed opens, scroll to the clicked post immediately
+  useEffect(() => {
+    if (!selectedPost) return;
+    const el = itemRefsMap.current[selectedPost.id];
+    if (el) {
+      el.scrollIntoView({ behavior: "instant", block: "start" });
+    }
+  }, [selectedPost?.id]);
+
+  // Auth-gated profile navigation
+  const handleProfileClick = useCallback((postUserId: string | null) => {
+    if (!postUserId) return;
+    if (!user) {
+      setLocation("/login");
+      return;
+    }
+    setLocation(`/user-profile/${postUserId}`);
+  }, [user, setLocation]);
 
   // ── Lightbox state ──
   const [selectedMedia, setSelectedMedia] = useState<MediaItem | null>(null);
@@ -740,14 +764,14 @@ export default function ExplorePage() {
         )}
       </div>
 
-      {/* ── FULL-SCREEN MODAL (All Posts) — Reels-style cinematic ── */}
+      {/* ── REELS FEED — snap-scroll cinematic ── */}
       {selectedPost && (
-        <div className="fixed inset-0 z-[9999] bg-black h-[100dvh] flex flex-col overflow-hidden">
+        <div className="fixed inset-0 z-[9999] bg-black h-[100dvh] w-full overflow-hidden">
 
-          {/* ── Floating gradient header / Back button ── */}
-          <div className="absolute top-0 left-0 w-full p-4 bg-gradient-to-b from-black/80 to-transparent z-[10000] pointer-events-none">
+          {/* Fixed Back button — stays pinned while feed scrolls */}
+          <div className="fixed top-0 left-0 w-full p-4 bg-gradient-to-b from-black/70 to-transparent z-[10000] pointer-events-none">
             <button
-              className="pointer-events-auto text-white font-bold text-lg flex items-center gap-2 active:opacity-70 transition-opacity"
+              className="pointer-events-auto text-white font-bold text-lg flex items-center gap-2 active:opacity-60 transition-opacity"
               onClick={() => setSelectedPost(null)}
               aria-label="Back"
             >
@@ -756,90 +780,114 @@ export default function ExplorePage() {
             </button>
           </div>
 
-          {/* ── Cinematic media area ── */}
-          <div className="flex-1 relative flex items-center justify-center overflow-hidden bg-black">
-            {selectedPost.display_image ? (
-              selectedPost.media_type === "video" ? (
-                <video
-                  src={selectedPost.display_image}
-                  controls
-                  autoPlay
-                  playsInline
-                  className="max-h-full w-full object-contain"
-                />
-              ) : (
-                <img
-                  src={selectedPost.display_image}
-                  alt="Post media"
-                  className="max-h-full w-full object-contain"
-                />
-              )
-            ) : (
-              <div className="flex flex-col items-center justify-center gap-3 opacity-40">
-                <span className="text-7xl">🐾</span>
-                <span className="text-sm font-medium text-gray-400">No media attached</span>
-              </div>
-            )}
-          </div>
-
-          {/* ── Reels-style dark details drawer ── */}
-          <div className="bg-zinc-900 text-white rounded-t-2xl p-5 overflow-y-auto max-h-[40vh] shrink-0">
-
-            {/* User row */}
-            <div className="flex items-center gap-3 mb-4">
-              <div className="h-9 w-9 rounded-full overflow-hidden bg-zinc-700 shrink-0 ring-2 ring-white/20">
-                <img
-                  src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${selectedPost.user_id ?? selectedPost.id}`}
-                  alt="avatar"
-                  className="w-full h-full object-cover"
-                />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-bold text-white truncate">{selectedPost.user_display_name}</p>
-                <p className="text-xs text-zinc-400">
-                  {new Date(selectedPost.created_at).toLocaleDateString(undefined, {
-                    year: 'numeric', month: 'short', day: 'numeric',
-                  })}
-                </p>
-              </div>
-              {selectedPost.intent_status && INTENT_BADGE_COLORS[selectedPost.intent_status] && (
-                <span className={cn("text-[10px] font-bold px-2.5 py-1 rounded-full border shrink-0", INTENT_BADGE_COLORS[selectedPost.intent_status])}>
-                  {selectedPost.intent_status}
-                </span>
-              )}
-            </div>
-
-            {/* Text content */}
-            {selectedPost.display_text && (
-              <p className="text-sm text-zinc-200 whitespace-pre-wrap leading-relaxed mb-4">
-                {selectedPost.display_text}
-              </p>
-            )}
-
-            {/* Details chips */}
-            <div className="flex flex-wrap gap-2">
-              {selectedPost.category && (
-                <div className="bg-zinc-800 rounded-lg px-3 py-1.5">
-                  <span className="text-[9px] text-zinc-400 uppercase tracking-wide block">Category</span>
-                  <span className="text-xs font-semibold text-white capitalize">{selectedPost.category}</span>
+          {/* Snap-scroll container */}
+          <div
+            ref={reelsScrollRef}
+            className="h-full w-full overflow-y-scroll snap-y snap-mandatory"
+            style={{ scrollbarWidth: "none" }}
+          >
+            {feedItems.map((item) => (
+              <div
+                key={item.id}
+                ref={(el) => { itemRefsMap.current[item.id] = el; }}
+                className="h-[100dvh] w-full snap-start relative flex flex-col"
+              >
+                {/* ── Media area (flex-1 fills space between top gradient and drawer) ── */}
+                <div className="flex-1 relative flex items-center justify-center overflow-hidden bg-black">
+                  {item.display_image ? (
+                    item.media_type === "video" ? (
+                      <video
+                        src={item.display_image}
+                        controls
+                        playsInline
+                        loop
+                        className="max-h-full w-full object-contain"
+                      />
+                    ) : (
+                      <img
+                        src={item.display_image}
+                        alt="Post media"
+                        className="max-h-full w-full object-contain"
+                      />
+                    )
+                  ) : (
+                    <div className="flex flex-col items-center justify-center gap-3 opacity-30">
+                      <span className="text-7xl">🐾</span>
+                      <span className="text-sm font-medium text-gray-400">No media</span>
+                    </div>
+                  )}
                 </div>
-              )}
-              {selectedPost.breed && (
-                <div className="bg-zinc-800 rounded-lg px-3 py-1.5">
-                  <span className="text-[9px] text-zinc-400 uppercase tracking-wide block">Breed</span>
-                  <span className="text-xs font-semibold text-white capitalize">{selectedPost.breed.replace(/-/g, ' ')}</span>
-                </div>
-              )}
-              {selectedPost.location && (
-                <div className="bg-zinc-800 rounded-lg px-3 py-1.5 flex items-start gap-1.5">
-                  <MapPin className="w-3 h-3 text-zinc-400 mt-0.5 shrink-0" />
-                  <div>
-                    <span className="text-[9px] text-zinc-400 uppercase tracking-wide block">Location</span>
-                    <span className="text-xs font-semibold text-white">{selectedPost.location}</span>
+
+                {/* ── Dark Reels-style details drawer ── */}
+                <div className="bg-zinc-900 text-white rounded-t-2xl px-5 pt-4 pb-6 overflow-y-auto max-h-[42vh] shrink-0">
+
+                  {/* Drag handle */}
+                  <div className="w-10 h-1 bg-zinc-600 rounded-full mx-auto mb-4" />
+
+                  {/* Auth-protected profile row */}
+                  <div
+                    className="flex items-center gap-3 mb-4 cursor-pointer group"
+                    onClick={() => handleProfileClick(item.user_id)}
+                    role="button"
+                    aria-label={`View ${item.user_display_name}'s profile`}
+                  >
+                    <div className="h-10 w-10 rounded-full overflow-hidden bg-zinc-700 shrink-0 ring-2 ring-white/20 group-active:ring-white/50 transition-all">
+                      <img
+                        src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${item.user_id ?? item.id}`}
+                        alt="avatar"
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-bold text-white truncate group-hover:underline">{item.user_display_name}</p>
+                      <p className="text-xs text-zinc-400">
+                        {!user
+                          ? <span className="text-[#007699] font-medium">Log in to view profile →</span>
+                          : new Date(item.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
+                        }
+                      </p>
+                    </div>
+                    {item.intent_status && INTENT_BADGE_COLORS[item.intent_status] && (
+                      <span className={cn("text-[10px] font-bold px-2.5 py-1 rounded-full border shrink-0", INTENT_BADGE_COLORS[item.intent_status])}>
+                        {item.intent_status}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Text content */}
+                  {item.display_text && (
+                    <p className="text-sm text-zinc-200 whitespace-pre-wrap leading-relaxed mb-4">
+                      {item.display_text}
+                    </p>
+                  )}
+
+                  {/* Details chips */}
+                  <div className="flex flex-wrap gap-2">
+                    {item.category && (
+                      <div className="bg-zinc-800 rounded-lg px-3 py-1.5">
+                        <span className="text-[9px] text-zinc-400 uppercase tracking-wide block">Category</span>
+                        <span className="text-xs font-semibold text-white capitalize">{item.category}</span>
+                      </div>
+                    )}
+                    {item.breed && (
+                      <div className="bg-zinc-800 rounded-lg px-3 py-1.5">
+                        <span className="text-[9px] text-zinc-400 uppercase tracking-wide block">Breed</span>
+                        <span className="text-xs font-semibold text-white capitalize">{item.breed.replace(/-/g, ' ')}</span>
+                      </div>
+                    )}
+                    {item.location && (
+                      <div className="bg-zinc-800 rounded-lg px-3 py-1.5 flex items-start gap-1.5">
+                        <MapPin className="w-3 h-3 text-zinc-400 mt-0.5 shrink-0" />
+                        <div>
+                          <span className="text-[9px] text-zinc-400 uppercase tracking-wide block">Location</span>
+                          <span className="text-xs font-semibold text-white">{item.location}</span>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
-              )}
-            </div>
+              </div>
+            ))}
           </div>
         </div>
       )}
