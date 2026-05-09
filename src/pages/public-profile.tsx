@@ -18,7 +18,7 @@ export default function PublicProfile() {
             const { data: userData, error: userError } = await supabase
                 .from("users")
                 .select("*")
-                .or(`username.eq."${username}",display_name.eq."${username}"`)
+                .or(`username.eq."${username}",display_name.eq."${username}",id.eq.${username}`)
                 .single();
 
             if (userError || !userData) throw new Error("User not found");

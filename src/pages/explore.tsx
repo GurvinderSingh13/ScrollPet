@@ -170,15 +170,6 @@ export default function ExplorePage() {
     }
   }, [selectedPost?.id]);
 
-  // Auth-gated profile navigation
-  const handleProfileClick = useCallback((postUserId: string | null) => {
-    if (!postUserId) return;
-    if (!user) {
-      setLocation("/login");
-      return;
-    }
-    setLocation(`/user-profile/${postUserId}`);
-  }, [user, setLocation]);
 
   // ── Lightbox state ──
   const [selectedMedia, setSelectedMedia] = useState<MediaItem | null>(null);
@@ -819,16 +810,16 @@ export default function ExplorePage() {
                 </div>
 
                 {/* ── Dark Reels-style details drawer ── */}
-                <div className="bg-zinc-900 text-white rounded-t-2xl px-5 pt-4 pb-6 overflow-y-auto max-h-[42vh] shrink-0">
+                <div className="bg-zinc-900 text-white rounded-t-2xl px-5 pt-4 pb-6 overflow-y-auto overflow-x-visible max-h-[42vh] shrink-0">
 
                   {/* Drag handle */}
                   <div className="w-10 h-1 bg-zinc-600 rounded-full mx-auto mb-4" />
 
-                  {/* Auth-protected profile row */}
+                  {/* Clickable profile row — navigates directly to public profile */}
                   <div
                     className="flex items-center gap-3 mb-4 cursor-pointer group"
-                    onClick={() => handleProfileClick(item.user_id)}
-                    role="button"
+                    onClick={() => item.user_id && setLocation(`/profile/${item.user_id}`)}
+                    role="link"
                     aria-label={`View ${item.user_display_name}'s profile`}
                   >
                     <div className="h-10 w-10 rounded-full overflow-hidden bg-zinc-700 shrink-0 ring-2 ring-white/20 group-active:ring-white/50 transition-all">
@@ -841,10 +832,7 @@ export default function ExplorePage() {
                     <div className="flex-1 min-w-0">
                       <p className="font-bold text-white truncate group-hover:underline">{item.user_display_name}</p>
                       <p className="text-xs text-zinc-400">
-                        {!user
-                          ? <span className="text-[#007699] font-medium">Log in to view profile →</span>
-                          : new Date(item.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
-                        }
+                        {new Date(item.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
                       </p>
                     </div>
                     {item.intent_status && INTENT_BADGE_COLORS[item.intent_status] && (
