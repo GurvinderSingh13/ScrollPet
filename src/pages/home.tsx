@@ -3,32 +3,22 @@ import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
 import { motion, useInView } from "framer-motion";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
-  MessageCircle,
-  ShieldCheck,
-  Users,
   PawPrint,
-  Menu,
-  X,
   Heart,
   ArrowRight,
-  User,
-  Shield,
   Globe,
   Sparkles,
   Star,
   Zap,
   MapPin,
   Megaphone,
+  ShieldCheck,
+  Users,
+  Shield,
+  MessageCircle,
 } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import heroImage from "@assets/generated_images/happy_community_of_pet_lovers_in_a_park.png";
-import logoImage from "@assets/Scrollpet_logo_1766997907297.png";
 
 
 import { useAuth } from "@/hooks/use-auth";
@@ -82,8 +72,7 @@ function AnimatedCounter({ end, duration = 2000, suffix = "" }: { end: number; d
 }
 
 export default function Home() {
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const { user, isLoading, isAuthenticated, logout } = useAuth();
+  const { user, isLoading, isAuthenticated } = useAuth();
   const [activePetIndex, setActivePetIndex] = useState(0);
   const [, setLocation] = useLocation();
 
@@ -153,98 +142,6 @@ export default function Home() {
 
   return (
     <div className="min-h-screen pt-20 bg-background font-sans text-foreground overflow-x-hidden selection:bg-primary/20">
-      {/* Header */}
-      <header className="fixed w-full top-0 z-[100] bg-background/80 backdrop-blur-md border-b border-border/40 shadow-sm">
-        <div className="container mx-auto px-6 h-20 flex items-center justify-between">
-          <Link href="/" className="cursor-pointer">
-            <img
-              src={logoImage}
-              alt="ScrollPet Logo"
-              className="h-10 md:h-12 w-auto object-contain hover:opacity-90 transition-opacity"
-            />
-          </Link>
-
-          <nav className="hidden md:flex items-center gap-8 bg-muted/50 px-6 py-2 rounded-full border border-border/50">
-            <Link href="/" className="text-sm font-semibold hover:text-primary transition-colors cursor-pointer">Home</Link>
-            <Link href="/chat" className="text-sm font-semibold hover:text-primary transition-colors cursor-pointer">Chat Rooms</Link>
-            <Link href="/explore" className="text-sm font-semibold hover:text-primary transition-colors cursor-pointer">Explore</Link>
-            <Link href="/faq" className="text-sm font-semibold hover:text-primary transition-colors cursor-pointer">FAQ</Link>
-            <Link href="/contact" className="text-sm font-semibold hover:text-primary transition-colors cursor-pointer">Contact Us</Link>
-          </nav>
-
-          <div className="hidden md:flex items-center gap-4">
-            {isLoading ? (
-              <Button variant="ghost" disabled>...</Button>
-            ) : isAuthenticated ? (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button className="h-10 w-10 rounded-full border border-border bg-muted flex items-center justify-center overflow-hidden hover:ring-2 hover:ring-primary/50 transition-all cursor-pointer">
-                    {user?.id ? (
-                      <img 
-                        src={user?.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.id}`} 
-                        alt="User Avatar" 
-                        className="h-full w-full object-cover" 
-                        onError={(e) => {
-                          e.currentTarget.src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.id}`;
-                        }}
-                      />
-                    ) : (
-                      <User className="h-5 w-5 text-muted-foreground" />
-                    )}
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56 mt-2">
-                  <div className="px-3 py-2 border-b border-border/50 mb-1">
-                    <p className="font-medium text-sm text-foreground truncate">{user?.displayName || user?.username || "User"}</p>
-                    <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
-                  </div>
-                  <DropdownMenuItem asChild>
-                    <Link href="/user-profile" className="w-full cursor-pointer flex items-center">Profile Dashboard</Link>
-                  </DropdownMenuItem>
-                  {isModOrAbove && (
-                    <DropdownMenuItem asChild>
-                      <Link href="/admin" className="w-full cursor-pointer flex items-center text-[#007699] font-bold">
-                        <Shield className="w-4 h-4 mr-2" /> Moderation Dashboard
-                      </Link>
-                    </DropdownMenuItem>
-                  )}
-                  <DropdownMenuItem onClick={logout} className="text-destructive cursor-pointer flex items-center font-medium border-t border-border/50 mt-1">Log Out</DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            ) : (
-              <Button onClick={() => (window.location.href = "/login")} className="font-bold cursor-pointer rounded-full px-6">Login</Button>
-            )}
-          </div>
-
-          <button className="md:hidden cursor-pointer p-2 hover:bg-muted rounded-full transition-colors" onClick={() => setIsMenuOpen(!isMenuOpen)}>
-            {isMenuOpen ? <X /> : <Menu />}
-          </button>
-        </div>
-
-        {isMenuOpen && (
-          <div className="md:hidden border-t p-4 space-y-4 bg-background animate-in slide-in-from-top-5 shadow-2xl">
-            <Link href="/" className="block text-base font-semibold py-3 px-4 rounded-lg hover:bg-muted cursor-pointer">Home</Link>
-            <Link href="/chat" className="block text-base font-semibold py-3 px-4 rounded-lg hover:bg-muted cursor-pointer">Chat Rooms</Link>
-            <Link href="/explore" className="block text-base font-semibold py-3 px-4 rounded-lg hover:bg-muted cursor-pointer">Explore</Link>
-            <Link href="/faq" className="block text-base font-semibold py-3 px-4 rounded-lg hover:bg-muted cursor-pointer">FAQ</Link>
-            <Link href="/contact" className="block text-base font-semibold py-3 px-4 rounded-lg hover:bg-muted cursor-pointer">Contact Us</Link>
-            {isLoading ? (
-              <Button className="w-full mt-4 cursor-pointer rounded-full py-6 text-lg" disabled>...</Button>
-            ) : isAuthenticated ? (
-              <>
-                <Link href="/user-profile" className="block text-base font-semibold py-3 px-4 rounded-lg hover:bg-muted cursor-pointer text-primary">Profile Dashboard</Link>
-                {isModOrAbove && (
-                  <Link href="/admin" className="block text-base font-bold py-3 px-4 rounded-lg hover:bg-muted cursor-pointer text-[#007699]">Moderation Dashboard</Link>
-                )}
-                <Button className="w-full mt-4 cursor-pointer rounded-full py-6 text-lg" variant="destructive" onClick={logout}>Log Out</Button>
-              </>
-            ) : (
-              <Button className="w-full mt-4 cursor-pointer rounded-full py-6 text-lg" onClick={() => (window.location.href = "/login")}>Login</Button>
-            )}
-          </div>
-        )}
-      </header>
-
       <main>
         {/* ═══════════════════════════════════════════════ */}
         {/* 1. HERO SECTION */}
@@ -254,7 +151,7 @@ export default function Home() {
           <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-gradient-to-bl from-primary/8 via-secondary/5 to-transparent rounded-full blur-3xl -z-10" />
           <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-gradient-to-tr from-secondary/8 via-primary/5 to-transparent rounded-full blur-3xl -z-10" />
 
-          <div className="container px-6 mx-auto">
+          <div className="container px-4 md:px-6 mx-auto">
             <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
               <motion.div
                 initial={{ opacity: 0, x: -30 }}
@@ -282,7 +179,7 @@ export default function Home() {
                   Join thousands of passionate pet owners sharing advice, swapping stories, and forming real friendships — organized by pet type, breed, and your own neighbourhood.
                 </p>
 
-                <div className="flex flex-row items-center gap-4 mb-10">
+                <div className="flex flex-wrap items-center gap-4 mb-10">
                   {isAuthenticated ? (
                     <Link href="/chat">
                       <Button
@@ -482,11 +379,11 @@ export default function Home() {
                   ))
                 : dbHomeCategories.map((cat: any, i) => (
                     <motion.div
-                      key={cat.id}
+                      key={cat.id || i}
                       variants={itemVariants}
                       whileHover={{ y: -8, scale: 1.05 }}
                       className="flex flex-col items-center gap-3 cursor-pointer group"
-                      onClick={() => setLocation(`/chat-interface?category=${encodeURIComponent(cat.name.toLowerCase().trim())}`)}
+                      onClick={() => setLocation(`/chat-interface?category=${encodeURIComponent((cat.name || "").toLowerCase().trim())}`)}
                     >
                       <div className={`w-16 h-16 md:w-20 md:h-20 rounded-full overflow-hidden border-[3px] shadow-md transition-all duration-300 ${
                         activePetIndex === i

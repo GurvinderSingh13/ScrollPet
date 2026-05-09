@@ -11,8 +11,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import {
   User,
-  Menu,
-  X,
   Edit3,
   Dog,
   Cat,
@@ -70,7 +68,6 @@ export default function PetProfilePage() {
   const { petId } = useParams<{ petId: string }>();
   const [, navigate] = useLocation();
   const { user, isLoading, isAuthenticated, logout } = useAuth();
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const [isEditingPet, setIsEditingPet] = useState(false);
   const [isSavingPet, setIsSavingPet] = useState(false);
@@ -519,154 +516,6 @@ export default function PetProfilePage() {
         fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif",
       }}
     >
-      {/* ── NAV HEADER ── */}
-      <header
-        className="fixed w-full top-0 z-[100] border-b border-white/20 shadow-sm"
-        style={{
-          background: "rgba(255,255,255,0.82)",
-          backdropFilter: "blur(16px) saturate(180%)",
-        }}
-      >
-        <div className="container mx-auto px-6 h-16 flex items-center justify-between">
-          <Link href="/" className="cursor-pointer">
-            <img
-              src={logoImage}
-              alt="ScrollPet Logo"
-              className="h-9 md:h-10 w-auto object-contain hover:opacity-90 transition-opacity"
-            />
-          </Link>
-
-          <nav className="hidden md:flex items-center gap-1">
-            {[
-              { href: "/", label: "Home" },
-              { href: "/chat", label: "Chat Rooms" },
-              { href: "/explore", label: "Explore" },
-              { href: "/faq", label: "FAQ" },
-              { href: "/contact", label: "Contact" },
-            ].map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className="text-sm font-medium text-gray-600 hover:text-[#007699] px-3 py-2 rounded-lg hover:bg-[#007699]/5 transition-all cursor-pointer"
-              >
-                {link.label}
-              </Link>
-            ))}
-          </nav>
-
-          <div className="hidden md:flex items-center gap-3">
-            {isLoading ? (
-              <Button variant="ghost" disabled>
-                ...
-              </Button>
-            ) : isAuthenticated ? (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button className="h-9 w-9 rounded-full border-2 border-[#007699]/20 bg-white flex items-center justify-center overflow-hidden hover:border-[#007699]/50 hover:shadow-md transition-all cursor-pointer">
-                    <img
-                      src={
-                        dbUser?.profile_image_url ||
-                        dbUser?.avatar_url ||
-                        `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.id}`
-                      }
-                      alt="Avatar"
-                      className="h-full w-full object-cover"
-                    />
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent
-                  align="end"
-                  className="w-56 mt-2 rounded-xl shadow-lg border-gray-100"
-                >
-                  <div className="px-3 py-2.5 border-b border-gray-100">
-                    <p className="font-semibold text-sm text-gray-900 truncate">
-                      {dbUser?.display_name ||
-                        user?.displayName ||
-                        user?.username ||
-                        "User"}
-                    </p>
-                    <p className="text-xs text-gray-500 truncate">
-                      {user?.email}
-                    </p>
-                  </div>
-                  <DropdownMenuItem asChild>
-                    <Link
-                      href="/user-profile"
-                      className="w-full cursor-pointer flex items-center gap-2 py-2"
-                    >
-                      <User className="w-4 h-4" /> Profile Dashboard
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={handleAuthClick}
-                    className="text-red-500 cursor-pointer flex items-center gap-2 font-medium py-2"
-                  >
-                    <LogOut className="w-4 h-4" /> Log Out
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            ) : (
-              <Button
-                onClick={() => (window.location.href = "/login")}
-                className="font-semibold cursor-pointer rounded-full px-5 h-9 bg-[#007699] hover:bg-[#005a75] text-sm shadow-sm"
-              >
-                Login
-              </Button>
-            )}
-          </div>
-
-          <button
-            className="md:hidden cursor-pointer p-2 hover:bg-gray-100 rounded-xl transition-colors"
-            onClick={() => setIsMenuOpen(!isMenuOpen)}
-          >
-            {isMenuOpen ? (
-              <X className="w-5 h-5" />
-            ) : (
-              <Menu className="w-5 h-5" />
-            )}
-          </button>
-        </div>
-
-        {isMenuOpen && (
-          <div className="md:hidden border-t border-gray-100 p-4 space-y-1 bg-white shadow-xl absolute w-full z-50">
-            {["/", "/chat", "/explore", "/faq", "/contact"].map((href, i) => (
-              <Link
-                key={href}
-                href={href}
-                className="block text-sm font-medium py-2.5 px-4 rounded-lg hover:bg-[#007699]/5 text-gray-700 cursor-pointer"
-              >
-                {["Home", "Chat Rooms", "Explore", "FAQ", "Contact"][i]}
-              </Link>
-            ))}
-            {isAuthenticated ? (
-              <>
-                <Link
-                  href="/user-profile"
-                  className="block text-sm font-semibold py-2.5 px-4 rounded-lg bg-[#007699]/5 text-[#007699] cursor-pointer"
-                >
-                  Profile Dashboard
-                </Link>
-                <Button
-                  className="w-full mt-3 cursor-pointer rounded-full"
-                  variant="destructive"
-                  size="sm"
-                  onClick={handleAuthClick}
-                >
-                  Log Out
-                </Button>
-              </>
-            ) : (
-              <Button
-                className="w-full mt-3 cursor-pointer rounded-full bg-[#007699]"
-                size="sm"
-                onClick={() => (window.location.href = "/login")}
-              >
-                Login
-              </Button>
-            )}
-          </div>
-        )}
-      </header>
 
       {/* ── BACK BAR ── */}
       <div className="pt-16">

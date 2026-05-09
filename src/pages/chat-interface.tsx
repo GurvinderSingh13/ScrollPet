@@ -26,8 +26,6 @@ import {
   Pin,
   BookOpen,
   Megaphone,
-  Menu,
-  X,
   ArrowLeft,
   User,
   AlertTriangle,
@@ -40,7 +38,6 @@ import {
 } from "lucide-react";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { cn } from "@/lib/utils";
-import logoImage from "@assets/Scrollpet_logo_1766997907297.png";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
@@ -214,7 +211,6 @@ export default function ChatInterface() {
   useEffect(() => { if (activeBreed) sessionStorage.setItem("activeBreed", activeBreed); else sessionStorage.removeItem("activeBreed"); }, [activeBreed]);
   useEffect(() => { sessionStorage.setItem("activeLocation", activeLocation); }, [activeLocation]);
   useEffect(() => { if (activeDistrict) sessionStorage.setItem("activeDistrict", activeDistrict); else sessionStorage.removeItem("activeDistrict"); }, [activeDistrict]);
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { user, isLoading: authLoading, isAuthenticated, logout } = useAuth();
   const [, setLocation] = useLocation();
   const [sidebarView, setSidebarView] = useState<"public" | "private">(
@@ -1382,143 +1378,6 @@ export default function ChatInterface() {
 
   return (
     <div className="h-[100dvh] pt-16 md:pt-20 flex flex-col bg-background font-sans overflow-hidden">
-      <header className="fixed w-full top-0 z-[100] bg-background/80 backdrop-blur-md border-b border-border/40 shadow-sm transition-all">
-        <div className="container mx-auto px-4 md:px-6 h-16 md:h-20 flex items-center justify-between">
-          <Link href="/" className="cursor-pointer">
-            <img
-              src={logoImage}
-              alt="ScrollPet Logo"
-              className="h-8 md:h-12 w-auto object-contain hover:opacity-90 transition-opacity"
-            />
-          </Link>
-
-          <nav className="hidden md:flex items-center gap-8 bg-muted/50 px-6 py-2 rounded-full border border-border/50">
-            <Link
-              href="/"
-              className="text-sm font-semibold hover:text-primary transition-colors cursor-pointer"
-            >
-              Home
-            </Link>
-            <Link
-              href="/chat"
-              className="text-sm font-semibold hover:text-primary transition-colors cursor-pointer"
-            >
-              Chat Rooms
-            </Link>
-            <Link
-              href="/explore"
-              className="text-sm font-semibold hover:text-primary transition-colors cursor-pointer"
-            >
-              Explore
-            </Link>
-            <Link
-              href="/faq"
-              className="text-sm font-semibold hover:text-primary transition-colors cursor-pointer"
-            >
-              FAQ
-            </Link>
-            <Link
-              href="/contact"
-              className="text-sm font-semibold hover:text-primary transition-colors cursor-pointer"
-            >
-              Contact Us
-            </Link>
-          </nav>
-
-          <div className="flex items-center gap-4">
-            <div className="hidden md:flex items-center gap-4">
-              {authLoading ? (
-                <Button variant="ghost" disabled>
-                  ...
-                </Button>
-              ) : isAuthenticated ? (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button className="h-10 w-10 rounded-full border border-border bg-muted flex items-center justify-center overflow-hidden hover:ring-2 hover:ring-primary/50 transition-all cursor-pointer">
-                      {user?.id ? (
-                        <img
-                          src={user?.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.id}`}
-                          alt="User"
-                          className="h-full w-full object-cover"
-                          onError={(e) => {
-                            e.currentTarget.src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.id}`;
-                          }}
-                        />
-                      ) : (
-                        <User className="h-5 w-5 text-muted-foreground" />
-                      )}
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-56 mt-2">
-                    <DropdownMenuItem asChild>
-                      <Link
-                        href="/user-profile"
-                        className="w-full cursor-pointer flex items-center"
-                      >
-                        Profile Dashboard
-                      </Link>
-                    </DropdownMenuItem>
-                    {isModOrAbove && (
-                      <DropdownMenuItem asChild>
-                        <Link
-                          href="/admin"
-                          className="w-full cursor-pointer flex items-center text-[#007699] font-bold"
-                        >
-                          Moderation Dashboard
-                        </Link>
-                      </DropdownMenuItem>
-                    )}
-                    <DropdownMenuItem
-                      onClick={logout}
-                      className="text-destructive cursor-pointer flex items-center font-medium"
-                    >
-                      Log Out
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              ) : (
-                <Button
-                  onClick={() => (window.location.href = "/login")}
-                  className="font-bold cursor-pointer rounded-full px-6"
-                >
-                  Login
-                </Button>
-              )}
-            </div>
-            
-            <button
-              className="md:hidden p-2 text-foreground cursor-pointer"
-              onClick={() => setIsMenuOpen(!isMenuOpen)}
-            >
-              {isMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-            </button>
-          </div>
-        </div>
-
-        {isMenuOpen && (
-          <div className="md:hidden absolute top-full left-0 right-0 bg-background border-b border-border/40 shadow-lg p-4 flex flex-col gap-4 z-40">
-            <Link href="/" onClick={() => setIsMenuOpen(false)} className="text-foreground/80 hover:text-primary transition-colors py-2 font-medium">Home</Link>
-            <Link href="/chat" onClick={() => setIsMenuOpen(false)} className="text-primary font-medium py-2">Chat Rooms</Link>
-            <Link href="/explore" onClick={() => setIsMenuOpen(false)} className="text-foreground/80 hover:text-primary transition-colors py-2 font-medium">Explore</Link>
-            <Link href="/faq" onClick={() => setIsMenuOpen(false)} className="text-foreground/80 hover:text-primary transition-colors py-2 font-medium">FAQ</Link>
-            <Link href="/contact" onClick={() => setIsMenuOpen(false)} className="text-foreground/80 hover:text-primary transition-colors py-2 font-medium">Contact Us</Link>
-            
-            <div className="pt-4 border-t border-border/40 mt-2 flex flex-col gap-2">
-              {!authLoading && isAuthenticated ? (
-                <>
-                  <Link href="/user-profile" onClick={() => setIsMenuOpen(false)} className="text-foreground font-medium py-2 px-2 hover:bg-muted rounded-md">Profile Dashboard</Link>
-                  {isModOrAbove && (
-                    <Link href="/admin" onClick={() => setIsMenuOpen(false)} className="text-[#007699] font-bold py-2 px-2 hover:bg-muted rounded-md">Moderation Dashboard</Link>
-                  )}
-                  <button onClick={() => { logout(); setIsMenuOpen(false); }} className="text-destructive font-medium py-2 px-2 text-left hover:bg-muted rounded-md">Log Out</button>
-                </>
-              ) : (
-                <Button onClick={() => window.location.href = "/login"} className="w-full font-bold">Login</Button>
-              )}
-            </div>
-          </div>
-        )}
-      </header>
 
       {sidebarView === "public" && (
         <div className="flex-none bg-white border-b z-20 shadow-sm">

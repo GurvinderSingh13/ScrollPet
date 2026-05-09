@@ -5,15 +5,14 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
-import { Menu, X, Check, ChevronsUpDown } from "lucide-react";
+import { Check, ChevronsUpDown } from "lucide-react";
 import { useState } from "react";
-import logoImage from "@assets/Scrollpet_logo_1766997907297.png";
 import { supabase } from "@/lib/supabase";
+import logoImage from "@assets/Scrollpet_logo_1766997907297.png";
 
 import { Country, State } from 'country-state-city';
 
 export default function Signup() {
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [, setLocation] = useLocation();
   
@@ -106,59 +105,6 @@ export default function Signup() {
   return (
     <div className="min-h-screen pt-20 bg-white font-sans text-foreground overflow-x-hidden flex flex-col relative">
 
-      {/* Header */}
-      <header className="fixed w-full top-0 z-[100] bg-background/80 backdrop-blur-md border-b border-border/40 shadow-sm">
-        <div className="container mx-auto px-6 h-20 flex items-center justify-between">
-          <Link href="/" className="cursor-pointer">
-            <img 
-              src={logoImage} 
-              alt="ScrollPet Logo" 
-              className="h-10 md:h-12 w-auto object-contain hover:opacity-90 transition-opacity"
-            />
-          </Link>
-
-          {/* Desktop Nav */}
-          <nav className="hidden md:flex items-center gap-8 bg-muted/50 px-6 py-2 rounded-full border border-border/50">
-            <Link href="/" className="text-sm font-semibold hover:text-primary transition-colors cursor-pointer">Home</Link>
-            <Link href="/chat" className="text-sm font-semibold hover:text-primary transition-colors cursor-pointer">Chat Rooms</Link>
-            <Link href="/explore" className="text-sm font-semibold hover:text-primary transition-colors cursor-pointer">Explore</Link>
-            <Link href="/faq" className="text-sm font-semibold hover:text-primary transition-colors cursor-pointer">FAQ</Link>
-            <Link href="/contact" className="text-sm font-semibold hover:text-primary transition-colors cursor-pointer">Contact Us</Link>
-          </nav>
-
-          <div className="hidden md:flex items-center gap-4">
-            <Link href="/login">
-                <Button 
-                variant="default"
-                className="font-bold cursor-pointer rounded-full px-6"
-                >
-                Log In
-                </Button>
-            </Link>
-          </div>
-
-          {/* Mobile Menu Toggle */}
-          <button className="md:hidden cursor-pointer p-2 hover:bg-muted rounded-full transition-colors" onClick={() => setIsMenuOpen(!isMenuOpen)}>
-            {isMenuOpen ? <X /> : <Menu />}
-          </button>
-        </div>
-
-        {/* Mobile Nav */}
-        {isMenuOpen && (
-          <div className="md:hidden border-t p-4 space-y-4 bg-background animate-in slide-in-from-top-5 shadow-2xl">
-            <Link href="/" className="block text-base font-semibold py-3 px-4 rounded-lg hover:bg-muted cursor-pointer">Home</Link>
-            <Link href="/chat" className="block text-base font-semibold py-3 px-4 rounded-lg hover:bg-muted cursor-pointer">Chat Rooms</Link>
-            <Link href="/explore" className="block text-base font-semibold py-3 px-4 rounded-lg hover:bg-muted cursor-pointer">Explore</Link>
-            <Link href="/faq" className="block text-base font-semibold py-3 px-4 rounded-lg hover:bg-muted cursor-pointer">FAQ</Link>
-            <Link href="/contact" className="block text-base font-semibold py-3 px-4 rounded-lg hover:bg-muted cursor-pointer">Contact Us</Link>
-            <Link href="/login">
-                <Button className="w-full mt-4 cursor-pointer rounded-full py-6 text-lg">
-                Log In
-                </Button>
-            </Link>
-          </div>
-        )}
-      </header>
 
       <main className="flex-grow flex items-center justify-center py-20 relative z-10 px-4">
         <motion.div 

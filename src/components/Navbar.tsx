@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import {
@@ -7,7 +6,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { User, Menu, X, Shield } from "lucide-react";
+import { User, Shield, MessageCircle, LogOut } from "lucide-react";
 import logoImage from "@assets/Scrollpet_logo_1766997907297.png";
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery } from "@tanstack/react-query";
@@ -22,8 +21,7 @@ const navLinks = [
 ];
 
 export default function Navbar() {
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [currentPath] = useLocation();
+  const [currentPath, setLocation] = useLocation();
   const { user, isLoading, isAuthenticated, logout } = useAuth();
 
   const { data: dbUser } = useQuery({
@@ -69,124 +67,89 @@ export default function Navbar() {
           ))}
         </nav>
 
-        <div className="hidden md:flex items-center gap-4">
-          {isLoading ? (
-            <Button variant="ghost" disabled>...</Button>
-          ) : isAuthenticated ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button className="h-10 w-10 rounded-full border border-border bg-muted flex items-center justify-center overflow-hidden hover:ring-2 hover:ring-primary/50 transition-all cursor-pointer">
-                  {user?.id ? (
-                    <img
-                      src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.id}`}
-                      alt="User Avatar"
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <User className="h-5 w-5 text-muted-foreground" />
-                  )}
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56 mt-2">
-                <div className="px-3 py-2 border-b border-border/50 mb-1">
-                  <p className="font-medium text-sm text-foreground truncate">
-                    {user?.displayName || user?.username || "User"}
-                  </p>
-                  <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
-                </div>
-                <DropdownMenuItem asChild>
-                  <Link href="/user-profile" className="w-full cursor-pointer flex items-center">
-                    Profile Dashboard
-                  </Link>
-                </DropdownMenuItem>
-                {isModOrAbove && (
+        <div className="flex items-center gap-4">
+          {/* Conditional icon logic for Profile Page vs others */}
+          {currentPath === "/user-profile" ? (
+            isAuthenticated && (
+              <button
+                aria-label="Log Out"
+                onClick={logout}
+                className="flex items-center justify-center w-10 h-10 rounded-full hover:bg-muted text-destructive transition-all cursor-pointer"
+                title="Log Out"
+              >
+                <LogOut className="w-5 h-5" strokeWidth={1.8} />
+              </button>
+            )
+          ) : (
+            <button
+              aria-label="Direct Messages"
+              onClick={() => setLocation(isAuthenticated ? "/chat-interface" : "/login")}
+              className="flex items-center justify-center w-10 h-10 rounded-full hover:bg-muted text-muted-foreground hover:text-[#007699] transition-all cursor-pointer"
+              title={isAuthenticated ? "Direct Messages" : "Log in to view messages"}
+            >
+              <MessageCircle className="w-5 h-5" strokeWidth={1.8} />
+            </button>
+          )}
+
+          <div className="hidden md:flex items-center gap-4">
+            {isLoading ? (
+              <Button variant="ghost" disabled>...</Button>
+            ) : isAuthenticated ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className="h-10 w-10 rounded-full border border-border bg-muted flex items-center justify-center overflow-hidden hover:ring-2 hover:ring-primary/50 transition-all cursor-pointer">
+                    {user?.id ? (
+                      <img
+                        src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.id}`}
+                        alt="User Avatar"
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <User className="h-5 w-5 text-muted-foreground" />
+                    )}
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56 mt-2">
+                  <div className="px-3 py-2 border-b border-border/50 mb-1">
+                    <p className="font-medium text-sm text-foreground truncate">
+                      {user?.displayName || user?.username || "User"}
+                    </p>
+                    <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
+                  </div>
                   <DropdownMenuItem asChild>
-                    <Link
-                      href="/admin"
-                      className="w-full cursor-pointer flex items-center text-[#007699] font-bold"
-                    >
-                      <Shield className="w-4 h-4 mr-2" /> Moderation Dashboard
+                    <Link href="/user-profile" className="w-full cursor-pointer flex items-center">
+                      Profile Dashboard
                     </Link>
                   </DropdownMenuItem>
-                )}
-                <DropdownMenuItem
-                  onClick={logout}
-                  className="text-destructive cursor-pointer flex items-center font-medium border-t border-border/50 mt-1"
-                >
-                  Log Out
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          ) : (
-            <Button
-              onClick={() => (window.location.href = "/login")}
-              className="font-bold cursor-pointer rounded-full px-6"
-            >
-              Login
-            </Button>
-          )}
-        </div>
-
-        <button
-          className="md:hidden cursor-pointer p-2 hover:bg-muted rounded-full transition-colors"
-          onClick={() => setIsMenuOpen(!isMenuOpen)}
-        >
-          {isMenuOpen ? <X /> : <Menu />}
-        </button>
-      </div>
-
-      {isMenuOpen && (
-        <div className="md:hidden border-t p-4 space-y-4 bg-background animate-in slide-in-from-top-5 shadow-2xl">
-          {navLinks.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className="block text-base font-semibold py-3 px-4 rounded-lg hover:bg-muted cursor-pointer"
-              onClick={() => setIsMenuOpen(false)}
-            >
-              {link.label}
-            </Link>
-          ))}
-          {isLoading ? (
-            <Button className="w-full mt-4 cursor-pointer rounded-full py-6 text-lg" disabled>
-              ...
-            </Button>
-          ) : isAuthenticated ? (
-            <>
-              <Link
-                href="/user-profile"
-                className="block text-base font-semibold py-3 px-4 rounded-lg hover:bg-muted cursor-pointer text-primary"
-                onClick={() => setIsMenuOpen(false)}
-              >
-                Profile Dashboard
-              </Link>
-              {isModOrAbove && (
-                <Link
-                  href="/admin"
-                  className="block text-base font-bold py-3 px-4 rounded-lg hover:bg-muted cursor-pointer text-[#007699]"
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  Moderation Dashboard
-                </Link>
-              )}
+                  {isModOrAbove && (
+                    <DropdownMenuItem asChild>
+                      <Link
+                        href="/admin"
+                        className="w-full cursor-pointer flex items-center text-[#007699] font-bold"
+                      >
+                        <Shield className="w-4 h-4 mr-2" /> Moderation Dashboard
+                      </Link>
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuItem
+                    onClick={logout}
+                    className="text-destructive cursor-pointer flex items-center font-medium border-t border-border/50 mt-1"
+                  >
+                    Log Out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
               <Button
-                className="w-full mt-4 cursor-pointer rounded-full py-6 text-lg"
-                variant="destructive"
-                onClick={logout}
+                onClick={() => (window.location.href = "/login")}
+                className="font-bold cursor-pointer rounded-full px-6"
               >
-                Log Out
+                Login
               </Button>
-            </>
-          ) : (
-            <Button
-              className="w-full mt-4 cursor-pointer rounded-full py-6 text-lg"
-              onClick={() => (window.location.href = "/login")}
-            >
-              Login
-            </Button>
-          )}
+            )}
+          </div>
         </div>
-      )}
+      </div>
     </header>
   );
 }

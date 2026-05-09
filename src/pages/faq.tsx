@@ -1,6 +1,6 @@
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
-import { Menu, X, HelpCircle, MessageSquare, Shield, Settings, Globe, Search } from "lucide-react";
+import { HelpCircle, MessageSquare, Shield, Settings, Globe, Search, X } from "lucide-react";
 import { useState, useMemo } from "react";
 import { motion } from "framer-motion";
 import {
@@ -284,11 +284,9 @@ const faqCategories: FAQCategory[] = [
   }
 ];
 
-// Flatten all items for search
 const allFAQItems = faqCategories.flatMap(cat => cat.items);
 
 export default function FAQ() {
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
 
@@ -312,7 +310,6 @@ export default function FAQ() {
 
   const totalResults = filteredCategories.reduce((acc, cat) => acc + cat.items.length, 0);
 
-  // Build FAQ structured data for SEO
   const faqStructuredData = {
     "@context": "https://schema.org",
     "@type": "FAQPage",
@@ -331,65 +328,14 @@ export default function FAQ() {
   };
 
   return (
-    <div className="min-h-screen pt-16 md:pt-20 flex flex-col bg-background font-sans">
-      {/* SEO Structured Data */}
+    <div className="min-h-screen pt-20 flex flex-col bg-background font-sans">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(faqStructuredData) }}
       />
 
-      {/* Header */}
-      <header className="fixed w-full top-0 z-[100] bg-background/80 backdrop-blur-md border-b border-border/40 shadow-sm">
-        <div className="container mx-auto px-4 md:px-6 h-16 md:h-20 flex items-center justify-between">
-          <Link href="/" className="cursor-pointer">
-            <img 
-              src={logoImage} 
-              alt="ScrollPet Logo" 
-              className="h-8 md:h-12 w-auto object-contain hover:opacity-90 transition-opacity"
-            />
-          </Link>
-
-          <nav className="hidden md:flex items-center gap-8 bg-muted/50 px-6 py-2 rounded-full border border-border/50">
-            <Link href="/" className="text-sm font-semibold hover:text-primary transition-colors cursor-pointer">Home</Link>
-            <Link href="/chat" className="text-sm font-semibold hover:text-primary transition-colors cursor-pointer">Chat Rooms</Link>
-            <Link href="/explore" className="text-sm font-semibold hover:text-primary transition-colors cursor-pointer">Explore</Link>
-            <Link href="/faq" className="text-sm font-semibold text-primary transition-colors cursor-pointer">FAQ</Link>
-            <Link href="/contact" className="text-sm font-semibold hover:text-primary transition-colors cursor-pointer">Contact Us</Link>
-          </nav>
-
-          <div className="hidden md:flex items-center gap-4">
-            <Link href="/chat">
-              <Button className="font-bold cursor-pointer rounded-full px-6">
-                Start Chatting
-              </Button>
-            </Link>
-          </div>
-
-          <button className="md:hidden cursor-pointer p-2 hover:bg-muted rounded-full transition-colors" onClick={() => setIsMenuOpen(!isMenuOpen)}>
-            {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
-          </button>
-        </div>
-
-        {isMenuOpen && (
-          <div className="md:hidden border-t p-4 space-y-4 bg-background animate-in slide-in-from-top-5 shadow-2xl">
-            <Link href="/" className="block text-base font-semibold py-3 px-4 rounded-lg hover:bg-muted cursor-pointer">Home</Link>
-            <Link href="/chat" className="block text-base font-semibold py-3 px-4 rounded-lg hover:bg-muted cursor-pointer">Chat Rooms</Link>
-            <Link href="/explore" className="block text-base font-semibold py-3 px-4 rounded-lg hover:bg-muted cursor-pointer">Explore</Link>
-            <Link href="/faq" className="block text-base font-semibold py-3 px-4 rounded-lg bg-muted text-primary cursor-pointer">FAQ</Link>
-            <Link href="/contact" className="block text-base font-semibold py-3 px-4 rounded-lg hover:bg-muted cursor-pointer">Contact Us</Link>
-            <Link href="/chat">
-              <Button className="w-full mt-4 cursor-pointer rounded-full py-6 text-lg">
-                Start Chatting
-              </Button>
-            </Link>
-          </div>
-        )}
-      </header>
-
       <main className="flex-1">
-        {/* Hero Section */}
         <section className="relative overflow-hidden bg-gradient-to-br from-[#007699]/5 via-white to-[#FF6600]/5 py-16 md:py-24">
-          {/* Decorative elements */}
           <div className="absolute top-10 left-10 w-48 h-48 bg-[#007699]/10 rounded-full blur-3xl" />
           <div className="absolute bottom-10 right-10 w-64 h-64 bg-[#FF6600]/8 rounded-full blur-3xl" />
           
@@ -411,7 +357,6 @@ export default function FAQ() {
                 Find answers to common questions about ScrollPet — from getting started and joining chat rooms, to account management, moderation, and platform policies.
               </p>
 
-              {/* Search Bar */}
               <div className="relative max-w-xl mx-auto">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                 <input

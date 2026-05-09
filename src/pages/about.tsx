@@ -14,22 +14,10 @@ import {
     Handshake,
     Quote,
     Sparkles,
-    Menu,
-    X,
-    User,
 } from "lucide-react";
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { useState } from "react";
 import logoImage from "@assets/Scrollpet_logo_1766997907297.png";
 import founderPhoto from "@assets/founder_gurvinder.jpg";
 import { useAuth } from "@/hooks/use-auth";
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/lib/supabase";
 
 /* ─── animation variants ─── */
 const fadeUp = {
@@ -123,109 +111,11 @@ const TRUST = [
 
 /* ─── component ─── */
 export default function AboutUs() {
-    const [isMenuOpen, setIsMenuOpen] = useState(false);
-    const { user, isLoading, isAuthenticated, logout } = useAuth();
-
-    const { data: dbUser } = useQuery({
-        queryKey: ["db-user-about", user?.id],
-        queryFn: async () => {
-            if (!user?.id) return null;
-            const { data, error } = await supabase
-                .from("users")
-                .select("role")
-                .eq("id", user.id)
-                .single();
-            if (error) throw error;
-            return data;
-        },
-        enabled: !!user?.id,
-    });
-
-    const isModOrAbove =
-        dbUser &&
-        ["moderator", "super_moderator", "staff", "admin"].includes(dbUser.role);
+    const { isAuthenticated } = useAuth();
 
     return (
         <div className="min-h-screen pt-20 bg-background font-sans text-foreground overflow-x-hidden selection:bg-primary/20">
 
-            {/* ── HEADER ── */}
-            <header className="fixed w-full top-0 z-[100] bg-background/80 backdrop-blur-md border-b border-border/40 shadow-sm">
-                <div className="container mx-auto px-6 h-20 flex items-center justify-between">
-                    <Link href="/" className="cursor-pointer">
-                        <img src={logoImage} alt="ScrollPet Logo" className="h-10 md:h-12 w-auto object-contain hover:opacity-90 transition-opacity" />
-                    </Link>
-
-                    <nav className="hidden md:flex items-center gap-8 bg-muted/50 px-6 py-2 rounded-full border border-border/50">
-                        <Link href="/" className="text-sm font-semibold hover:text-primary transition-colors cursor-pointer">Home</Link>
-                        <Link href="/chat" className="text-sm font-semibold hover:text-primary transition-colors cursor-pointer">Chat Rooms</Link>
-                        <Link href="/explore" className="text-sm font-semibold hover:text-primary transition-colors cursor-pointer">Explore</Link>
-                        <Link href="/faq" className="text-sm font-semibold hover:text-primary transition-colors cursor-pointer">FAQ</Link>
-                        <Link href="/contact" className="text-sm font-semibold hover:text-primary transition-colors cursor-pointer">Contact Us</Link>
-                    </nav>
-
-                    <div className="hidden md:flex items-center gap-4">
-                        {isLoading ? (
-                            <Button variant="ghost" disabled>...</Button>
-                        ) : isAuthenticated ? (
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <button className="h-10 w-10 rounded-full border border-border bg-muted flex items-center justify-center overflow-hidden hover:ring-2 hover:ring-primary/50 transition-all cursor-pointer">
-                                        {user?.id
-                                            ? <img 
-                                                src={user?.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.id}`} 
-                                                alt="Avatar" 
-                                                className="h-full w-full object-cover" 
-                                                onError={(e) => {
-                                                  e.currentTarget.src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.id}`;
-                                                }}
-                                              />
-                                            : <User className="h-5 w-5 text-muted-foreground" />}
-                                    </button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" className="w-56 mt-2">
-                                    <div className="px-3 py-2 border-b border-border/50 mb-1">
-                                        <p className="font-medium text-sm text-foreground truncate">{user?.displayName || user?.username || "User"}</p>
-                                        <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
-                                    </div>
-                                    <DropdownMenuItem asChild>
-                                        <Link href="/user-profile" className="w-full cursor-pointer flex items-center">Profile Dashboard</Link>
-                                    </DropdownMenuItem>
-                                    {isModOrAbove && (
-                                        <DropdownMenuItem asChild>
-                                            <Link href="/admin" className="w-full cursor-pointer flex items-center text-[#007699] font-bold">
-                                                <Shield className="w-4 h-4 mr-2" /> Moderation Dashboard
-                                            </Link>
-                                        </DropdownMenuItem>
-                                    )}
-                                    <DropdownMenuItem onClick={logout} className="text-destructive cursor-pointer font-medium border-t border-border/50 mt-1">Log Out</DropdownMenuItem>
-                                </DropdownMenuContent>
-                            </DropdownMenu>
-                        ) : (
-                            <Button onClick={() => (window.location.href = "/login")} className="font-bold cursor-pointer rounded-full px-6">Login</Button>
-                        )}
-                    </div>
-
-                    <button className="md:hidden cursor-pointer p-2 hover:bg-muted rounded-full transition-colors" onClick={() => setIsMenuOpen(!isMenuOpen)}>
-                        {isMenuOpen ? <X /> : <Menu />}
-                    </button>
-                </div>
-
-                {isMenuOpen && (
-                    <div className="md:hidden border-t p-4 space-y-4 bg-background animate-in slide-in-from-top-5 shadow-2xl">
-                        <Link href="/" className="block text-base font-semibold py-3 px-4 rounded-lg hover:bg-muted cursor-pointer">Home</Link>
-                        <Link href="/chat" className="block text-base font-semibold py-3 px-4 rounded-lg hover:bg-muted cursor-pointer">Chat Rooms</Link>
-                        <Link href="/explore" className="block text-base font-semibold py-3 px-4 rounded-lg hover:bg-muted cursor-pointer">Explore</Link>
-                        <Link href="/faq" className="block text-base font-semibold py-3 px-4 rounded-lg hover:bg-muted cursor-pointer">FAQ</Link>
-                        <Link href="/contact" className="block text-base font-semibold py-3 px-4 rounded-lg hover:bg-muted cursor-pointer">Contact Us</Link>
-                        {!isAuthenticated && (
-                            <Button className="w-full mt-4 cursor-pointer rounded-full py-6 text-lg" onClick={() => (window.location.href = "/login")}>Login</Button>
-                        )}
-                        {isAuthenticated && (
-                            <Button className="w-full mt-4 cursor-pointer rounded-full py-6 text-lg" variant="destructive" onClick={logout}>Log Out</Button>
-                        )}
-                    </div>
-                )}
-            </header>
 
             <main>
                 {/* ── 1. HERO ── */}

@@ -33,7 +33,6 @@ import { toast } from "@/hooks/use-toast";
 import { INDIA_LOCATIONS } from "@/data/indiaLocations";
 import { Country, State } from "country-state-city";
 import Footer from "@/components/Footer";
-import Navbar from "@/components/Navbar";
 
 type MediaItem = {
   id: string;
@@ -583,7 +582,6 @@ export default function ExplorePage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Navbar />
 
       {/* ── PAGE TITLE ── */}
       <div className="pt-20">
