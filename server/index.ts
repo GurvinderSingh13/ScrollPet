@@ -4,6 +4,7 @@ import { serveStatic } from "./static";
 import { createServer } from "http";
 import { setupAuth, registerAuthRoutes } from "./auth";
 import pg from "pg";
+import posthog from "./posthog";
 
 const app = express();
 const httpServer = createServer(app);
@@ -115,5 +116,9 @@ app.use((req, res, next) => {
 
   httpServer.listen(port, host, () => {
     log(`serving on ${host}:${port}`);
+  });
+
+  process.on("SIGTERM", async () => {
+    await posthog.shutdown();
   });
 })();
