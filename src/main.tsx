@@ -1,7 +1,6 @@
 import { createRoot } from "react-dom/client";
 import App from "./App";
 import "./index.css";
-
 // Global error handling to catch crashes during hydration/render
 if (typeof window !== "undefined") {
   window.onerror = function(message, source, lineno, colno, error) {

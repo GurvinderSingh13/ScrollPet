@@ -789,17 +789,17 @@ export default function UserProfile() {
         open={isEditProfileModalOpen}
         onOpenChange={setIsEditProfileModalOpen}
       >
-        <DialogContent className="sm:max-w-[450px]">
-          <div>
+        <DialogContent className="sm:max-w-[450px] p-0 flex flex-col max-h-[90vh] overflow-hidden">
+          <div className="p-6 pb-4 shrink-0 border-b border-gray-100">
             <h2 className="text-xl font-bold text-gray-900 mb-1">
               Edit Profile
             </h2>
-            <p className="text-sm text-gray-500 mb-4">
+            <p className="text-sm text-gray-500">
               Update your public account information.
             </p>
           </div>
 
-          <div className="space-y-4 py-2">
+          <div className="p-6 overflow-y-auto flex-1 space-y-4 py-4">
             {/* NEW: Cooldown Alert UI */}
             {!canChangeLocation && (
               <div className="p-3 mb-2 text-xs bg-amber-50 text-amber-700 rounded-lg border border-amber-200 flex items-start gap-2">
@@ -1040,7 +1040,7 @@ export default function UserProfile() {
             </div>
           </div>
 
-          <div className="flex justify-end mt-6 pt-4 border-t border-gray-100">
+          <div className="flex justify-end p-6 py-4 border-t border-gray-100 bg-gray-50 mt-auto shrink-0 z-10">
             <Button
               onClick={handleUpdateProfile}
               disabled={isSavingProfile}
