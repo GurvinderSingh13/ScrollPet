@@ -18,7 +18,10 @@ import {
   MapPin,
   X,
   Filter,
+  Plus,
+  MoreHorizontal,
 } from "lucide-react";
+import { CreatePostModal } from "@/components/CreatePostModal";
 import {
   Sheet,
   SheetContent,
@@ -47,6 +50,8 @@ type MediaItem = {
     image_url: string | null;
     user_id?: string | null;
     type?: string | null;
+    breed?: string | null;
+    gender?: string | null;
   } | null;
 };
 
@@ -68,6 +73,10 @@ type FeedItem = {
   intent_status: string | null;
   created_at: string;
   raw_media: MediaItem | null;
+  age: string | null;
+  price: number | null;
+  user_phone: string | null;
+  gender: string | null;
 };
 
 const INTENT_OPTIONS = [
@@ -79,6 +88,21 @@ const INTENT_OPTIONS = [
   "Open for Exchange",
   "Lost",
   "Dead",
+];
+
+const AGE_OPTIONS = [
+  "Less than 1 Month",
+  "1 Month",
+  "2 Months",
+  "3 Months",
+  "4 Months",
+  "5 Months",
+  "6 Months",
+  "7-11 Months",
+  "1 Year",
+  "2 Years",
+  "3 Years",
+  "4+ Years"
 ];
 
 const INTENT_BADGE_COLORS: Record<string, string> = {
@@ -94,6 +118,36 @@ const INTENT_BADGE_COLORS: Record<string, string> = {
 
 import { PET_CATEGORIES } from "@/constants/config";
 
+const FeedVideo = ({ src, className, controls, autoPlay, muted, loop, playsInline }: any) => {
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(([entry]) => {
+      if (!entry.isIntersecting && videoRef.current) {
+        videoRef.current.pause();
+      } else if (entry.isIntersecting && videoRef.current && autoPlay) {
+        videoRef.current.play().catch(() => {});
+      }
+    }, { threshold: 0.1 });
+    
+    if (videoRef.current) observer.observe(videoRef.current);
+    return () => observer.disconnect();
+  }, [autoPlay]);
+
+  return (
+    <video 
+      ref={videoRef} 
+      src={src} 
+      className={className} 
+      controls={controls} 
+      autoPlay={autoPlay} 
+      muted={muted} 
+      loop={loop} 
+      playsInline={playsInline} 
+    />
+  );
+};
+
 export default function ExplorePage() {
   const { user, isLoading, isAuthenticated } = useAuth();
 
@@ -105,6 +159,9 @@ export default function ExplorePage() {
   const [filterCountry, setFilterCountry] = useState("all");
   const [filterState, setFilterState] = useState("all");
   const [filterDistrict, setFilterDistrict] = useState("all");
+  const [filterAge, setFilterAge] = useState("all");
+  const [filterGender, setFilterGender] = useState("all");
+  const [filterMaxPrice, setFilterMaxPrice] = useState("");
 
   // ── Categories from DB (same source as chat room) ──
   const { data: dbCategories = [] } = useQuery({
@@ -154,6 +211,25 @@ export default function ExplorePage() {
   const [feedItems, setFeedItems] = useState<FeedItem[]>([]);
   const [isFeedLoading, setIsFeedLoading] = useState(true);
   const [selectedPost, setSelectedPost] = useState<FeedItem | null>(null);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [postToEdit, setPostToEdit] = useState<FeedItem | null>(null);
+
+  const handleDeletePost = async (id: string, authorId: string) => {
+    if (!user || user.id !== authorId) return;
+    const confirmDelete = window.confirm("Are you sure you want to delete this listing?");
+    if (!confirmDelete) return;
+
+    try {
+      const { error } = await supabase.from('messages').delete().eq('id', id).eq('user_id', user.id);
+      if (error) throw error;
+      toast({ description: "Post deleted successfully!" });
+      setSelectedPost(null);
+      fetchFeed();
+    } catch (err: any) {
+      console.error("Delete error:", err);
+      toast({ description: err.message || "Failed to delete post", variant: "destructive" });
+    }
+  };
 
   // ── Reels / snap-scroll refs ──
   const reelsScrollRef = useRef<HTMLDivElement>(null);
@@ -193,16 +269,19 @@ export default function ExplorePage() {
       try {
         // Step 1 — fetch both tables in parallel, NO embedded joins
         const [mediaResult, chatResult] = await Promise.all([
-          supabase.from("pet_media").select("*, pets(id, name, image_url, user_id, type, breed)"),
-          supabase.from("messages").select("id, user_id, content, message_type, media_url, intent_status, created_at, pet_type, breed, location, crosspost_rooms"),
+          supabase.from("pet_media").select("*, pets(id, name, image_url, user_id, type, breed, gender)"),
+          supabase.from("messages").select("id, user_id, content, message_type, media_url, intent_status, created_at, pet_type, breed, location, crosspost_rooms, age, price, gender"),
         ]);
 
         if (mediaResult.error) console.error("pet_media fetch error:", mediaResult.error);
         if (chatResult.error)  console.error("messages fetch error:",  chatResult.error);
 
-        // Step 2 — keep only tagged chat posts
+        // Step 2 — keep tagged chat posts and native explore posts
         const taggedChats = (chatResult.data || []).filter(
-          (msg: any) => msg.intent_status && msg.intent_status !== "None",
+          (msg: any) => 
+            msg.location === "explore_feed" ||
+            (msg.intent_status && msg.intent_status !== "None") ||
+            (Array.isArray(msg.crosspost_rooms) && msg.crosspost_rooms.length > 0)
         );
         console.log("Tagged chats (raw):", taggedChats.length, taggedChats);
 
@@ -216,7 +295,7 @@ export default function ExplorePage() {
         if (allUserIds.length > 0) {
           const { data: usersData, error: usersError } = await supabase
             .from("users")
-            .select("id, display_name, username, country, state")
+            .select("id, display_name, username, country, state, phone")
             .in("id", allUserIds);
           if (usersError) console.error("users fetch error:", usersError);
           (usersData || []).forEach((u: any) => { usersMap[u.id] = u; });
@@ -260,6 +339,10 @@ export default function ExplorePage() {
             intent_status: item.intent_status ?? null,
             created_at: item.created_at,
             raw_media: item as MediaItem,
+            age: null,
+            price: null,
+            user_phone: owner?.phone ?? null,
+            gender: item.pets?.gender ?? null,
           };
         });
 
@@ -273,7 +356,7 @@ export default function ExplorePage() {
             : null;
           return {
             id: item.id,
-            source_type: "chat" as const,
+            source_type: item.location === "explore_feed" ? "media" : "chat",
             display_image: item.media_url ?? null,
             display_text: item.content ?? null,
             media_url: item.media_url ?? null,
@@ -289,6 +372,10 @@ export default function ExplorePage() {
             intent_status: item.intent_status ?? null,
             created_at: item.created_at,
             raw_media: null,
+            age: item.age ?? null,
+            price: item.price ?? null,
+            user_phone: u?.phone ?? null,
+            gender: item.gender ?? null,
           };
         });
 
@@ -321,6 +408,18 @@ export default function ExplorePage() {
               item.display_text?.toLowerCase().includes(name)
             );
           });
+        }
+        if (filterAge !== "all") {
+          merged = merged.filter((item) => !item.age || item.age === filterAge);
+        }
+        if (filterGender !== "all") {
+          merged = merged.filter((item) => !item.gender || item.gender.toLowerCase() === filterGender.toLowerCase());
+        }
+        if (filterMaxPrice !== "" && filterMaxPrice !== "0") {
+          const max = parseInt(filterMaxPrice, 10);
+          if (!isNaN(max) && max > 0) {
+            merged = merged.filter((item) => item.price === null || item.price <= max);
+          }
         }
 
         // Checks any item's location hierarchy against a predicate.
@@ -374,7 +473,7 @@ export default function ExplorePage() {
     };
 
     fetchFeed();
-  }, [filterSource, filterIntent, filterCategory, filterBreed, filterCountry, filterState, filterDistrict]);
+  }, [filterSource, filterIntent, filterCategory, filterBreed, filterCountry, filterState, filterDistrict, filterAge, filterMaxPrice]);
 
 
   // ── Lightbox queries ──
@@ -533,6 +632,49 @@ export default function ExplorePage() {
         <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
       </div>
 
+      {/* Age */}
+      <div className="relative w-full md:w-auto">
+        <select
+          value={filterAge}
+          onChange={(e) => setFilterAge(e.target.value)}
+          className="w-full md:w-auto text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-xl pl-3 pr-8 py-1.5 outline-none cursor-pointer appearance-none hover:border-[#007699] focus:border-[#007699] transition-colors"
+        >
+          <option value="all">All Ages</option>
+          {AGE_OPTIONS.map((opt) => (
+            <option key={opt} value={opt}>{opt}</option>
+          ))}
+        </select>
+        <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+      </div>
+
+      {/* Gender */}
+      <div className="relative w-full md:w-auto">
+        <select
+          value={filterGender}
+          onChange={(e) => setFilterGender(e.target.value)}
+          className="w-full md:w-auto text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-xl pl-3 pr-8 py-1.5 outline-none cursor-pointer appearance-none hover:border-[#007699] focus:border-[#007699] transition-colors"
+        >
+          <option value="all">All Genders</option>
+          <option value="Male">Male</option>
+          <option value="Female">Female</option>
+          <option value="Pair">Pair</option>
+          <option value="Lot">Lot</option>
+        </select>
+        <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+      </div>
+
+      {/* Max Price */}
+      <div className="relative w-full md:w-auto">
+        <input
+          type="number"
+          placeholder="Max Price (₹)"
+          value={filterMaxPrice}
+          onChange={(e) => setFilterMaxPrice(e.target.value)}
+          className="w-full md:w-auto text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-xl pl-3 pr-4 py-1.5 outline-none hover:border-[#007699] focus:border-[#007699] transition-colors"
+          min="0"
+        />
+      </div>
+
       {/* Country */}
       <div className="relative w-full md:w-auto">
         <select
@@ -621,14 +763,26 @@ export default function ExplorePage() {
               {renderFilters()}
             </div>
 
-            {/* Result count */}
-            <span className="text-xs text-gray-400 ml-auto">
-              {isFeedLoading ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin inline" />
-              ) : (
-                <><span className="font-bold text-gray-600">{feedItems.length}</span> result{feedItems.length !== 1 ? "s" : ""}</>
-              )}
-            </span>
+            {/* Result count & Desktop Create Post */}
+            <div className="ml-auto flex items-center gap-3">
+              <span className="text-xs text-gray-400">
+                {isFeedLoading ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin inline" />
+                ) : (
+                  <><span className="font-bold text-gray-600">{feedItems.length}</span> result{feedItems.length !== 1 ? "s" : ""}</>
+                )}
+              </span>
+              <button
+                onClick={() => {
+                  if (!isAuthenticated) setLocation("/login");
+                  else setIsCreateModalOpen(true);
+                }}
+                className="hidden md:flex items-center gap-1.5 bg-[#007699] hover:bg-[#005a75] text-white text-sm font-semibold py-1.5 px-3 rounded-xl transition-colors shadow-sm"
+              >
+                <Plus className="w-4 h-4" />
+                Create Post
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -658,7 +812,7 @@ export default function ExplorePage() {
                   onClick={() => setSelectedPost(item)}
                 >
                   {item.media_type === "video" ? (
-                    <video
+                    <FeedVideo
                       src={item.media_url!}
                       className="w-full h-full object-cover pointer-events-none"
                       autoPlay
@@ -681,6 +835,34 @@ export default function ExplorePage() {
                       </span>
                     </div>
                   )}
+                  {user?.id === item.user_id && (
+                    <div className="absolute top-1.5 right-1.5 z-10">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button 
+                            className="p-1.5 bg-black/40 hover:bg-black/60 rounded-full text-white transition-colors outline-none"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <MoreHorizontal className="w-4 h-4" />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-40 bg-zinc-800 border-zinc-700 text-white z-50">
+                          <DropdownMenuItem 
+                            className="cursor-pointer focus:bg-zinc-700 focus:text-white"
+                            onClick={(e) => { e.stopPropagation(); setPostToEdit(item); setIsCreateModalOpen(true); }}
+                          >
+                            Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuItem 
+                            className="cursor-pointer text-red-500 focus:bg-zinc-700 focus:text-red-400"
+                            onClick={(e) => { e.stopPropagation(); handleDeletePost(item.id, item.user_id!); }}
+                          >
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  )}
                 </div>
               ) : (
                 /* ── Chat Marketplace Card ── */
@@ -693,7 +875,7 @@ export default function ExplorePage() {
                   <div className="aspect-square bg-gray-100 relative overflow-hidden shrink-0">
                     {item.display_image ? (
                       item.media_type === "video" ? (
-                        <video
+                        <FeedVideo
                           src={item.display_image}
                           className="w-full h-full object-cover pointer-events-none"
                           autoPlay muted loop playsInline
@@ -707,10 +889,38 @@ export default function ExplorePage() {
                       </div>
                     )}
                     {item.intent_status && INTENT_BADGE_COLORS[item.intent_status] && (
-                      <div className="absolute top-2 right-2 pointer-events-none">
+                      <div className="absolute top-2 left-2 pointer-events-none">
                         <span className={cn("text-[9px] font-bold px-1.5 py-0.5 rounded-full border shadow-sm", INTENT_BADGE_COLORS[item.intent_status])}>
                           {item.intent_status}
                         </span>
+                      </div>
+                    )}
+                    {user?.id === item.user_id && (
+                      <div className="absolute top-2 right-2 z-10">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <button 
+                              className="p-1.5 bg-black/40 hover:bg-black/60 rounded-full text-white transition-colors outline-none"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <MoreHorizontal className="w-4 h-4" />
+                            </button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-40 bg-white border-gray-200 text-gray-800 z-50">
+                            <DropdownMenuItem 
+                              className="cursor-pointer focus:bg-gray-100"
+                              onClick={(e) => { e.stopPropagation(); setPostToEdit(item); setIsCreateModalOpen(true); }}
+                            >
+                              Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem 
+                              className="cursor-pointer text-red-600 focus:bg-gray-100 focus:text-red-700"
+                              onClick={(e) => { e.stopPropagation(); handleDeletePost(item.id, item.user_id!); }}
+                            >
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
                     )}
                   </div>
@@ -755,7 +965,7 @@ export default function ExplorePage() {
 
       {/* ── REELS FEED — snap-scroll cinematic ── */}
       {selectedPost && (
-        <div className="fixed inset-0 z-[9999] bg-black h-[100dvh] w-full overflow-hidden">
+        <div className="fixed inset-0 z-[9999] bg-black h-[100dvh] w-full overflow-y-auto">
 
           {/* Fixed Back button — stays pinned while feed scrolls */}
           <div className="fixed top-0 left-0 w-full p-4 bg-gradient-to-b from-black/70 to-transparent z-[10000] pointer-events-none">
@@ -785,7 +995,7 @@ export default function ExplorePage() {
                 <div className="flex-1 relative flex items-center justify-center overflow-hidden bg-black">
                   {item.display_image ? (
                     item.media_type === "video" ? (
-                      <video
+                      <FeedVideo
                         src={item.display_image}
                         controls
                         playsInline
@@ -813,30 +1023,58 @@ export default function ExplorePage() {
                   {/* Drag handle */}
                   <div className="w-10 h-1 bg-zinc-600 rounded-full mx-auto mb-4" />
 
-                  {/* Clickable profile row — navigates directly to public profile */}
-                  <div
-                    className="flex items-center gap-3 mb-4 cursor-pointer group"
-                    onClick={() => item.user_id && setLocation(`/profile/${item.user_id}`)}
-                    role="link"
-                    aria-label={`View ${item.user_display_name}'s profile`}
-                  >
-                    <div className="h-10 w-10 rounded-full overflow-hidden bg-zinc-700 shrink-0 ring-2 ring-white/20 group-active:ring-white/50 transition-all">
-                      <img
-                        src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${item.user_id ?? item.id}`}
-                        alt="avatar"
-                        className="w-full h-full object-cover"
-                      />
+                  {/* Profile row and Actions */}
+                  <div className="flex items-center gap-3 mb-4">
+                    {/* Clickable profile info */}
+                    <div
+                      className="flex items-center gap-3 cursor-pointer group flex-1 min-w-0"
+                      onClick={() => item.user_id && setLocation(`/profile/${item.user_id}`)}
+                      role="link"
+                      aria-label={`View ${item.user_display_name}'s profile`}
+                    >
+                      <div className="h-10 w-10 rounded-full overflow-hidden bg-zinc-700 shrink-0 ring-2 ring-white/20 group-active:ring-white/50 transition-all">
+                        <img
+                          src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${item.user_id ?? item.id}`}
+                          alt="avatar"
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-bold text-white truncate group-hover:underline">{item.user_display_name}</p>
+                        <p className="text-xs text-zinc-400">
+                          {new Date(item.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
+                        </p>
+                      </div>
+                      {item.intent_status && INTENT_BADGE_COLORS[item.intent_status] && (
+                        <span className={cn("text-[10px] font-bold px-2.5 py-1 rounded-full border shrink-0", INTENT_BADGE_COLORS[item.intent_status])}>
+                          {item.intent_status}
+                        </span>
+                      )}
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-bold text-white truncate group-hover:underline">{item.user_display_name}</p>
-                      <p className="text-xs text-zinc-400">
-                        {new Date(item.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
-                      </p>
-                    </div>
-                    {item.intent_status && INTENT_BADGE_COLORS[item.intent_status] && (
-                      <span className={cn("text-[10px] font-bold px-2.5 py-1 rounded-full border shrink-0", INTENT_BADGE_COLORS[item.intent_status])}>
-                        {item.intent_status}
-                      </span>
+
+                    {/* 3-Dot Menu for Author */}
+                    {user?.id === item.user_id && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button className="p-2 -mr-2 text-zinc-400 hover:text-white transition-colors shrink-0 outline-none">
+                            <MoreHorizontal className="w-5 h-5" />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-40 bg-zinc-800 border-zinc-700 text-white">
+                          <DropdownMenuItem 
+                            className="cursor-pointer focus:bg-zinc-700 focus:text-white"
+                            onClick={(e) => { e.stopPropagation(); setPostToEdit(item); setIsCreateModalOpen(true); }}
+                          >
+                            Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuItem 
+                            className="cursor-pointer text-red-500 focus:bg-zinc-700 focus:text-red-400"
+                            onClick={(e) => { e.stopPropagation(); handleDeletePost(item.id, item.user_id!); }}
+                          >
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     )}
                   </div>
 
@@ -861,6 +1099,12 @@ export default function ExplorePage() {
                         <span className="text-xs font-semibold text-white capitalize">{item.breed.replace(/-/g, ' ')}</span>
                       </div>
                     )}
+                    {item.gender && (
+                      <div className="bg-zinc-800 rounded-lg px-3 py-1.5">
+                        <span className="text-[9px] text-zinc-400 uppercase tracking-wide block">Gender</span>
+                        <span className="text-xs font-semibold text-white capitalize">{item.gender}</span>
+                      </div>
+                    )}
                     {item.location && (
                       <div className="bg-zinc-800 rounded-lg px-3 py-1.5 flex items-start gap-1.5">
                         <MapPin className="w-3 h-3 text-zinc-400 mt-0.5 shrink-0" />
@@ -870,7 +1114,50 @@ export default function ExplorePage() {
                         </div>
                       </div>
                     )}
+                    {item.age && (
+                      <div className="bg-zinc-800 rounded-lg px-3 py-1.5">
+                        <span className="text-[9px] text-zinc-400 uppercase tracking-wide block">Age</span>
+                        <span className="text-xs font-semibold text-white">{item.age}</span>
+                      </div>
+                    )}
+                    {item.price !== null && (
+                      <div className="bg-zinc-800 rounded-lg px-3 py-1.5">
+                        <span className="text-[9px] text-zinc-400 uppercase tracking-wide block">Price</span>
+                        <span className="text-xs font-semibold text-white">₹{item.price}</span>
+                      </div>
+                    )}
                   </div>
+
+                  {/* Action Buttons */}
+                  {user?.id !== item.user_id && (
+                    <div className="flex gap-3 mt-6">
+                      <button
+                        onClick={() => {
+                          if (!user) {
+                            setLocation('/login');
+                          } else {
+                            setLocation(`/inbox/${item.user_id}`);
+                          }
+                        }}
+                        className="flex-1 bg-[#007699] hover:bg-[#005a75] text-white font-semibold py-2.5 rounded-xl transition-colors shadow-sm flex items-center justify-center gap-2"
+                      >
+                        <Send className="w-4 h-4" />
+                        Message
+                      </button>
+                      {item.user_phone && (
+                        <button
+                          onClick={() => {
+                            const formattedPhone = item.user_phone!.replace(/\D/g, '');
+                            window.open(`https://wa.me/${formattedPhone}?text=I'm interested in your post on ScrollPet`, '_blank');
+                          }}
+                          className="flex-1 bg-green-500 hover:bg-green-600 text-white font-semibold py-2.5 rounded-xl transition-colors shadow-sm flex items-center justify-center gap-2"
+                        >
+                          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                          WhatsApp
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
@@ -899,7 +1186,7 @@ export default function ExplorePage() {
             {/* LEFT: media */}
             <div className="bg-black flex items-center justify-center md:w-[63%] min-h-[40vh] md:min-h-0">
               {selectedMedia.media_type === "video" ? (
-                <video
+                <FeedVideo
                   src={selectedMedia.media_url}
                   controls
                   autoPlay
@@ -1073,6 +1360,28 @@ export default function ExplorePage() {
           </div>
         </div>
       )}
+
+      {/* Mobile FAB */}
+      <button
+        onClick={() => {
+          if (!isAuthenticated) setLocation("/login");
+          else setIsCreateModalOpen(true);
+        }}
+        className="md:hidden fixed bottom-20 right-4 z-50 flex items-center justify-center w-14 h-14 bg-[#007699] text-white rounded-full shadow-lg hover:bg-[#005a75] hover:scale-105 active:scale-95 transition-all"
+        aria-label="Create Post"
+      >
+        <Plus className="w-6 h-6" />
+      </button>
+
+      <CreatePostModal 
+        isOpen={isCreateModalOpen}
+        onClose={() => { setIsCreateModalOpen(false); setPostToEdit(null); }}
+        onPostCreated={() => {
+          setSelectedPost(null);
+          fetchFeed();
+        }}
+        postToEdit={postToEdit}
+      />
 
       <Footer />
     </div>

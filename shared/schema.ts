@@ -49,6 +49,9 @@ export const messages = pgTable("messages", {
   replyToUserId: varchar("reply_to_user_id").references(() => users.id), // Added for reply notifications
   petType: text("pet_type").notNull(),
   breed: text("breed"),
+  gender: text("gender"),
+  age: text("age"),
+  price: integer("price"),
   location: text("location").notNull(),
   content: text("content").notNull(),
   messageType: text("message_type").notNull().default('text'),
