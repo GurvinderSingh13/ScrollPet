@@ -263,8 +263,7 @@ export default function ExplorePage() {
   }, [selectedMedia?.id]);
 
   // ── Unified fetch — no inline PostgREST joins; users fetched separately ──
-  useEffect(() => {
-    const fetchFeed = async () => {
+  const fetchFeed = useCallback(async () => {
       setIsFeedLoading(true);
       try {
         // Step 1 — fetch both tables in parallel, NO embedded joins
@@ -470,10 +469,11 @@ export default function ExplorePage() {
       } finally {
         setIsFeedLoading(false);
       }
-    };
-
-    fetchFeed();
   }, [filterSource, filterIntent, filterCategory, filterBreed, filterCountry, filterState, filterDistrict, filterAge, filterMaxPrice]);
+
+  useEffect(() => {
+    fetchFeed();
+  }, [fetchFeed]);
 
 
   // ── Lightbox queries ──
@@ -1376,7 +1376,7 @@ export default function ExplorePage() {
       <CreatePostModal 
         isOpen={isCreateModalOpen}
         onClose={() => { setIsCreateModalOpen(false); setPostToEdit(null); }}
-        onPostCreated={() => {
+        onSuccess={() => {
           setSelectedPost(null);
           fetchFeed();
         }}

@@ -30,11 +30,11 @@ const INTENT_OPTIONS = [
 interface CreatePostModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onPostCreated: () => void;
+  onSuccess?: () => void;
   postToEdit?: any | null;
 }
 
-export function CreatePostModal({ isOpen, onClose, onPostCreated, postToEdit }: CreatePostModalProps) {
+export function CreatePostModal({ isOpen, onClose, onSuccess, postToEdit }: CreatePostModalProps) {
   const isEditing = !!postToEdit;
   const { user } = useAuth();
   
@@ -227,6 +227,13 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated, postToEdit }: 
 
       const finalAge = ageValue && ageUnit ? `${ageValue} ${ageUnit}` : null;
 
+      const selectedCountryName = country && country !== "all" ? (Country.getAllCountries().find(c => c.isoCode === country)?.name ?? "") : "";
+      const locationString = [
+        district && district !== "all" ? district : "", 
+        selectedStateName, 
+        selectedCountryName
+      ].filter(Boolean).join(", ");
+
       const postData: any = {
         user_id: user.id,
         content: description || "",
@@ -238,7 +245,7 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated, postToEdit }: 
         gender: gender || null,
         age: finalAge,
         price: price ? parseInt(price, 10) : null,
-        location: "explore_feed", // Prevents showing in chat rooms
+        location: locationString || "explore_feed",
         crosspost_rooms: [`${locPrefix}::explore_feed::explore_feed`]
       };
 
@@ -261,7 +268,7 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated, postToEdit }: 
         toast({ description: "Post created successfully!" });
       }
 
-      onPostCreated();
+      if (onSuccess) onSuccess();
       handleClose();
     } catch (err: any) {
       console.error("Post creation error:", err);
