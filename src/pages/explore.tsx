@@ -808,61 +808,85 @@ export default function ExplorePage() {
                 /* ── Media Card ── */
                 <div
                   key={item.id}
-                  className="aspect-square overflow-hidden rounded-xl bg-gray-100 cursor-pointer relative group"
+                  className="bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow overflow-hidden flex flex-col cursor-pointer group"
                   onClick={() => setSelectedPost(item)}
                 >
-                  {item.media_type === "video" ? (
-                    <FeedVideo
-                      src={item.media_url!}
-                      className="w-full h-full object-cover pointer-events-none"
-                      autoPlay
-                      muted
-                      loop
-                      playsInline
-                    />
-                  ) : (
-                    <img src={item.media_url!} alt="Pet media" className="w-full h-full object-cover" />
-                  )}
-                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-end p-2 pointer-events-none">
-                    <span className="text-white text-xs font-semibold opacity-0 group-hover:opacity-100 transition-opacity drop-shadow">
-                      {item.user_display_name}
-                    </span>
+                  <div className="aspect-square bg-gray-100 relative overflow-hidden shrink-0">
+                    {item.media_type === "video" ? (
+                      <FeedVideo
+                        src={item.media_url!}
+                        className="w-full h-full object-cover pointer-events-none"
+                        autoPlay
+                        muted
+                        loop
+                        playsInline
+                      />
+                    ) : (
+                      <img src={item.media_url!} alt="Pet media" className="w-full h-full object-cover" />
+                    )}
+                    {item.intent_status && INTENT_BADGE_COLORS[item.intent_status] && (
+                      <div className="absolute top-1.5 left-1.5 pointer-events-none">
+                        <span className={cn("text-[9px] font-bold px-1.5 py-0.5 rounded-full border shadow-sm", INTENT_BADGE_COLORS[item.intent_status])}>
+                          {item.intent_status}
+                        </span>
+                      </div>
+                    )}
+                    {user?.id === item.user_id && (
+                      <div className="absolute top-1.5 right-1.5 z-10">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <button 
+                              className="p-1.5 bg-black/40 hover:bg-black/60 rounded-full text-white transition-colors outline-none"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <MoreHorizontal className="w-4 h-4" />
+                            </button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-40 bg-white border-gray-200 text-gray-800 z-50">
+                            <DropdownMenuItem 
+                              className="cursor-pointer focus:bg-gray-100"
+                              onClick={(e) => { e.stopPropagation(); setPostToEdit(item); setIsCreateModalOpen(true); }}
+                            >
+                              Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem 
+                              className="cursor-pointer text-red-600 focus:bg-gray-100 focus:text-red-700"
+                              onClick={(e) => { e.stopPropagation(); handleDeletePost(item.id, item.user_id!); }}
+                            >
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    )}
                   </div>
-                  {item.intent_status && INTENT_BADGE_COLORS[item.intent_status] && (
-                    <div className="absolute top-1.5 left-1.5 pointer-events-none">
-                      <span className={cn("text-[9px] font-bold px-1.5 py-0.5 rounded-full border shadow-sm", INTENT_BADGE_COLORS[item.intent_status])}>
-                        {item.intent_status}
-                      </span>
-                    </div>
-                  )}
-                  {user?.id === item.user_id && (
-                    <div className="absolute top-1.5 right-1.5 z-10">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <button 
-                            className="p-1.5 bg-black/40 hover:bg-black/60 rounded-full text-white transition-colors outline-none"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <MoreHorizontal className="w-4 h-4" />
-                          </button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-40 bg-zinc-800 border-zinc-700 text-white z-50">
-                          <DropdownMenuItem 
-                            className="cursor-pointer focus:bg-zinc-700 focus:text-white"
-                            onClick={(e) => { e.stopPropagation(); setPostToEdit(item); setIsCreateModalOpen(true); }}
-                          >
-                            Edit
-                          </DropdownMenuItem>
-                          <DropdownMenuItem 
-                            className="cursor-pointer text-red-500 focus:bg-zinc-700 focus:text-red-400"
-                            onClick={(e) => { e.stopPropagation(); handleDeletePost(item.id, item.user_id!); }}
-                          >
-                            Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  )}
+
+                  <div className="flex flex-col p-2.5">
+                    <p className="text-[11px] font-semibold text-gray-800 truncate">
+                      {item.user_display_name}
+                    </p>
+                    
+                    {(item.breed || item.gender || item.price || item.location) && (
+                      <div className="flex flex-col gap-0.5 mt-1.5">
+                        {(item.breed || item.gender) && (
+                          <p className="text-[10px] text-gray-500 truncate">
+                            {[
+                              item.breed ? item.breed.charAt(0).toUpperCase() + item.breed.slice(1) : null,
+                              item.gender ? item.gender.charAt(0).toUpperCase() + item.gender.slice(1) : null
+                            ].filter(Boolean).join(" • ")}
+                          </p>
+                        )}
+                        {(item.price || item.location) && (
+                          <p className="text-[10px] text-gray-500 truncate">
+                            {[
+                              item.price ? `₹${item.price}` : null,
+                              item.location
+                            ].filter(Boolean).join(" • ")}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
               ) : (
                 /* ── Chat Marketplace Card ── */
@@ -932,6 +956,28 @@ export default function ExplorePage() {
                     </div>
                   )}
 
+                  {/* Compact Info Grid */}
+                  {(item.breed || item.gender || item.price || item.location) && (
+                    <div className="flex flex-col gap-0.5 px-2.5 pb-2">
+                      {(item.breed || item.gender) && (
+                        <p className="text-[10px] text-gray-500 truncate">
+                          {[
+                            item.breed ? item.breed.charAt(0).toUpperCase() + item.breed.slice(1) : null,
+                            item.gender ? item.gender.charAt(0).toUpperCase() + item.gender.slice(1) : null
+                          ].filter(Boolean).join(" • ")}
+                        </p>
+                      )}
+                      {(item.price || item.location) && (
+                        <p className="text-[10px] text-gray-500 truncate">
+                          {[
+                            item.price ? `₹${item.price}` : null,
+                            item.location
+                          ].filter(Boolean).join(" • ")}
+                        </p>
+                      )}
+                    </div>
+                  )}
+
                   {/* Footer */}
                   <div className="flex items-center gap-1.5 px-2.5 py-2 mt-auto border-t border-gray-50">
                     <div className="h-5 w-5 rounded-full overflow-hidden bg-gray-100 shrink-0">
@@ -943,12 +989,6 @@ export default function ExplorePage() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-[10px] font-semibold text-gray-700 truncate">{item.user_display_name}</p>
-                      {item.location && (
-                        <p className="text-[9px] text-gray-400 truncate flex items-center gap-0.5">
-                          <MapPin className="w-2.5 h-2.5 shrink-0" />
-                          {item.location}
-                        </p>
-                      )}
                     </div>
                     {item.category && (
                       <span className="text-[9px] font-semibold bg-[#007699]/10 text-[#007699] px-1.5 py-0.5 rounded-md capitalize shrink-0">
