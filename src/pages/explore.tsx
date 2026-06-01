@@ -214,6 +214,7 @@ export default function ExplorePage() {
   // ── Feed state ──
   const [feedItems, setFeedItems] = useState<FeedItem[]>([]);
   const [isFeedLoading, setIsFeedLoading] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [selectedPost, setSelectedPost] = useState<FeedItem | null>(null);
@@ -270,7 +271,9 @@ export default function ExplorePage() {
 
   // ── Unified fetch — no inline PostgREST joins; users fetched separately ──
   const fetchFeed = useCallback(async (pageNum: number = 0, isLoadMore: boolean = false) => {
-      setIsFeedLoading(!isLoadMore);
+      if (!isLoadMore) setIsFeedLoading(true);
+      else setIsLoadingMore(true);
+      console.log('Fetching page:', pageNum);
       try {
         const PAGE_SIZE = 12;
         const start = pageNum * PAGE_SIZE;
@@ -489,6 +492,7 @@ export default function ExplorePage() {
         if (isLoadMore) {
           setFeedItems((prev) => {
             const newItems = merged.filter((item) => !prev.some((p) => p.id === item.id));
+            console.log('Returned items:', newItems.length);
             return [...prev, ...newItems].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
           });
         } else {
@@ -499,6 +503,7 @@ export default function ExplorePage() {
         toast({ description: "Failed to load feed.", variant: "destructive" });
       } finally {
         setIsFeedLoading(false);
+        setIsLoadingMore(false);
       }
   }, [filterSource, filterIntent, filterCategory, filterBreed, filterCountry, filterState, filterDistrict, filterAge, filterGender, filterMaxPrice]);
 
@@ -1140,16 +1145,18 @@ export default function ExplorePage() {
           {hasMore && feedItems.length > 0 && (
             <div className="mt-8 flex justify-center pb-8">
               <button
-                onClick={() => {
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
                   const nextPage = page + 1;
                   setPage(nextPage);
                   fetchFeed(nextPage, true);
                 }}
-                disabled={isFeedLoading}
+                disabled={isLoadingMore}
                 className="bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 font-medium py-2.5 px-6 rounded-full shadow-sm flex items-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {isFeedLoading && <Loader2 className="w-4 h-4 animate-spin inline" />}
-                {isFeedLoading ? "Loading..." : "Load More"}
+                {isLoadingMore && <Loader2 className="w-4 h-4 animate-spin inline" />}
+                {isLoadingMore ? "Loading..." : "Load More"}
               </button>
             </div>
           )}

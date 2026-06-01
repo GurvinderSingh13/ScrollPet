@@ -6,7 +6,12 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { User, Shield, MessageCircle, LogOut } from "lucide-react";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { User, Shield, MessageCircle, LogOut, Search, Phone } from "lucide-react";
 import logoImage from "@assets/Scrollpet_logo_1766997907297.png";
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery } from "@tanstack/react-query";
@@ -90,6 +95,48 @@ export default function Navbar() {
               </button>
             )
           )}
+
+          {/* Pet Concierge Popover */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <button
+                className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-primary/20 bg-primary/5 text-primary text-sm font-semibold hover:bg-primary/10 transition-colors cursor-pointer"
+                title="Can't find a pet?"
+              >
+                <Search className="w-4 h-4" />
+                <span className="hidden lg:inline">Can't find a pet?</span>
+              </button>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-80 p-4" sideOffset={8}>
+              <div className="flex flex-col gap-3">
+                <h4 className="font-semibold flex items-center gap-2 text-[#007699]">
+                  <Search className="w-4 h-4" />
+                  Pet Concierge
+                </h4>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  If you did not find the pet in your location, send us a message with what you are looking for. We will try our best to find a breeder in your preferred location.
+                </p>
+                <div className="flex flex-col gap-2 mt-2">
+                  <a
+                    href="https://wa.me/919501769649?text=Hi%20Scrollpet,%20I%20am%20looking%20for%20a%20pet%20in%20my%20location..."
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center gap-2 bg-green-500 hover:bg-green-600 text-white font-medium py-2 px-4 rounded-md transition-colors text-sm shadow-sm"
+                  >
+                    <Phone className="w-4 h-4" />
+                    WhatsApp
+                  </a>
+                  <button
+                    onClick={() => setLocation("/chat?user=scrollpet")}
+                    className="flex items-center justify-center gap-2 bg-muted hover:bg-muted/80 text-foreground font-medium py-2 px-4 rounded-md transition-colors text-sm cursor-pointer"
+                  >
+                    <MessageCircle className="w-4 h-4" />
+                    Message on Scrollpet
+                  </button>
+                </div>
+              </div>
+            </PopoverContent>
+          </Popover>
 
           {/* Profile Section - Now visible on all screen sizes */}
           <div className="flex items-center">
