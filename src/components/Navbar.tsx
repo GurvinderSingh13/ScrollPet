@@ -12,8 +12,10 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { User, Shield, MessageCircle, LogOut, Search, Phone } from "lucide-react";
+import { useUnreadMessages } from "@/hooks/use-unread-messages";
 import logoImage from "@assets/Scrollpet_logo_1766997907297.png";
 import { useAuth } from "@/hooks/use-auth";
+import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 
@@ -28,6 +30,36 @@ const navLinks = [
 export default function Navbar() {
   const [currentPath, setLocation] = useLocation();
   const { user, isLoading, isAuthenticated, logout } = useAuth();
+  const unreadCount = useUnreadMessages(user?.id);
+  const { toast } = useToast();
+
+  const handleMessageScrollpet = async () => {
+    if (!isAuthenticated) {
+      toast({ description: "Please log in to send a message", variant: "default" });
+      setLocation("/login");
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from("users")
+        .select("id, display_name, username")
+        .or("username.eq.scrollpet,role.eq.admin")
+        .limit(1)
+        .single();
+
+      if (data) {
+        sessionStorage.setItem("teleport_dm_user_id", data.id);
+        sessionStorage.setItem("teleport_dm_user_name", data.display_name || data.username || "Scrollpet");
+        setLocation("/inbox");
+      } else {
+        toast({ description: "Could not find admin user to message", variant: "destructive" });
+      }
+    } catch (err) {
+      console.error("Error finding admin user:", err);
+      toast({ description: "Error connecting to chat", variant: "destructive" });
+    }
+  };
 
   const { data: dbUser } = useQuery({
     queryKey: ["navbar_user_role", user?.id],
@@ -46,6 +78,8 @@ export default function Navbar() {
   const isModOrAbove =
     dbUser &&
     ["moderator", "super_moderator", "staff", "admin"].includes(dbUser.role);
+
+  console.log('Current unread count in Navbar:', unreadCount);
 
   return (
     <header className="fixed w-full top-0 z-[100] bg-background/80 backdrop-blur-md border-b border-border/40 shadow-sm">
@@ -91,7 +125,14 @@ export default function Navbar() {
                 className="flex items-center justify-center w-10 h-10 rounded-full hover:bg-muted text-muted-foreground hover:text-[#007699] transition-all cursor-pointer"
                 title="Direct Messages"
               >
-                <MessageCircle className="w-5 h-5" strokeWidth={1.8} />
+                <div className="relative">
+                  <MessageCircle className="w-5 h-5" strokeWidth={1.8} />
+                  {unreadCount > 0 && (
+                    <div className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white shadow-sm ring-1 ring-white">
+                      {unreadCount > 99 ? '99+' : unreadCount}
+                    </div>
+                  )}
+                </div>
               </button>
             )
           )}
@@ -100,11 +141,11 @@ export default function Navbar() {
           <Popover>
             <PopoverTrigger asChild>
               <button
-                className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-primary/20 bg-primary/5 text-primary text-sm font-semibold hover:bg-primary/10 transition-colors cursor-pointer"
+                className="flex items-center justify-center p-2 md:px-3 md:py-1.5 rounded-full border border-primary/20 bg-blue-50/50 text-primary text-sm font-semibold shadow-sm hover:bg-primary/10 hover:scale-105 active:scale-95 transition-all animate-wiggle-periodic cursor-pointer"
                 title="Can't find a pet?"
               >
-                <Search className="w-4 h-4" />
-                <span className="hidden lg:inline">Can't find a pet?</span>
+                <Search className="w-4 h-4 md:mr-1.5" />
+                <span className="hidden md:inline">Can't find a pet?</span>
               </button>
             </PopoverTrigger>
             <PopoverContent align="end" className="w-80 p-4" sideOffset={8}>
@@ -127,7 +168,7 @@ export default function Navbar() {
                     WhatsApp
                   </a>
                   <button
-                    onClick={() => setLocation("/chat?user=scrollpet")}
+                    onClick={handleMessageScrollpet}
                     className="flex items-center justify-center gap-2 bg-muted hover:bg-muted/80 text-foreground font-medium py-2 px-4 rounded-md transition-colors text-sm cursor-pointer"
                   >
                     <MessageCircle className="w-4 h-4" />

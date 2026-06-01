@@ -24,10 +24,17 @@ import ContactUs from "@/pages/contact";
 import UpdatePassword from "@/pages/update-password";
 import PetProfilePage from "@/pages/pet-profile";
 import ExplorePage from "@/pages/explore";
+import CommunityDirectory from "@/pages/community";
 import GlobalLocationDetector from "@/components/GlobalLocationDetector";
 import Navbar from "@/components/Navbar";
 import MobileBottomNav from "@/components/MobileBottomNav";
 import ErrorBoundary from "@/components/ErrorBoundary";
+import { usePresence } from "@/hooks/use-presence";
+
+function PresenceTracker() {
+  usePresence();
+  return null;
+}
 
 function Router() {
   return (
@@ -53,6 +60,7 @@ function Router() {
       <Route path="/update-password" component={UpdatePassword} />
       <Route path="/pet/:petId" component={PetProfilePage} />
       <Route path="/explore" component={ExplorePage} />
+      <Route path="/community" component={CommunityDirectory} />
       <Route path="/inbox" component={ChatInterface} />
       <Route component={NotFound} />
     </Switch>
@@ -64,6 +72,7 @@ function App() {
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <GlobalLocationDetector />
+        <PresenceTracker />
         <TooltipProvider>
           <Navbar />
           <div className="pb-16 md:pb-0">

@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, integer, index, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, integer, index, jsonb, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -27,6 +27,7 @@ export const users = pgTable("users", {
   lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),
   enableCrossposting: text("enable_crossposting").default("false"), // Using text to match frontend expectations if it's already in DB as boolean/text
+  lastSeen: timestamp("last_seen").defaultNow(),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -58,6 +59,7 @@ export const messages = pgTable("messages", {
   mediaUrl: text("media_url"),
   mediaDuration: integer("media_duration"),
   crosspostRooms: text("crosspost_rooms").array(),
+  isRead: boolean("is_read").default(false),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

@@ -40,7 +40,7 @@ import {
 import { useState, useEffect, useCallback, useRef } from "react";
 import { cn } from "@/lib/utils";
 import { useWebSocket } from "@/hooks/useWebSocket";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { Country, State, City } from "country-state-city";
 import { ChatInput } from "@/components/ChatInput";
@@ -178,6 +178,7 @@ const PawIcon = ({ className }: { className?: string }) => (
 );
 
 export default function ChatInterface() {
+  const queryClient = useQueryClient();
   const [activePet, setActivePet] = useState(() => {
     // URL param takes priority over cached "last visited" state
     if (typeof window !== "undefined") {
@@ -746,6 +747,35 @@ export default function ChatInterface() {
     ],
   );
 
+  useEffect(() => {
+    if (activeDmUser && userId) {
+      console.log('Attempting to mark messages as read for sender:', activeDmUser.id);
+      // Mark unread messages from activeDmUser as read
+      supabase
+        .from("messages")
+        .update({ is_read: true })
+        .eq("receiver_id", userId)
+        .eq("user_id", activeDmUser.id)
+        .eq("is_read", false)
+        .then(({ error }) => {
+          if (error) {
+            console.error("Supabase Update Error:", error);
+          } else {
+            // Optimistically update the sidebar UI
+            queryClient.setQueryData(["dmContacts", userId], (oldData: any[]) => {
+              if (!oldData) return oldData;
+              return oldData.map(contact => {
+                if (contact.id === activeDmUser.id) {
+                  return { ...contact, unreadCount: 0 };
+                }
+                return contact;
+              });
+            });
+          }
+        });
+    }
+  }, [activeDmUser, userId, queryClient]);
+
   const { isConnected, sendMessage: sendWsMessage } = useWebSocket({
     userId,
     petType: activePet,
@@ -760,7 +790,7 @@ export default function ChatInterface() {
       const { data, error } = await supabase
         .from("messages")
         .select(
-          `user_id, receiver_id, users:users!user_id(id, display_name, username), receiver:users!receiver_id(id, display_name, username)`,
+          `user_id, receiver_id, is_read, users:users!user_id(id, display_name, username), receiver:users!receiver_id(id, display_name, username)`,
         )
         .not("receiver_id", "is", null)
         .or(`user_id.eq.${userId},receiver_id.eq.${userId}`)
@@ -768,26 +798,27 @@ export default function ChatInterface() {
       if (error) throw error;
       const contactsMap = new Map();
       data?.forEach((msg: any) => {
-        if (
-          msg.user_id !== userId &&
-          msg.users &&
-          !contactsMap.has(msg.user_id)
-        )
-          contactsMap.set(msg.user_id, {
-            id: msg.user_id,
-            name: msg.users.display_name || msg.users.username || "Unknown",
-          });
-        if (
-          msg.receiver_id !== userId &&
-          msg.receiver_id &&
-          msg.receiver &&
-          !contactsMap.has(msg.receiver_id)
-        )
-          contactsMap.set(msg.receiver_id, {
-            id: msg.receiver_id,
-            name:
-              msg.receiver.display_name || msg.receiver.username || "Unknown",
-          });
+        if (msg.user_id !== userId && msg.users) {
+          if (!contactsMap.has(msg.user_id)) {
+            contactsMap.set(msg.user_id, {
+              id: msg.user_id,
+              name: msg.users.display_name || msg.users.username || "Unknown",
+              unreadCount: 0,
+            });
+          }
+          if (msg.receiver_id === userId && msg.is_read === false) {
+            contactsMap.get(msg.user_id).unreadCount++;
+          }
+        }
+        if (msg.receiver_id !== userId && msg.receiver_id && msg.receiver) {
+          if (!contactsMap.has(msg.receiver_id)) {
+            contactsMap.set(msg.receiver_id, {
+              id: msg.receiver_id,
+              name: msg.receiver.display_name || msg.receiver.username || "Unknown",
+              unreadCount: 0,
+            });
+          }
+        }
       });
       return Array.from(contactsMap.values());
     },
@@ -1845,7 +1876,7 @@ export default function ChatInterface() {
                           : "bg-white",
                       )}
                     >
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-3 w-full overflow-hidden relative">
                         <div
                           className={cn(
                             "w-8 h-8 rounded-full border overflow-hidden bg-gray-100 shrink-0 flex items-center justify-center",
@@ -1860,9 +1891,14 @@ export default function ChatInterface() {
                             className="w-full h-full object-cover"
                           />
                         </div>
-                        <span className="text-base truncate">
+                        <span className="text-base truncate flex-1 pr-6">
                           @{contact.name}
                         </span>
+                        {contact.unreadCount > 0 && (
+                          <div className="absolute right-0 top-1/2 -translate-y-1/2 bg-red-500 text-white text-[10px] font-bold h-5 w-5 rounded-full flex items-center justify-center shadow-sm">
+                            {contact.unreadCount > 99 ? '99+' : contact.unreadCount}
+                          </div>
+                        )}
                       </div>
                     </button>
                   ))

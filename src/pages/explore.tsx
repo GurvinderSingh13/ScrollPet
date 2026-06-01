@@ -41,6 +41,21 @@ import { INDIA_LOCATIONS } from "@/data/indiaLocations";
 import { Country, State } from "country-state-city";
 import Footer from "@/components/Footer";
 
+const formatLocation = (loc: string | null) => {
+  if (!loc) return "";
+  if (loc.startsWith("city:") || loc.startsWith("state:") || loc.startsWith("country:")) {
+    const parts = loc.split(":");
+    if (parts.length >= 4) {
+      return `${parts[3]}, ${parts[2]}`; // e.g. Delhi, DL
+    } else if (parts.length === 3) {
+      return `${parts[2]}, ${parts[1]}`; // e.g. DL, IN
+    } else if (parts.length === 2) {
+      return parts[1];
+    }
+  }
+  return loc;
+};
+
 type MediaItem = {
   id: string;
   pet_id: string;
@@ -933,13 +948,13 @@ export default function ExplorePage() {
                         {item.location && (
                           <div className="flex items-center gap-1.5 text-xs text-gray-600">
                             <MapPin className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-                            <span className="truncate">{item.location}</span>
+                            <span className="truncate">{formatLocation(item.location)}</span>
                           </div>
                         )}
                       </div>
                     )}
                     
-                    <div className="flex items-center gap-2 mt-2 w-full">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2 w-full">
                       {item.user_phone && (
                         <a
                           href={`https://wa.me/${item.user_phone.replace(/\D/g, '')}`}
@@ -1069,7 +1084,7 @@ export default function ExplorePage() {
                         {item.location && (
                           <div className="flex items-center gap-1.5 text-xs text-gray-600">
                             <MapPin className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-                            <span className="truncate">{item.location}</span>
+                            <span className="truncate">{formatLocation(item.location)}</span>
                           </div>
                         )}
                       </div>
@@ -1100,7 +1115,7 @@ export default function ExplorePage() {
 
                   {/* Action Buttons */}
                   <div className="flex flex-col gap-2 p-2.5 border-t border-gray-50 bg-gray-50/50">
-                    <div className="flex items-center gap-2 w-full">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full">
                       {item.user_phone && (
                         <a
                           href={`https://wa.me/${item.user_phone.replace(/\D/g, '')}`}
@@ -1333,7 +1348,7 @@ export default function ExplorePage() {
 
                   {/* Action Buttons */}
                   {user?.id !== item.user_id && (
-                    <div className="flex gap-3 mt-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-6">
                       <button
                         onClick={() => {
                           if (!user) {
