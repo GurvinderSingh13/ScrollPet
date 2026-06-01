@@ -21,6 +21,9 @@ import {
   Filter,
   Plus,
   MoreHorizontal,
+  Phone,
+  MessageCircle,
+  PawPrint,
 } from "lucide-react";
 import { CreatePostModal } from "@/components/CreatePostModal";
 import {
@@ -211,6 +214,8 @@ export default function ExplorePage() {
   // ── Feed state ──
   const [feedItems, setFeedItems] = useState<FeedItem[]>([]);
   const [isFeedLoading, setIsFeedLoading] = useState(true);
+  const [page, setPage] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
   const [selectedPost, setSelectedPost] = useState<FeedItem | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [postToEdit, setPostToEdit] = useState<FeedItem | null>(null);
@@ -264,13 +269,23 @@ export default function ExplorePage() {
   }, [selectedMedia?.id]);
 
   // ── Unified fetch — no inline PostgREST joins; users fetched separately ──
-  const fetchFeed = useCallback(async () => {
-      setIsFeedLoading(true);
+  const fetchFeed = useCallback(async (pageNum: number = 0, isLoadMore: boolean = false) => {
+      setIsFeedLoading(!isLoadMore);
       try {
+        const PAGE_SIZE = 12;
+        const start = pageNum * PAGE_SIZE;
+        const end = start + PAGE_SIZE - 1;
+
         // Step 1 — fetch both tables in parallel, NO embedded joins
         const [mediaResult, chatResult] = await Promise.all([
-          supabase.from("pet_media").select("*, pets(id, name, image_url, user_id, type, breed, gender)"),
-          supabase.from("messages").select("id, user_id, content, message_type, media_url, intent_status, created_at, pet_type, breed, location, crosspost_rooms, age, price, gender"),
+          supabase.from("pet_media")
+            .select("*, pets(id, name, image_url, user_id, type, breed, gender)")
+            .order("created_at", { ascending: false })
+            .range(start, end),
+          supabase.from("messages")
+            .select("id, user_id, content, message_type, media_url, intent_status, created_at, pet_type, breed, location, crosspost_rooms, age, price, gender")
+            .order("created_at", { ascending: false })
+            .range(start, end),
         ]);
 
         if (mediaResult.error) console.error("pet_media fetch error:", mediaResult.error);
@@ -467,17 +482,29 @@ export default function ExplorePage() {
         );
 
         console.log("Final feed:", merged.length, "chat items:", merged.filter((i) => i.source_type === "chat").length);
-        setFeedItems(merged);
+        
+        const isDataExhausted = (mediaResult.data?.length || 0) < PAGE_SIZE && (chatResult.data?.length || 0) < PAGE_SIZE;
+        setHasMore(!isDataExhausted);
+
+        if (isLoadMore) {
+          setFeedItems((prev) => {
+            const newItems = merged.filter((item) => !prev.some((p) => p.id === item.id));
+            return [...prev, ...newItems].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+          });
+        } else {
+          setFeedItems(merged);
+        }
       } catch (err: any) {
         console.error("fetchFeed exception:", err);
         toast({ description: "Failed to load feed.", variant: "destructive" });
       } finally {
         setIsFeedLoading(false);
       }
-  }, [filterSource, filterIntent, filterCategory, filterBreed, filterCountry, filterState, filterDistrict, filterAge, filterMaxPrice]);
+  }, [filterSource, filterIntent, filterCategory, filterBreed, filterCountry, filterState, filterDistrict, filterAge, filterGender, filterMaxPrice]);
 
   useEffect(() => {
-    fetchFeed();
+    setPage(0);
+    fetchFeed(0, false);
   }, [fetchFeed]);
 
 
@@ -827,7 +854,7 @@ export default function ExplorePage() {
                         playsInline
                       />
                     ) : (
-                      <img src={item.media_url!} alt="Pet media" className="w-full h-full object-cover" />
+                      <img src={item.media_url!} alt="Pet media" className="w-full h-full object-cover" loading="lazy" />
                     )}
                     {item.intent_status && INTENT_BADGE_COLORS[item.intent_status] && (
                       <div className="absolute top-1.5 left-1.5 pointer-events-none">
@@ -866,36 +893,82 @@ export default function ExplorePage() {
                     )}
                   </div>
 
-                  <div className="flex flex-col p-2.5">
-                    <div className="flex items-center gap-1">
-                      <p className="text-[11px] font-semibold text-gray-800 truncate">
-                        {item.user_display_name}
-                      </p>
-                      <span className="text-[9px] text-gray-400 shrink-0">
-                        • {formatDistanceToNow(new Date(item.created_at), { addSuffix: true })}
-                      </span>
+                  <div className="flex flex-col p-2.5 gap-2">
+                    <div className="flex items-center justify-between gap-1">
+                      <div className="flex items-center gap-1 overflow-hidden">
+                        <p className="text-[12px] font-bold text-gray-800 truncate">
+                          {item.user_display_name}
+                        </p>
+                        <span className="text-[9px] text-gray-400 shrink-0">
+                          • {formatDistanceToNow(new Date(item.created_at), { addSuffix: true })}
+                        </span>
+                      </div>
                     </div>
                     
-                    {(item.breed || item.gender || item.price || item.location) && (
-                      <div className="flex flex-col gap-0.5 mt-1.5">
+                    {item.price !== null && item.price !== undefined && (
+                      <p className="text-xl font-bold text-green-600">
+                        ₹{item.price}
+                      </p>
+                    )}
+
+                    {(item.breed || item.gender || item.location) && (
+                      <div className="flex flex-col gap-1.5 mt-0.5">
                         {(item.breed || item.gender) && (
-                          <p className="text-[10px] text-gray-500 truncate">
-                            {[
-                              item.breed ? item.breed.charAt(0).toUpperCase() + item.breed.slice(1) : null,
-                              item.gender ? item.gender.charAt(0).toUpperCase() + item.gender.slice(1) : null
-                            ].filter(Boolean).join(" • ")}
-                          </p>
+                          <div className="flex items-center gap-1.5 text-xs text-gray-600">
+                            <PawPrint className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                            <span className="truncate">
+                              {[
+                                item.breed ? item.breed.charAt(0).toUpperCase() + item.breed.slice(1) : null,
+                                item.gender ? item.gender.charAt(0).toUpperCase() + item.gender.slice(1) : null
+                              ].filter(Boolean).join(" • ")}
+                            </span>
+                          </div>
                         )}
-                        {(item.price || item.location) && (
-                          <p className="text-[10px] text-gray-500 truncate">
-                            {[
-                              item.price ? `₹${item.price}` : null,
-                              item.location
-                            ].filter(Boolean).join(" • ")}
-                          </p>
+                        {item.location && (
+                          <div className="flex items-center gap-1.5 text-xs text-gray-600">
+                            <MapPin className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                            <span className="truncate">{item.location}</span>
+                          </div>
                         )}
                       </div>
                     )}
+                    
+                    <div className="flex items-center gap-2 mt-2 w-full">
+                      {item.user_phone && (
+                        <a
+                          href={`https://wa.me/${item.user_phone.replace(/\D/g, '')}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex-1 flex items-center justify-center gap-1.5 bg-green-500 hover:bg-green-600 text-white text-xs font-medium py-2 rounded-md transition-colors shadow-sm"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <Phone className="w-3.5 h-3.5" />
+                          WhatsApp
+                        </a>
+                      )}
+                      {user ? (
+                        <button
+                          className="flex-1 flex items-center justify-center gap-1.5 bg-[#007699] hover:bg-[#005a75] text-white text-xs font-medium py-2 rounded-md transition-colors shadow-sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (item.user_id) setLocation(`/chat?user=${item.user_id}`);
+                          }}
+                        >
+                          <MessageCircle className="w-3.5 h-3.5" />
+                          Message
+                        </button>
+                      ) : (
+                        <button
+                          className="flex-1 flex items-center justify-center gap-1.5 bg-gray-100 hover:bg-gray-200 text-gray-600 text-xs font-medium py-2 rounded-md transition-colors"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setLocation(`/login`);
+                          }}
+                        >
+                          Log in to Message
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               ) : (
@@ -915,7 +988,7 @@ export default function ExplorePage() {
                           autoPlay muted loop playsInline
                         />
                       ) : (
-                        <img src={item.display_image} alt="Post attachment" className="w-full h-full object-cover" />
+                        <img src={item.display_image} alt="Post attachment" className="w-full h-full object-cover" loading="lazy" />
                       )
                     ) : (
                       <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-200">
@@ -967,26 +1040,35 @@ export default function ExplorePage() {
                   )}
 
                   {/* Compact Info Grid */}
-                  {(item.breed || item.gender || item.price || item.location) && (
-                    <div className="flex flex-col gap-0.5 px-2.5 pb-2">
-                      {(item.breed || item.gender) && (
-                        <p className="text-[10px] text-gray-500 truncate">
-                          {[
-                            item.breed ? item.breed.charAt(0).toUpperCase() + item.breed.slice(1) : null,
-                            item.gender ? item.gender.charAt(0).toUpperCase() + item.gender.slice(1) : null
-                          ].filter(Boolean).join(" • ")}
-                        </p>
-                      )}
-                      {(item.price || item.location) && (
-                        <p className="text-[10px] text-gray-500 truncate">
-                          {[
-                            item.price ? `₹${item.price}` : null,
-                            item.location
-                          ].filter(Boolean).join(" • ")}
-                        </p>
-                      )}
-                    </div>
-                  )}
+                  <div className="px-2.5 pb-2">
+                    {item.price !== null && item.price !== undefined && (
+                      <p className="text-xl font-bold text-green-600 mb-2">
+                        ₹{item.price}
+                      </p>
+                    )}
+                    
+                    {(item.breed || item.gender || item.location) && (
+                      <div className="flex flex-col gap-1.5">
+                        {(item.breed || item.gender) && (
+                          <div className="flex items-center gap-1.5 text-xs text-gray-600">
+                            <PawPrint className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                            <span className="truncate">
+                              {[
+                                item.breed ? item.breed.charAt(0).toUpperCase() + item.breed.slice(1) : null,
+                                item.gender ? item.gender.charAt(0).toUpperCase() + item.gender.slice(1) : null
+                              ].filter(Boolean).join(" • ")}
+                            </span>
+                          </div>
+                        )}
+                        {item.location && (
+                          <div className="flex items-center gap-1.5 text-xs text-gray-600">
+                            <MapPin className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                            <span className="truncate">{item.location}</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
 
                   {/* Footer */}
                   <div className="flex items-center gap-1.5 px-2.5 py-2 mt-auto border-t border-gray-50">
@@ -997,22 +1079,79 @@ export default function ExplorePage() {
                         className="w-full h-full object-cover"
                       />
                     </div>
-                    <div className="flex-1 min-w-0 flex items-center gap-1">
-                      <p className="text-[10px] font-semibold text-gray-700 truncate">{item.user_display_name}</p>
-                      <span className="text-[9px] text-gray-400 shrink-0">
-                        • {formatDistanceToNow(new Date(item.created_at), { addSuffix: true })}
-                      </span>
-                    </div>
+                    <p className="text-[10px] font-semibold text-gray-700 truncate">
+                      {item.user_display_name}
+                    </p>
+                    <span className="text-[9px] text-gray-400 ml-auto whitespace-nowrap">
+                      {formatDistanceToNow(new Date(item.created_at), { addSuffix: true })}
+                    </span>
                     {item.category && (
                       <span className="text-[9px] font-semibold bg-[#007699]/10 text-[#007699] px-1.5 py-0.5 rounded-md capitalize shrink-0">
                         {item.category}
                       </span>
                     )}
                   </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex flex-col gap-2 p-2.5 border-t border-gray-50 bg-gray-50/50">
+                    <div className="flex items-center gap-2 w-full">
+                      {item.user_phone && (
+                        <a
+                          href={`https://wa.me/${item.user_phone.replace(/\D/g, '')}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex-1 flex items-center justify-center gap-1.5 bg-green-500 hover:bg-green-600 text-white text-xs font-medium py-2 rounded-md transition-colors shadow-sm"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <Phone className="w-3.5 h-3.5" />
+                          WhatsApp
+                        </a>
+                      )}
+                      {user ? (
+                        <button
+                          className="flex-1 flex items-center justify-center gap-1.5 bg-[#007699] hover:bg-[#005a75] text-white text-xs font-medium py-2 rounded-md transition-colors shadow-sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (item.user_id) setLocation(`/chat?user=${item.user_id}`);
+                          }}
+                        >
+                          <MessageCircle className="w-3.5 h-3.5" />
+                          Message
+                        </button>
+                      ) : (
+                        <button
+                          className="flex-1 flex items-center justify-center gap-1.5 bg-gray-100 hover:bg-gray-200 text-gray-600 text-xs font-medium py-2 rounded-md transition-colors"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setLocation(`/login`);
+                          }}
+                        >
+                          Log in to Message
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 </div>
               )
             )}
           </div>
+          
+          {hasMore && feedItems.length > 0 && (
+            <div className="mt-8 flex justify-center pb-8">
+              <button
+                onClick={() => {
+                  const nextPage = page + 1;
+                  setPage(nextPage);
+                  fetchFeed(nextPage, true);
+                }}
+                disabled={isFeedLoading}
+                className="bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 font-medium py-2.5 px-6 rounded-full shadow-sm flex items-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isFeedLoading && <Loader2 className="w-4 h-4 animate-spin inline" />}
+                {isFeedLoading ? "Loading..." : "Load More"}
+              </button>
+            </div>
+          )}
         )}
       </div>
 
@@ -1060,6 +1199,7 @@ export default function ExplorePage() {
                         src={item.display_image}
                         alt="Post media"
                         className="max-h-full w-full object-contain"
+                        loading="lazy"
                       />
                     )
                   ) : (
@@ -1090,6 +1230,7 @@ export default function ExplorePage() {
                           src={item.user_avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${item.user_id ?? item.id}`}
                           alt="avatar"
                           className="w-full h-full object-cover"
+                          loading="lazy"
                         />
                       </div>
                       <div className="flex-1 min-w-0">
@@ -1269,6 +1410,7 @@ export default function ExplorePage() {
                         src={selectedMedia.pets.image_url}
                         alt={selectedMedia.pets.name}
                         className="w-full h-full object-cover"
+                        loading="lazy"
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs font-bold">
@@ -1336,6 +1478,7 @@ export default function ExplorePage() {
                             src={c.user_avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${c.user_id}`}
                             alt="avatar"
                             className="w-full h-full object-cover"
+                            loading="lazy"
                           />
                         </div>
                         <div className="flex-1 min-w-0">
