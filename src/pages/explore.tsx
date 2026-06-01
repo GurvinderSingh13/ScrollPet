@@ -834,12 +834,13 @@ export default function ExplorePage() {
             <p className="text-xs text-gray-400">Try adjusting your filters.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-            {feedItems.map((item) =>
-              item.source_type === "media" ? (
-                /* ── Media Card ── */
-                <div
-                  key={item.id}
+          <>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+              {feedItems.map((item) =>
+                item.source_type === "media" ? (
+                  /* ── Media Card ── */
+                  <div
+                    key={item.id}
                   className="bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow overflow-hidden flex flex-col cursor-pointer group"
                   onClick={() => setSelectedPost(item)}
                 >
@@ -1152,6 +1153,7 @@ export default function ExplorePage() {
               </button>
             </div>
           )}
+          </>
         )}
       </div>
 
