@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Link, useLocation } from "wouter";
+import { formatDistanceToNow } from "date-fns";
 import { useAuth } from "@/hooks/use-auth";
 import {
   DropdownMenu,
@@ -294,7 +295,7 @@ export default function ExplorePage() {
         if (allUserIds.length > 0) {
           const { data: usersData, error: usersError } = await supabase
             .from("users")
-            .select("id, display_name, username, country, state, phone")
+            .select("id, display_name, username, country, state, phone, profile_image_url")
             .in("id", allUserIds);
           if (usersError) console.error("users fetch error:", usersError);
           (usersData || []).forEach((u: any) => { usersMap[u.id] = u; });
@@ -342,13 +343,16 @@ export default function ExplorePage() {
             price: null,
             user_phone: owner?.phone ?? null,
             gender: item.pets?.gender ?? null,
+            user_avatar_url: owner?.profile_image_url || owner?.avatar_url || null,
           };
         });
 
         // Step 5 — normalize chats using the separate users lookup
         const normalizedChats: FeedItem[] = taggedChats.map((item: any) => {
           const u = usersMap[item.user_id] ?? null;
-          const locationStr = [u?.state, u?.country].filter(Boolean).join(", ") || item.location || null;
+          const locationStr = (item.location && item.location !== "explore_feed") 
+            ? item.location 
+            : ([u?.state, u?.country].filter(Boolean).join(", ") || item.location || null);
           const mediaType =
             item.message_type === "image" ? "image"
             : item.message_type === "video" ? "video"
@@ -375,6 +379,7 @@ export default function ExplorePage() {
             price: item.price ?? null,
             user_phone: u?.phone ?? null,
             gender: item.gender ?? null,
+            user_avatar_url: u?.profile_image_url || u?.avatar_url || null,
           };
         });
 
@@ -862,9 +867,14 @@ export default function ExplorePage() {
                   </div>
 
                   <div className="flex flex-col p-2.5">
-                    <p className="text-[11px] font-semibold text-gray-800 truncate">
-                      {item.user_display_name}
-                    </p>
+                    <div className="flex items-center gap-1">
+                      <p className="text-[11px] font-semibold text-gray-800 truncate">
+                        {item.user_display_name}
+                      </p>
+                      <span className="text-[9px] text-gray-400 shrink-0">
+                        • {formatDistanceToNow(new Date(item.created_at), { addSuffix: true })}
+                      </span>
+                    </div>
                     
                     {(item.breed || item.gender || item.price || item.location) && (
                       <div className="flex flex-col gap-0.5 mt-1.5">
@@ -982,13 +992,16 @@ export default function ExplorePage() {
                   <div className="flex items-center gap-1.5 px-2.5 py-2 mt-auto border-t border-gray-50">
                     <div className="h-5 w-5 rounded-full overflow-hidden bg-gray-100 shrink-0">
                       <img
-                        src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${item.user_id ?? item.id}`}
+                        src={item.user_avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${item.user_id ?? item.id}`}
                         alt="avatar"
                         className="w-full h-full object-cover"
                       />
                     </div>
-                    <div className="flex-1 min-w-0">
+                    <div className="flex-1 min-w-0 flex items-center gap-1">
                       <p className="text-[10px] font-semibold text-gray-700 truncate">{item.user_display_name}</p>
+                      <span className="text-[9px] text-gray-400 shrink-0">
+                        • {formatDistanceToNow(new Date(item.created_at), { addSuffix: true })}
+                      </span>
                     </div>
                     {item.category && (
                       <span className="text-[9px] font-semibold bg-[#007699]/10 text-[#007699] px-1.5 py-0.5 rounded-md capitalize shrink-0">
@@ -1074,7 +1087,7 @@ export default function ExplorePage() {
                     >
                       <div className="h-10 w-10 rounded-full overflow-hidden bg-zinc-700 shrink-0 ring-2 ring-white/20 group-active:ring-white/50 transition-all">
                         <img
-                          src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${item.user_id ?? item.id}`}
+                          src={item.user_avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${item.user_id ?? item.id}`}
                           alt="avatar"
                           className="w-full h-full object-cover"
                         />
@@ -1320,7 +1333,7 @@ export default function ExplorePage() {
                       <div key={c.id} className="flex gap-2.5">
                         <div className="h-8 w-8 rounded-full overflow-hidden bg-gray-100 shrink-0">
                           <img
-                            src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${c.user_id}`}
+                            src={c.user_avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${c.user_id}`}
                             alt="avatar"
                             className="w-full h-full object-cover"
                           />

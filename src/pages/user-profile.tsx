@@ -301,11 +301,12 @@ export default function UserProfile() {
       };
 
       if (newAvatarFile) {
-        updatePayload.profile_image_url = await uploadFile(
+        const publicUrl = await uploadFile(
           newAvatarFile,
           "avatars",
           "avatars" // bucket
         );
+        updatePayload.profile_image_url = publicUrl;
       }
 
       // NEW: Only update location if it actually changed AND they are allowed to

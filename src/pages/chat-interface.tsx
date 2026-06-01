@@ -604,7 +604,7 @@ export default function ChatInterface() {
         const result = await supabase
           .from("messages")
           .select(
-            `*, users:users!user_id(id, username, display_name, state, country, role, avatar_url, profile_image_url)`,
+            `*, users:users!user_id(id, username, display_name, state, country, role, profile_image_url)`,
           )
           .or(
             `and(user_id.eq.${userId},receiver_id.eq.${activeDmUser.id}),and(user_id.eq.${activeDmUser.id},receiver_id.eq.${userId})`,

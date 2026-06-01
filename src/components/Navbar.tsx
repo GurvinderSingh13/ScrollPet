@@ -101,7 +101,7 @@ export default function Navbar() {
                   <button className="h-10 w-10 rounded-full border border-border bg-muted flex items-center justify-center overflow-hidden hover:ring-2 hover:ring-primary/50 transition-all cursor-pointer">
                     {user?.id ? (
                       <img
-                        src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.id}`}
+                        src={user?.avatarUrl ? `${user.avatarUrl}${user.avatarUrl.includes('?') ? '&' : '?'}cb=${Date.now()}` : `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.id}`}
                         alt="User Avatar"
                         className="h-full w-full object-cover"
                       />
