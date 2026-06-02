@@ -137,44 +137,52 @@ export default function Navbar() {
             )
           )}
 
-          {/* Pet Concierge Popover */}
+          {/* Pet Concierge Popover — Desktop only (mobile uses floating FAB) */}
           <Popover>
             <PopoverTrigger asChild>
               <button
-                className="flex items-center justify-center p-2 md:px-3 md:py-1.5 rounded-full border border-primary/20 bg-blue-50/50 text-primary text-sm font-semibold shadow-sm hover:bg-primary/10 hover:scale-105 active:scale-95 transition-all animate-wiggle-periodic cursor-pointer"
-                title="Can't find a pet?"
+                className="hidden md:flex items-center gap-1.5 px-4 py-2 rounded-full bg-gradient-to-r from-[#007699] to-[#00a5d4] text-white text-sm font-bold shadow-lg shadow-[#007699]/25 hover:shadow-xl hover:shadow-[#007699]/30 hover:scale-105 active:scale-95 transition-all ring-2 ring-white/50 cursor-pointer animate-wiggle-periodic"
+                title="Need help finding a pet?"
               >
-                <Search className="w-4 h-4 md:mr-1.5" />
-                <span className="hidden md:inline">Can't find a pet?</span>
+                <Search className="w-4 h-4" />
+                Need Help?
               </button>
             </PopoverTrigger>
-            <PopoverContent align="end" className="w-80 p-4" sideOffset={8}>
-              <div className="flex flex-col gap-3">
-                <h4 className="font-semibold flex items-center gap-2 text-[#007699]">
-                  <Search className="w-4 h-4" />
-                  Pet Concierge
-                </h4>
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  If you did not find the pet in your location, send us a message with what you are looking for. We will try our best to find a breeder in your preferred location.
+            <PopoverContent align="end" className="w-[340px] p-0 rounded-2xl overflow-hidden border-none shadow-2xl" sideOffset={12}>
+              <div className="bg-gradient-to-br from-[#007699] to-[#00a5d4] p-5 text-white">
+                <div className="flex items-center gap-2.5 mb-1.5">
+                  <div className="flex items-center justify-center w-9 h-9 rounded-full bg-white/20 backdrop-blur-sm">
+                    <Search className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-base leading-tight">Pet Concierge</h4>
+                    <p className="text-[11px] text-white/70 font-medium">Free personal search service</p>
+                  </div>
+                </div>
+              </div>
+              <div className="p-5 flex flex-col gap-3 bg-white">
+                <p className="text-sm text-gray-600 leading-relaxed">
+                  Can't find what you're looking for? Tell us the breed, age & your city — <span className="font-semibold text-gray-800">we'll personally find verified breeders near you</span>. Completely free!
                 </p>
-                <div className="flex flex-col gap-2 mt-2">
+                <div className="flex flex-col gap-2.5">
                   <a
                     href="https://wa.me/919501769649?text=Hi%20Scrollpet,%20I%20am%20looking%20for%20a%20pet%20in%20my%20location..."
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center justify-center gap-2 bg-green-500 hover:bg-green-600 text-white font-medium py-2 px-4 rounded-md transition-colors text-sm shadow-sm"
+                    className="flex items-center justify-center gap-2 bg-[#25D366] hover:bg-[#1fbc58] text-white font-semibold py-2.5 px-4 rounded-xl transition-all text-sm shadow-md hover:shadow-lg"
                   >
                     <Phone className="w-4 h-4" />
-                    WhatsApp
+                    Chat on WhatsApp
                   </a>
                   <button
                     onClick={handleMessageScrollpet}
-                    className="flex items-center justify-center gap-2 bg-muted hover:bg-muted/80 text-foreground font-medium py-2 px-4 rounded-md transition-colors text-sm cursor-pointer"
+                    className="flex items-center justify-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-2.5 px-4 rounded-xl transition-all text-sm cursor-pointer"
                   >
                     <MessageCircle className="w-4 h-4" />
-                    Message on Scrollpet
+                    Message on ScrollPet
                   </button>
                 </div>
+                <p className="text-[11px] text-gray-400 text-center mt-0.5">Typically replies within 2 hours ⚡</p>
               </div>
             </PopoverContent>
           </Popover>

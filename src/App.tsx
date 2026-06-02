@@ -28,6 +28,7 @@ import CommunityDirectory from "@/pages/community";
 import GlobalLocationDetector from "@/components/GlobalLocationDetector";
 import Navbar from "@/components/Navbar";
 import MobileBottomNav from "@/components/MobileBottomNav";
+import MobileHelpFAB from "@/components/MobileHelpFAB";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { usePresence } from "@/hooks/use-presence";
 import { useAuth } from "@/hooks/use-auth";
@@ -88,6 +89,7 @@ function App() {
             <Router />
           </div>
           <MobileBottomNav />
+          <MobileHelpFAB />
           <Toaster />
         </TooltipProvider>
       </QueryClientProvider>
