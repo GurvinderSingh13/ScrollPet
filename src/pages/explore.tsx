@@ -302,6 +302,9 @@ export default function ExplorePage() {
             .range(start, end),
           supabase.from("messages")
             .select("id, user_id, content, message_type, media_url, intent_status, created_at, pet_type, breed, location, crosspost_rooms, age, price, gender")
+            .is("receiver_id", null)
+            .not("intent_status", "is", null)
+            .neq("intent_status", "None")
             .order("created_at", { ascending: false })
             .range(start, end),
         ]);
@@ -314,7 +317,7 @@ export default function ExplorePage() {
           (msg: any) => 
             msg.location === "explore_feed" ||
             (msg.intent_status && msg.intent_status !== "None") ||
-            (Array.isArray(msg.crosspost_rooms) && msg.crosspost_rooms.length > 0)
+            (Array.isArray(msg.crosspost_rooms) && msg.crosspost_rooms.some((r: string) => r.includes("explore_feed")))
         );
         console.log("Tagged chats (raw):", taggedChats.length, taggedChats);
 
@@ -861,7 +864,7 @@ export default function ExplorePage() {
                   /* ── Media Card ── */
                   <div
                     key={item.id}
-                  className="bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow overflow-hidden flex flex-col cursor-pointer group"
+                  className="bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow overflow-hidden flex flex-col h-full cursor-pointer group"
                   onClick={() => setSelectedPost(item)}
                 >
                   <div className="aspect-square bg-gray-100 relative overflow-hidden shrink-0">
@@ -914,47 +917,49 @@ export default function ExplorePage() {
                     )}
                   </div>
 
-                  <div className="flex flex-col p-2.5 gap-2">
-                    <div className="flex items-center justify-between gap-1">
-                      <div className="flex items-center gap-1 overflow-hidden">
-                        <p className="text-[12px] font-bold text-gray-800 truncate">
-                          {item.user_display_name}
-                        </p>
-                        <span className="text-[9px] text-gray-400 shrink-0">
-                          • {formatDistanceToNow(new Date(item.created_at), { addSuffix: true })}
-                        </span>
+                  <div className="flex-1 flex flex-col p-2.5 gap-2">
+                    <div className="mb-auto">
+                      <div className="flex items-center justify-between gap-1 mb-2">
+                        <div className="flex items-center gap-1 overflow-hidden">
+                          <p className="text-[12px] font-bold text-gray-800 truncate">
+                            {item.user_display_name}
+                          </p>
+                          <span className="text-[9px] text-gray-400 shrink-0">
+                            • {formatDistanceToNow(new Date(item.created_at), { addSuffix: true })}
+                          </span>
+                        </div>
                       </div>
+                      
+                      {(item.breed || item.gender || item.location) && (
+                        <div className="flex flex-col gap-1.5 mt-0.5">
+                          {(item.breed || item.gender) && (
+                            <div className="flex items-center gap-1.5 text-xs text-gray-600">
+                              <PawPrint className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                              <span className="truncate">
+                                {[
+                                  item.breed ? item.breed.charAt(0).toUpperCase() + item.breed.slice(1) : null,
+                                  item.gender ? item.gender.charAt(0).toUpperCase() + item.gender.slice(1) : null
+                                ].filter(Boolean).join(" • ")}
+                              </span>
+                            </div>
+                          )}
+                          {item.location && (
+                            <div className="flex items-center gap-1.5 text-xs text-gray-600">
+                              <MapPin className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                              <span className="truncate">{formatLocation(item.location)}</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                     
-                    {item.price !== null && item.price !== undefined && (
-                      <p className="text-xl font-bold text-green-600">
-                        ₹{item.price}
-                      </p>
-                    )}
-
-                    {(item.breed || item.gender || item.location) && (
-                      <div className="flex flex-col gap-1.5 mt-0.5">
-                        {(item.breed || item.gender) && (
-                          <div className="flex items-center gap-1.5 text-xs text-gray-600">
-                            <PawPrint className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-                            <span className="truncate">
-                              {[
-                                item.breed ? item.breed.charAt(0).toUpperCase() + item.breed.slice(1) : null,
-                                item.gender ? item.gender.charAt(0).toUpperCase() + item.gender.slice(1) : null
-                              ].filter(Boolean).join(" • ")}
-                            </span>
-                          </div>
-                        )}
-                        {item.location && (
-                          <div className="flex items-center gap-1.5 text-xs text-gray-600">
-                            <MapPin className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-                            <span className="truncate">{formatLocation(item.location)}</span>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                    
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2 w-full">
+                    <div className="mt-auto pt-4 border-t border-gray-100 flex flex-col gap-2 w-full">
+                      {item.price !== null && item.price !== undefined && (
+                        <p className="text-xl font-bold text-green-600">
+                          ₹{item.price}
+                        </p>
+                      )}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full">
                       {item.user_phone && (
                         <a
                           href={`https://wa.me/${item.user_phone.replace(/\D/g, '')}`}
@@ -989,6 +994,7 @@ export default function ExplorePage() {
                           Log in to Message
                         </button>
                       )}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -996,7 +1002,7 @@ export default function ExplorePage() {
                 /* ── Chat Marketplace Card ── */
                 <div
                   key={item.id}
-                  className="bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow overflow-hidden flex flex-col cursor-pointer"
+                  className="bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow overflow-hidden flex flex-col h-full cursor-pointer"
                   onClick={() => setSelectedPost(item)}
                 >
                   {/* Image / video — always square, badge overlaid top-right */}
@@ -1053,69 +1059,72 @@ export default function ExplorePage() {
                     )}
                   </div>
 
-                  {/* Text content — full text, pre-wrap so line breaks show */}
-                  {item.display_text && (
-                    <div className="px-2.5 pt-2 pb-1">
-                      <p className="text-xs text-gray-700 whitespace-pre-wrap leading-relaxed">{item.display_text}</p>
-                    </div>
-                  )}
+                  <div className="flex-1 flex flex-col">
+                    <div className="mb-auto">
+                      {/* Text content — full text, pre-wrap so line breaks show */}
+                      {item.display_text && (
+                        <div className="px-2.5 pt-2 pb-1">
+                          <p className="text-xs text-gray-700 whitespace-pre-wrap leading-relaxed">{item.display_text}</p>
+                        </div>
+                      )}
 
-                  {/* Compact Info Grid */}
-                  <div className="px-2.5 pb-2">
-                    {item.price !== null && item.price !== undefined && (
-                      <p className="text-xl font-bold text-green-600 mb-2">
-                        ₹{item.price}
-                      </p>
-                    )}
-                    
-                    {(item.breed || item.gender || item.location) && (
-                      <div className="flex flex-col gap-1.5">
-                        {(item.breed || item.gender) && (
-                          <div className="flex items-center gap-1.5 text-xs text-gray-600">
-                            <PawPrint className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-                            <span className="truncate">
-                              {[
-                                item.breed ? item.breed.charAt(0).toUpperCase() + item.breed.slice(1) : null,
-                                item.gender ? item.gender.charAt(0).toUpperCase() + item.gender.slice(1) : null
-                              ].filter(Boolean).join(" • ")}
-                            </span>
-                          </div>
-                        )}
-                        {item.location && (
-                          <div className="flex items-center gap-1.5 text-xs text-gray-600">
-                            <MapPin className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-                            <span className="truncate">{formatLocation(item.location)}</span>
+                      {/* Compact Info Grid */}
+                      <div className="px-2.5 pb-2">
+                        {(item.breed || item.gender || item.location) && (
+                          <div className="flex flex-col gap-1.5">
+                            {(item.breed || item.gender) && (
+                              <div className="flex items-center gap-1.5 text-xs text-gray-600">
+                                <PawPrint className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                                <span className="truncate">
+                                  {[
+                                    item.breed ? item.breed.charAt(0).toUpperCase() + item.breed.slice(1) : null,
+                                    item.gender ? item.gender.charAt(0).toUpperCase() + item.gender.slice(1) : null
+                                  ].filter(Boolean).join(" • ")}
+                                </span>
+                              </div>
+                            )}
+                            {item.location && (
+                              <div className="flex items-center gap-1.5 text-xs text-gray-600">
+                                <MapPin className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                                <span className="truncate">{formatLocation(item.location)}</span>
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>
-                    )}
-                  </div>
 
-                  {/* Footer */}
-                  <div className="flex items-center gap-1.5 px-2.5 py-2 mt-auto border-t border-gray-50">
-                    <div className="h-5 w-5 rounded-full overflow-hidden bg-gray-100 shrink-0">
-                      <img
-                        src={item.user_avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${item.user_id ?? item.id}`}
-                        alt="avatar"
-                        className="w-full h-full object-cover"
-                      />
+                      {/* Footer User Info */}
+                      <div className="flex items-center gap-1.5 px-2.5 py-2 mt-2">
+                        <div className="h-5 w-5 rounded-full overflow-hidden bg-gray-100 shrink-0">
+                          <img
+                            src={item.user_avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${item.user_id ?? item.id}`}
+                            alt="avatar"
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                        <p className="text-[10px] font-semibold text-gray-700 truncate">
+                          {item.user_display_name}
+                        </p>
+                        <span className="text-[9px] text-gray-400 ml-auto whitespace-nowrap">
+                          {formatDistanceToNow(new Date(item.created_at), { addSuffix: true })}
+                        </span>
+                        {item.category && (
+                          <span className="text-[9px] font-semibold bg-[#007699]/10 text-[#007699] px-1.5 py-0.5 rounded-md capitalize shrink-0">
+                            {item.category}
+                          </span>
+                        )}
+                      </div>
                     </div>
-                    <p className="text-[10px] font-semibold text-gray-700 truncate">
-                      {item.user_display_name}
-                    </p>
-                    <span className="text-[9px] text-gray-400 ml-auto whitespace-nowrap">
-                      {formatDistanceToNow(new Date(item.created_at), { addSuffix: true })}
-                    </span>
-                    {item.category && (
-                      <span className="text-[9px] font-semibold bg-[#007699]/10 text-[#007699] px-1.5 py-0.5 rounded-md capitalize shrink-0">
-                        {item.category}
-                      </span>
-                    )}
-                  </div>
 
-                  {/* Action Buttons */}
-                  <div className="flex flex-col gap-2 p-2.5 border-t border-gray-50 bg-gray-50/50">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full">
+                    <div className="mt-auto pt-4 border-t border-gray-100 flex flex-col gap-2 p-2.5">
+                      {item.price !== null && item.price !== undefined && (
+                        <p className="text-xl font-bold text-green-600 px-1">
+                          ₹{item.price}
+                        </p>
+                      )}
+                      
+                      {/* Action Buttons */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full">
                       {item.user_phone && (
                         <a
                           href={`https://wa.me/${item.user_phone.replace(/\D/g, '')}`}
@@ -1150,6 +1159,7 @@ export default function ExplorePage() {
                           Log in to Message
                         </button>
                       )}
+                      </div>
                     </div>
                   </div>
                 </div>

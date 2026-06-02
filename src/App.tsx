@@ -30,9 +30,17 @@ import Navbar from "@/components/Navbar";
 import MobileBottomNav from "@/components/MobileBottomNav";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { usePresence } from "@/hooks/use-presence";
+import { useAuth } from "@/hooks/use-auth";
+import { useAutoLocation } from "@/hooks/use-auto-location";
 
 function PresenceTracker() {
   usePresence();
+  return null;
+}
+
+function AutoLocationTracker() {
+  const { user } = useAuth();
+  useAutoLocation(user);
   return null;
 }
 
@@ -73,6 +81,7 @@ function App() {
       <QueryClientProvider client={queryClient}>
         <GlobalLocationDetector />
         <PresenceTracker />
+        <AutoLocationTracker />
         <TooltipProvider>
           <Navbar />
           <div className="pb-16 md:pb-0">
