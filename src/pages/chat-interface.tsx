@@ -66,6 +66,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { format, isToday, isYesterday } from "date-fns";
+import { safeLocalStorage, safeSessionStorage } from "@/lib/safe-storage";
 
 import { PawPrint } from "lucide-react";
 import { PET_CATEGORIES } from "@/constants/config";
@@ -134,7 +135,7 @@ function isMessageTargetedToCurrentRoom(
 function usePinnedStates() {
   const [pinnedIds, setPinnedIds] = useState<string[]>(() => {
     if (typeof window === "undefined") return [];
-    const saved = localStorage.getItem("pinnedStates");
+    const saved = safeLocalStorage.getItem("pinnedStates");
     return saved ? JSON.parse(saved) : [];
   });
   const togglePin = useCallback((stateId: string) => {
@@ -142,7 +143,7 @@ function usePinnedStates() {
       const newPinned = prev.includes(stateId)
         ? prev.filter((id) => id !== stateId)
         : [...prev, stateId];
-      localStorage.setItem("pinnedStates", JSON.stringify(newPinned));
+      safeLocalStorage.setItem("pinnedStates", JSON.stringify(newPinned));
       return newPinned;
     });
   }, []);
@@ -188,7 +189,7 @@ export default function ChatInterface() {
       }
     }
     if (typeof window === "undefined") return "dog";
-    return sessionStorage.getItem("activePet") || "dog";
+    return safeSessionStorage.getItem("activePet") || "dog";
   });
 
   // Once consumed, strip ?category= from the URL so later in-app pet switches stick on refresh
@@ -205,25 +206,25 @@ export default function ChatInterface() {
 
   const [activeBreed, setActiveBreed] = useState<string | null>(() => {
     if (typeof window === "undefined") return null;
-    return sessionStorage.getItem("activeBreed") || null;
+    return safeSessionStorage.getItem("activeBreed") || null;
   });
   const [activeLocation, setActiveLocation] = useState(() => {
     if (typeof window === "undefined") return "global";
-    return sessionStorage.getItem("activeLocation") || "global";
+    return safeSessionStorage.getItem("activeLocation") || "global";
   });
   const [activeDistrict, setActiveDistrict] = useState<string | null>(() => {
     if (typeof window === "undefined") return null;
-    return sessionStorage.getItem("activeDistrict") || null;
+    return safeSessionStorage.getItem("activeDistrict") || null;
   });
   const [activeDmUser, setActiveDmUser] = useState<{
     id: string;
     name: string;
   } | null>(null);
 
-  useEffect(() => { sessionStorage.setItem("activePet", activePet); }, [activePet]);
-  useEffect(() => { if (activeBreed) sessionStorage.setItem("activeBreed", activeBreed); else sessionStorage.removeItem("activeBreed"); }, [activeBreed]);
-  useEffect(() => { sessionStorage.setItem("activeLocation", activeLocation); }, [activeLocation]);
-  useEffect(() => { if (activeDistrict) sessionStorage.setItem("activeDistrict", activeDistrict); else sessionStorage.removeItem("activeDistrict"); }, [activeDistrict]);
+  useEffect(() => { safeSessionStorage.setItem("activePet", activePet); }, [activePet]);
+  useEffect(() => { if (activeBreed) safeSessionStorage.setItem("activeBreed", activeBreed); else safeSessionStorage.removeItem("activeBreed"); }, [activeBreed]);
+  useEffect(() => { safeSessionStorage.setItem("activeLocation", activeLocation); }, [activeLocation]);
+  useEffect(() => { if (activeDistrict) safeSessionStorage.setItem("activeDistrict", activeDistrict); else safeSessionStorage.removeItem("activeDistrict"); }, [activeDistrict]);
   const { user, isLoading: authLoading, isAuthenticated, logout } = useAuth();
   const [, setLocation] = useLocation();
   const [sidebarView, setSidebarView] = useState<"public" | "private">("public");
@@ -248,16 +249,16 @@ export default function ChatInterface() {
   const [guestSelectedCountry, setGuestSelectedCountry] = useState<string | null>(
     () => {
       if (typeof window === "undefined") return null;
-      return localStorage.getItem("scrollpet:guest-country");
+      return safeLocalStorage.getItem("scrollpet:guest-country");
     },
   );
   const [isGuestCountryOpen, setIsGuestCountryOpen] = useState(false);
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (guestSelectedCountry) {
-      localStorage.setItem("scrollpet:guest-country", guestSelectedCountry);
+      safeLocalStorage.setItem("scrollpet:guest-country", guestSelectedCountry);
     } else {
-      localStorage.removeItem("scrollpet:guest-country");
+      safeLocalStorage.removeItem("scrollpet:guest-country");
     }
   }, [guestSelectedCountry]);
 
@@ -447,10 +448,10 @@ export default function ChatInterface() {
   }
 
   useEffect(() => {
-    const tLoc = sessionStorage.getItem("teleport_location");
-    const tPet = sessionStorage.getItem("teleport_pet");
-    const tDmId = sessionStorage.getItem("teleport_dm_user_id");
-    const tDmName = sessionStorage.getItem("teleport_dm_user_name");
+    const tLoc = safeSessionStorage.getItem("teleport_location");
+    const tPet = safeSessionStorage.getItem("teleport_pet");
+    const tDmId = safeSessionStorage.getItem("teleport_dm_user_id");
+    const tDmName = safeSessionStorage.getItem("teleport_dm_user_name");
 
     if (tLoc) {
       if (tPet) setActivePet(tPet);
@@ -473,8 +474,8 @@ export default function ChatInterface() {
         setActiveLocation(parts[2]);
         setActiveDistrict(parts[3]);
       }
-      sessionStorage.removeItem("teleport_location");
-      sessionStorage.removeItem("teleport_pet");
+      safeSessionStorage.removeItem("teleport_location");
+      safeSessionStorage.removeItem("teleport_pet");
       setSidebarView("public");
       setMobileView("chat");
     } else if (tDmId && tDmName) {
@@ -483,8 +484,8 @@ export default function ChatInterface() {
       setIsNewsRoom(false);
       setSidebarView("private");
       setMobileView("chat");
-      sessionStorage.removeItem("teleport_dm_user_id");
-      sessionStorage.removeItem("teleport_dm_user_name");
+      safeSessionStorage.removeItem("teleport_dm_user_id");
+      safeSessionStorage.removeItem("teleport_dm_user_name");
     }
   }, []);
 

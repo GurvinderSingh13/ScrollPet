@@ -43,8 +43,8 @@
   --color-chart-4: hsl(var(--chart-4));
   --color-chart-5: hsl(var(--chart-5));
 
-  --font-sans: 'Montserrat', sans-serif;
-  --font-heading: 'Montserrat', sans-serif;
+  --font-sans: 'Montserrat', 'Noto Sans Tamil', sans-serif;
+  --font-heading: 'Montserrat', 'Noto Sans Tamil', sans-serif;
   
   --radius: 0.75rem;
   

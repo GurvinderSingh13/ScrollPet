@@ -5,6 +5,7 @@ import { ArrowLeft, MapPin, Phone, FileText, PawPrint, MessageCircle, Share2, Ca
 import { useAuth } from "@/hooks/use-auth";
 import { toast } from "@/hooks/use-toast";
 import logoImage from "@assets/Scrollpet_logo_1766997907297.png";
+import { safeSessionStorage } from "@/lib/safe-storage";
 
 export default function PublicProfile() {
     const [match, params] = useRoute("/profile/:username");
@@ -78,8 +79,8 @@ export default function PublicProfile() {
             setLocation('/login');
             return;
         }
-        sessionStorage.setItem("teleport_dm_user_id", user.id);
-        sessionStorage.setItem("teleport_dm_user_name", user.display_name || user.username);
+        safeSessionStorage.setItem("teleport_dm_user_id", user.id);
+        safeSessionStorage.setItem("teleport_dm_user_name", user.display_name || user.username);
         setLocation('/chat-interface');
     };
 

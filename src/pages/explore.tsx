@@ -167,6 +167,8 @@ const FeedVideo = ({ src, className, controls, autoPlay, muted, loop, playsInlin
   );
 };
 
+
+
 export default function ExplorePage() {
   const { user, isLoading, isAuthenticated } = useAuth();
 
@@ -1064,7 +1066,9 @@ export default function ExplorePage() {
                       {/* Text content — full text, pre-wrap so line breaks show */}
                       {item.display_text && (
                         <div className="px-2.5 pt-2 pb-1">
-                          <p className="text-xs text-gray-700 whitespace-pre-wrap leading-relaxed">{item.display_text}</p>
+                          <p className="text-xs text-gray-700 whitespace-pre-wrap leading-relaxed line-clamp-3 break-words">
+                            {item.display_text}
+                          </p>
                         </div>
                       )}
 

@@ -1,6 +1,7 @@
 import React, { Component, ErrorInfo, ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { AlertCircle, RotateCcw } from "lucide-react";
+import { safeSessionStorage } from "@/lib/safe-storage";
 
 interface Props {
   children: ReactNode;
@@ -35,7 +36,7 @@ class ErrorBoundary extends Component<Props, State> {
     this.setState({ hasError: false, error: null });
     // Also clear session storage as a precaution if it was a storage-related crash
     if (typeof window !== "undefined") {
-      // sessionStorage.clear(); // Optional: might be too aggressive
+      // safeSessionStorage.clear(); // Optional: might be too aggressive
       window.location.href = "/"; // Force a clean reload
     }
   };

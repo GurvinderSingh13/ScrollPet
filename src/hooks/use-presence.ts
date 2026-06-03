@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/lib/supabase";
+import { safeLocalStorage } from "@/lib/safe-storage";
 
 export function usePresence() {
   const { user } = useAuth();
@@ -10,7 +11,7 @@ export function usePresence() {
 
     const updatePresence = async () => {
       const now = Date.now();
-      const lastUpdate = localStorage.getItem("last_presence_update");
+      const lastUpdate = safeLocalStorage.getItem("last_presence_update");
       
       // Throttle to 5 minutes (300,000 ms)
       if (lastUpdate && now - parseInt(lastUpdate, 10) < 300000) {
@@ -24,7 +25,7 @@ export function usePresence() {
           .eq("id", user.id);
 
         if (!error) {
-          localStorage.setItem("last_presence_update", now.toString());
+          safeLocalStorage.setItem("last_presence_update", now.toString());
         }
       } catch (error) {
         console.error("Failed to update presence:", error);

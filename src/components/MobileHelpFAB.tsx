@@ -4,6 +4,7 @@ import { X, Phone, MessageCircle, Search, ChevronRight } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/lib/supabase";
+import { safeSessionStorage } from "@/lib/safe-storage";
 
 /**
  * MobileHelpFAB — A floating "Need Help?" button that only shows on mobile (< md).
@@ -45,8 +46,8 @@ export default function MobileHelpFAB() {
         .single();
 
       if (data) {
-        sessionStorage.setItem("teleport_dm_user_id", data.id);
-        sessionStorage.setItem("teleport_dm_user_name", data.display_name || data.username || "Scrollpet");
+        safeSessionStorage.setItem("teleport_dm_user_id", data.id);
+        safeSessionStorage.setItem("teleport_dm_user_name", data.display_name || data.username || "Scrollpet");
         setIsOpen(false);
         setLocation("/inbox");
       } else {

@@ -4,6 +4,7 @@ import { useLocation, Link } from "wouter";
 import { supabase } from "@/lib/supabase";
 import { formatDistanceToNow, format } from "date-fns";
 import { Search, MapPin, MessageCircle, Calendar } from "lucide-react";
+import { safeSessionStorage } from "@/lib/safe-storage";
 
 type CommunityUser = {
   id: string;
@@ -60,8 +61,8 @@ export default function CommunityDirectory() {
   }, [sortOrder]);
 
   const handleMessageUser = (targetUser: CommunityUser) => {
-    sessionStorage.setItem("teleport_dm_user_id", targetUser.id);
-    sessionStorage.setItem("teleport_dm_user_name", targetUser.username);
+    safeSessionStorage.setItem("teleport_dm_user_id", targetUser.id);
+    safeSessionStorage.setItem("teleport_dm_user_name", targetUser.username);
     setLocation("/inbox");
   };
 

@@ -18,6 +18,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
+import { safeSessionStorage } from "@/lib/safe-storage";
 
 const navLinks = [
   { href: "/", label: "Home" },
@@ -49,8 +50,8 @@ export default function Navbar() {
         .single();
 
       if (data) {
-        sessionStorage.setItem("teleport_dm_user_id", data.id);
-        sessionStorage.setItem("teleport_dm_user_name", data.display_name || data.username || "Scrollpet");
+        safeSessionStorage.setItem("teleport_dm_user_id", data.id);
+        safeSessionStorage.setItem("teleport_dm_user_name", data.display_name || data.username || "Scrollpet");
         setLocation("/inbox");
       } else {
         toast({ description: "Could not find admin user to message", variant: "destructive" });
