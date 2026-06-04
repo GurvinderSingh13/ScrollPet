@@ -177,6 +177,8 @@ export default function ExplorePage() {
   const [filterIntent, setFilterIntent] = useState("all");
   const [filterCategory, setFilterCategory] = useState("all");
   const [filterBreed, setFilterBreed] = useState("all");
+  const [filterMyPosts, setFilterMyPosts] = useState(false);
+  const [sortBy, setSortBy] = useState("recent");
   const [filterCountry, setFilterCountry] = useState("all");
   const [filterState, setFilterState] = useState("all");
   const [filterDistrict, setFilterDistrict] = useState("all");
@@ -463,6 +465,10 @@ export default function ExplorePage() {
             merged = merged.filter((item) => item.price === null || item.price <= max);
           }
         }
+        
+        if (filterMyPosts && user) {
+          merged = merged.filter(item => item.user_id === user.id);
+        }
 
         // Checks any item's location hierarchy against a predicate.
         // Uses crosspost_rooms first (works for both chat and media synthetic rooms).
@@ -641,6 +647,19 @@ export default function ExplorePage() {
             {label}
           </button>
         ))}
+        {user && (
+          <button
+            onClick={() => setFilterMyPosts(!filterMyPosts)}
+            className={cn(
+              "flex-none text-sm font-medium rounded-xl px-3.5 py-1.5 whitespace-nowrap transition-colors",
+              filterMyPosts
+                ? "bg-[#007699] text-white shadow-sm"
+                : "bg-white text-gray-700 border border-gray-200 hover:bg-gray-50"
+            )}
+          >
+            My Posts
+          </button>
+        )}
       </div>
 
       {/* Intent */}

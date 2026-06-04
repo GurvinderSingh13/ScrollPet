@@ -59,7 +59,7 @@ export function CreatePostModal({ isOpen, onClose, onSuccess, postToEdit }: Crea
   // Auto-fill user location
   useEffect(() => {
     const fetchUserLoc = async () => {
-      if (!user?.id) return;
+      if (!user?.id || isEditing) return;
       const { data } = await supabase.from("users").select("country, state").eq("id", user.id).single();
       if (data) {
         if (data.country) {
@@ -79,7 +79,7 @@ export function CreatePostModal({ isOpen, onClose, onSuccess, postToEdit }: Crea
     if (isOpen) {
       fetchUserLoc();
     }
-  }, [user?.id, isOpen]);
+  }, [user?.id, isOpen, isEditing]);
 
   // Clean up preview URL
   useEffect(() => {
@@ -136,14 +136,27 @@ export function CreatePostModal({ isOpen, onClose, onSuccess, postToEdit }: Crea
       setDescription(postToEdit.text_content || "");
       setPreviewUrl(postToEdit.display_image || null);
       
-      if (postToEdit.breed && availableBreeds.length > 0) {
-        const breedMatch = availableBreeds.find((b: any) => b.name.toLowerCase().replace(/\s+/g, '-') === postToEdit.breed);
-        if (breedMatch) {
-          setBreed(breedMatch.id);
+      if (postToEdit.crosspost_rooms && Array.isArray(postToEdit.crosspost_rooms) && postToEdit.crosspost_rooms.length > 0) {
+        const room = postToEdit.crosspost_rooms.find((r: string) => r.startsWith("city:") || r.startsWith("state:") || r.startsWith("country:"));
+        if (room) {
+          const locPart = room.split("::")[0];
+          const parts = locPart.split(":");
+          if (parts[1]) setCountry(parts[1]);
+          if (parts[2]) setState(parts[2]);
+          if (parts[3]) setDistrict(parts[3]);
         }
       }
     }
-  }, [postToEdit, availableBreeds]);
+  }, [postToEdit]);
+
+  useEffect(() => {
+    if (postToEdit && postToEdit.breed && availableBreeds.length > 0 && !breed) {
+      const breedMatch = availableBreeds.find((b: any) => b.name.toLowerCase().replace(/\s+/g, '-') === postToEdit.breed);
+      if (breedMatch) {
+        setBreed(breedMatch.id);
+      }
+    }
+  }, [postToEdit, availableBreeds, breed]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -254,6 +267,8 @@ export function CreatePostModal({ isOpen, onClose, onSuccess, postToEdit }: Crea
           delete postData.media_url;
           delete postData.message_type;
         }
+        
+        postData.created_at = new Date().toISOString();
         const { error: dbError } = await supabase
           .from("messages")
           .update(postData)
