@@ -570,7 +570,7 @@ export default function ChatInterface() {
     const fetchAnnouncements = async () => {
       let query = supabase
         .from("announcements")
-        .select(`*, users:users!author_id(id, username, display_name, role, profile_image_url, avatar_url)`)
+        .select(`*, users:users!author_id(id, username, display_name, role, profile_image_url)`)
         .eq("target_location", chatRoomLocation)
         .eq("target_pet", activePet);
 
@@ -606,7 +606,7 @@ export default function ChatInterface() {
         const result = await supabase
           .from("messages")
           .select(
-            `*, users:users!user_id(id, username, display_name, state, country, role, profile_image_url, avatar_url)`,
+            `*, users:users!user_id(id, username, display_name, state, country, role, profile_image_url)`,
           )
           .or(
             `and(user_id.eq.${userId},receiver_id.eq.${activeDmUser.id}),and(user_id.eq.${activeDmUser.id},receiver_id.eq.${userId})`,
@@ -620,7 +620,7 @@ export default function ChatInterface() {
         let query = supabase
           .from("messages")
           .select(
-            `*, users:users!user_id(id, username, display_name, state, country, role, profile_image_url, avatar_url)`,
+            `*, users:users!user_id(id, username, display_name, state, country, role, profile_image_url)`,
           )
           .is("receiver_id", null);
 
@@ -791,7 +791,7 @@ export default function ChatInterface() {
       const { data, error } = await supabase
         .from("messages")
         .select(
-          `user_id, receiver_id, is_read, users:users!user_id(id, display_name, username, profile_image_url, avatar_url), receiver:users!receiver_id(id, display_name, username, profile_image_url, avatar_url)`,
+          `user_id, receiver_id, is_read, users:users!user_id(id, display_name, username, profile_image_url), receiver:users!receiver_id(id, display_name, username, profile_image_url)`,
         )
         .not("receiver_id", "is", null)
         .or(`user_id.eq.${userId},receiver_id.eq.${userId}`)
@@ -1078,7 +1078,7 @@ export default function ChatInterface() {
         }
       }
 
-      const { data: insertedMsg, error } = await supabase.from("messages").insert(insertData).select(`*, users:users!user_id(id, username, display_name, state, country, role, profile_image_url, avatar_url)`).single();
+      const { data: insertedMsg, error } = await supabase.from("messages").insert(insertData).select(`*, users:users!user_id(id, username, display_name, state, country, role, profile_image_url)`).single();
       if (error) throw error;
       
       if (insertedMsg) {
@@ -1242,7 +1242,7 @@ export default function ChatInterface() {
         ...pendingMessagePayload,
         crosspost_rooms: finalRooms,
       };
-      const { data: insertedMsg, error } = await supabase.from("messages").insert(payload).select(`*, users:users!user_id(id, username, display_name, state, country, role, profile_image_url, avatar_url)`).single();
+      const { data: insertedMsg, error } = await supabase.from("messages").insert(payload).select(`*, users:users!user_id(id, username, display_name, state, country, role, profile_image_url)`).single();
       if (error) throw error;
       
       if (insertedMsg) {
