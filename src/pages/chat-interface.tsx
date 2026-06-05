@@ -38,7 +38,7 @@ import {
   X,
 } from "lucide-react";
 import { useState, useEffect, useCallback, useRef } from "react";
-import { cn } from "@/lib/utils";
+import { cn, parseUTCDate } from "@/lib/utils";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
@@ -914,7 +914,7 @@ export default function ChatInterface() {
             .limit(1)
             .single();
           if (lastPost) {
-            const lastPostTime = new Date(lastPost.created_at).getTime();
+            const lastPostTime = parseUTCDate(lastPost.created_at).getTime();
             const now = new Date().getTime();
             const hoursSinceLastPost = (now - lastPostTime) / (1000 * 60 * 60);
 
@@ -1548,7 +1548,7 @@ export default function ChatInterface() {
                           <SelectItem value="__all__">All Breeds</SelectItem>
                           {dbBreeds.length > 0 ? (
                             dbBreeds.map((breed: any) => (
-                              <SelectItem key={breed.id} value={breed.id}>
+                              <SelectItem key={breed.id} value={breed.name.toLowerCase().replace(/\s+/g, '-')}>
                                 {breed.name}
                               </SelectItem>
                             ))
@@ -2119,7 +2119,7 @@ export default function ChatInterface() {
                             </p>
                           </div>
                           <div className="ml-auto text-xs text-gray-400">
-                            {new Date(post.created_at).toLocaleDateString()}
+                            {parseUTCDate(post.created_at).toLocaleDateString()}
                           </div>
                         </div>
                         <div className="p-5">
@@ -2371,7 +2371,7 @@ export default function ChatInterface() {
                       onCheckedChange={(c: any) => setCrosspostCurrentRoom(!!c)}
                     />
                     <label htmlFor="q-current" className="text-sm font-medium cursor-pointer flex-1 leading-none">
-                      Current Room ({activeBreed ? (dbBreeds.find((b: any) => b.id === activeBreed)?.name || activeBreed) : 'All ' + activePet})
+                      Current Room ({activeBreed ? (dbBreeds.find((b: any) => b.name.toLowerCase().replace(/\s+/g, '-') === activeBreed)?.name || activeBreed) : 'All ' + activePet})
                     </label>
                   </div>
                   <div className="flex items-center space-x-3 p-3 rounded-lg border hover:bg-gray-50 cursor-pointer transition-colors">
@@ -2456,7 +2456,7 @@ export default function ChatInterface() {
                         <SelectContent className="max-h-60">
                           <SelectItem value="all">All Breeds</SelectItem>
                           {builderBreeds.map((b: any) => (
-                            <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+                            <SelectItem key={b.id} value={b.name.toLowerCase().replace(/\s+/g, '-')}>{b.name}</SelectItem>
                           ))}
                         </SelectContent>
                       </Select>

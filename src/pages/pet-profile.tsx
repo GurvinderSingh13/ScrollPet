@@ -33,7 +33,7 @@ import {
   X,
 } from "lucide-react";
 import logoImage from "@assets/Scrollpet_logo_1766997907297.png";
-import { cn } from "@/lib/utils";
+import { cn, parseUTCDate } from "@/lib/utils";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { toast } from "@/hooks/use-toast";
@@ -1067,7 +1067,7 @@ export default function PetProfilePage() {
                           <span className="text-gray-700">{c.content}</span>
                         </p>
                         <p className="text-[10px] text-gray-400 mt-0.5">
-                          {new Date(c.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                          {parseUTCDate(c.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
                         </p>
                       </div>
                     </div>

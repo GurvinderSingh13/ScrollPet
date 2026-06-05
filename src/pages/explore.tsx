@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { Link, useLocation } from "wouter";
 import { formatDistanceToNow } from "date-fns";
 import { useAuth } from "@/hooks/use-auth";
@@ -33,7 +33,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { cn } from "@/lib/utils";
+import { cn, parseUTCDate } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { toast } from "@/hooks/use-toast";
@@ -96,6 +96,7 @@ type FeedItem = {
   price: number | null;
   user_phone: string | null;
   gender: string | null;
+  user_avatar_url: string | null;
 };
 
 const INTENT_OPTIONS = [
@@ -199,6 +200,35 @@ export default function ExplorePage() {
     },
   });
 
+  // ── ALL breeds (used to resolve UUID/slug → name during normalization) ──
+  const { data: allBreeds = [] } = useQuery({
+    queryKey: ["explore-all-breeds"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("breeds")
+        .select("id, name, category_id")
+        .order("name", { ascending: true });
+      if (error) throw error;
+      return data || [];
+    },
+    staleTime: 5 * 60 * 1000, // cache for 5 minutes
+  });
+
+  // Build a resolver map: uuid → name AND slug → name (e.g. "labrador-retriever" → "Labrador Retriever")
+  const breedResolverMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    (allBreeds as any[]).forEach((b) => {
+      // by UUID
+      map[b.id.toLowerCase()] = b.name;
+      // by slug (kebab-case of name)
+      const slug = b.name.toLowerCase().replace(/\s+/g, "-");
+      map[slug] = b.name;
+      // by lowercase name
+      map[b.name.toLowerCase()] = b.name;
+    });
+    return map;
+  }, [allBreeds]);
+
   const filterCategoryId: string | null =
     filterCategory !== "all"
       ? ((dbCategories.find(
@@ -239,6 +269,16 @@ export default function ExplorePage() {
   const [selectedPost, setSelectedPost] = useState<FeedItem | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [postToEdit, setPostToEdit] = useState<FeedItem | null>(null);
+
+  const dynamicAgeOptions = useMemo(() => {
+    const ages = new Set<string>();
+    AGE_OPTIONS.forEach(a => ages.add(a));
+    feedItems.forEach(item => {
+      if (item.age) ages.add(item.age);
+    });
+    // Alphabetical sort is fine for dynamic options
+    return Array.from(ages).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  }, [feedItems]);
 
   const handleDeletePost = async (id: string, authorId: string) => {
     if (!user || user.id !== authorId) return;
@@ -290,27 +330,83 @@ export default function ExplorePage() {
 
   // ── Unified fetch — no inline PostgREST joins; users fetched separately ──
   const fetchFeed = useCallback(async (pageNum: number = 0, isLoadMore: boolean = false) => {
+      // Helper: resolve a stored breed value (UUID, slug, or name) → canonical display name
+      const resolveBreed = (raw: string | null): string | null => {
+        if (!raw) return null;
+        const key = raw.trim().toLowerCase();
+        return breedResolverMap[key] ?? raw.trim();
+      };
+      // Helper: normalize pet_type to consistent lowercase trimmed value
+      const normalizePetType = (raw: string | null): string | null => {
+        if (!raw) return null;
+        return raw.trim().toLowerCase();
+      };
       if (!isLoadMore) setIsFeedLoading(true);
       else setIsLoadingMore(true);
-      console.log('Fetching page:', pageNum);
+      console.log('Fetching page:', pageNum, 'filterCategory:', filterCategory, 'filterBreed:', filterBreed);
       try {
-        const PAGE_SIZE = 12;
+        const PAGE_SIZE = 50; // larger page so client-side filters have enough data
         const start = pageNum * PAGE_SIZE;
         const end = start + PAGE_SIZE - 1;
 
-        // Step 1 — fetch both tables in parallel, NO embedded joins
+        // Build the messages query with DB-level filters for correctness
+        let messagesQuery = supabase.from("messages")
+          .select("id, user_id, content, message_type, media_url, intent_status, created_at, pet_type, breed, location, crosspost_rooms, age, price, gender")
+          .is("receiver_id", null)
+          .not("intent_status", "is", null)
+          .neq("intent_status", "None")
+          .order("created_at", { ascending: false })
+          .range(start, end);
+
+        // Push category filter to DB (ilike = case-insensitive)
+        if (filterCategory !== "all") {
+          messagesQuery = (messagesQuery as any).ilike("pet_type", filterCategory);
+        }
+        // Push intent filter to DB
+        if (filterIntent !== "all") {
+          messagesQuery = (messagesQuery as any).ilike("intent_status", filterIntent);
+        }
+        // Push gender filter to DB
+        if (filterGender !== "all") {
+          messagesQuery = (messagesQuery as any).ilike("gender", filterGender);
+        }
+        // Push breed filter to DB — handle UUID, slug, full name, and partial name matches
+        if (filterBreed !== "all") {
+          const matchedBreed = (allBreeds as any[]).find(
+            (b) => b.name.toLowerCase() === filterBreed.toLowerCase()
+          );
+          if (matchedBreed) {
+            // Build OR condition: exact UUID match, full name, slug, and first-word-based ilike
+            // "Persian Cats" breed → also match stored values "Persian", "persian-cats", UUID
+            const breedName = matchedBreed.name; // e.g. "Persian Cats"
+            const breedId = matchedBreed.id;
+            const breedSlug = breedName.toLowerCase().replace(/\s+/g, "-");
+            // First word match: "Persian Cats" → "Persian%" catches "Persian"
+            const firstWord = breedName.split(" ")[0];
+            // Use Supabase or() to combine multiple conditions
+            const orFilter = [
+              `breed.eq.${breedId}`,
+              `breed.ilike.${breedName}`,
+              `breed.ilike.${breedSlug}`,
+              `breed.ilike.${firstWord}%`,
+            ].join(",");
+            messagesQuery = (messagesQuery as any).or(orFilter);
+          }
+        }
+
+
+        // Push age filter to DB (exact match, case-insensitive)
+        if (filterAge !== "all") {
+          messagesQuery = (messagesQuery as any).ilike("age", filterAge);
+        }
+
+        // Step 1 — fetch both tables in parallel
         const [mediaResult, chatResult] = await Promise.all([
           supabase.from("pet_media")
             .select("*, pets(id, name, image_url, user_id, type, breed, gender)")
             .order("created_at", { ascending: false })
             .range(start, end),
-          supabase.from("messages")
-            .select("id, user_id, content, message_type, media_url, intent_status, created_at, pet_type, breed, location, crosspost_rooms, age, price, gender")
-            .is("receiver_id", null)
-            .not("intent_status", "is", null)
-            .neq("intent_status", "None")
-            .order("created_at", { ascending: false })
-            .range(start, end),
+          messagesQuery,
         ]);
 
         if (mediaResult.error) console.error("pet_media fetch error:", mediaResult.error);
@@ -318,12 +414,12 @@ export default function ExplorePage() {
 
         // Step 2 — keep tagged chat posts and native explore posts
         const taggedChats = (chatResult.data || []).filter(
-          (msg: any) => 
+          (msg: any) =>
             msg.location === "explore_feed" ||
             (msg.intent_status && msg.intent_status !== "None") ||
             (Array.isArray(msg.crosspost_rooms) && msg.crosspost_rooms.some((r: string) => r.includes("explore_feed")))
         );
-        console.log("Tagged chats (raw):", taggedChats.length, taggedChats);
+        console.log("Tagged chats after DB filter:", taggedChats.length);
 
         // Step 3 — fetch users for chats AND pet_media owners in one query
         let usersMap: Record<string, any> = {};
@@ -331,7 +427,7 @@ export default function ExplorePage() {
         const mediaOwnerIds = (mediaResult.data || [])
           .map((m: any) => m.pets?.user_id as string | undefined)
           .filter(Boolean) as string[];
-        const allUserIds = [...new Set([...chatUserIds, ...mediaOwnerIds])];
+        const allUserIds = Array.from(new Set([...chatUserIds, ...mediaOwnerIds]));
         if (allUserIds.length > 0) {
           const { data: usersData, error: usersError } = await supabase
             .from("users")
@@ -371,8 +467,8 @@ export default function ExplorePage() {
             text_content: null,
             user_display_name: item.pets?.name ?? "Unknown Pet",
             user_id: item.pets?.user_id ?? null,
-            category: item.pets?.type?.toLowerCase() ?? null,
-            breed: item.pets?.breed?.toLowerCase() ?? null,
+            category: normalizePetType(item.pets?.type ?? null),
+            breed: resolveBreed(item.pets?.breed ?? null)?.toLowerCase() ?? null,
             location: syntheticRooms[0] ?? null,
             crosspost_rooms: syntheticRooms,
             raw_location: syntheticRooms[0] ?? null,
@@ -407,8 +503,8 @@ export default function ExplorePage() {
             text_content: item.content ?? null,
             user_display_name: u?.display_name || u?.username || "Pet Lover",
             user_id: item.user_id ?? null,
-            category: item.pet_type?.toLowerCase() ?? null,
-            breed: item.breed ?? null,
+            category: normalizePetType(item.pet_type ?? null),
+            breed: resolveBreed(item.breed ?? null)?.toLowerCase() ?? null,
             location: locationStr,
             crosspost_rooms: Array.isArray(item.crosspost_rooms) ? item.crosspost_rooms : [],
             raw_location: item.location ?? null,
@@ -432,37 +528,36 @@ export default function ExplorePage() {
           merged = merged.filter((item) => item.source_type === filterSource);
         }
         if (filterIntent !== "all") {
-          merged = merged.filter((item) => item.intent_status === filterIntent);
+          merged = merged.filter((item) => item.intent_status?.toLowerCase() === filterIntent.toLowerCase());
         }
         if (filterCategory !== "all") {
           merged = merged.filter((item) => item.category?.toLowerCase() === filterCategory.toLowerCase());
         }
         if (filterBreed !== "all") {
-          // filterBreed is now the breed slug (e.g. "labrador-retriever").
-          // messages.breed stores slug; pets.breed may store slug or name — normalise both.
+          // filterBreed is the breed name (from availableBreeds), lowercased
+          const filterBreedLower = filterBreed.toLowerCase().trim();
           merged = merged.filter((item) => {
-            const stored = item.breed?.toLowerCase() ?? "";
-            const slug   = filterBreed.toLowerCase();
-            const name   = slug.replace(/-/g, " ");
-            return (
-              stored === slug ||
-              stored === name ||
-              stored.replace(/\s+/g, "-") === slug ||
-              item.crosspost_rooms.some((tag) => tag.split("::")[2] === slug) ||
-              item.display_text?.toLowerCase().includes(name)
-            );
+            const stored = (item.breed ?? "").toLowerCase().trim();
+            // Direct name match (both are resolved to names now)
+            if (stored === filterBreedLower) return true;
+            // Also check crosspost_rooms breed segment (3rd segment after split by ::)
+            return item.crosspost_rooms.some((tag) => {
+              const parts = tag.split("::");
+              const tagBreed = (parts[2] ?? "").toLowerCase().trim();
+              return tagBreed === filterBreedLower;
+            });
           });
         }
         if (filterAge !== "all") {
-          merged = merged.filter((item) => !item.age || item.age === filterAge);
+          merged = merged.filter((item) => item.age?.toLowerCase() === filterAge.toLowerCase());
         }
         if (filterGender !== "all") {
-          merged = merged.filter((item) => !item.gender || item.gender.toLowerCase() === filterGender.toLowerCase());
+          merged = merged.filter((item) => item.gender?.toLowerCase() === filterGender.toLowerCase());
         }
         if (filterMaxPrice !== "" && filterMaxPrice !== "0") {
           const max = parseInt(filterMaxPrice, 10);
           if (!isNaN(max) && max > 0) {
-            merged = merged.filter((item) => item.price === null || item.price <= max);
+            merged = merged.filter((item) => item.price !== null && item.price <= max);
           }
         }
         
@@ -471,13 +566,11 @@ export default function ExplorePage() {
         }
 
         // Checks any item's location hierarchy against a predicate.
-        // Uses crosspost_rooms first (works for both chat and media synthetic rooms).
-        // Falls back to raw_location for legacy messages without crosspost_rooms.
-        // Items with no location data at all (empty rooms + null raw_location) pass through.
+        // Uses crosspost_rooms first. Falls back to raw_location.
         const itemMatchesLoc = (item: FeedItem, pred: (loc: string) => boolean): boolean => {
-          if (item.crosspost_rooms.length === 0 && item.raw_location === null) return true;
-          if (item.crosspost_rooms.length > 0)
+          if (item.crosspost_rooms.length > 0) {
             return item.crosspost_rooms.some((tag) => pred(tag.split("::")[0]));
+          }
           return item.raw_location ? pred(item.raw_location) : false;
         };
 
@@ -507,7 +600,7 @@ export default function ExplorePage() {
         }
 
         merged.sort(
-          (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+          (a, b) => parseUTCDate(b.created_at).getTime() - parseUTCDate(a.created_at).getTime(),
         );
 
         console.log("Final feed:", merged.length, "chat items:", merged.filter((i) => i.source_type === "chat").length);
@@ -519,7 +612,7 @@ export default function ExplorePage() {
           setFeedItems((prev) => {
             const newItems = merged.filter((item) => !prev.some((p) => p.id === item.id));
             console.log('Returned items:', newItems.length);
-            return [...prev, ...newItems].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+            return [...prev, ...newItems].sort((a, b) => parseUTCDate(b.created_at).getTime() - parseUTCDate(a.created_at).getTime());
           });
         } else {
           setFeedItems(merged);
@@ -531,7 +624,7 @@ export default function ExplorePage() {
         setIsFeedLoading(false);
         setIsLoadingMore(false);
       }
-  }, [filterSource, filterIntent, filterCategory, filterBreed, filterCountry, filterState, filterDistrict, filterAge, filterGender, filterMaxPrice]);
+  }, [filterSource, filterIntent, filterCategory, filterBreed, filterCountry, filterState, filterDistrict, filterAge, filterGender, filterMaxPrice, breedResolverMap, filterMyPosts, user, allBreeds]);
 
   useEffect(() => {
     setPage(0);
@@ -685,9 +778,12 @@ export default function ExplorePage() {
           className="w-full md:w-auto text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-xl pl-3 pr-8 py-1.5 outline-none cursor-pointer appearance-none hover:border-[#007699] focus:border-[#007699] transition-colors"
         >
           <option value="all">All Categories</option>
-          {PET_CATEGORIES.map((c) => (
-            <option key={c.value} value={c.value}>{c.label}</option>
+          {dbCategories.map((c: any) => (
+            <option key={c.id} value={c.name.toLowerCase()}>{c.name}</option>
           ))}
+          {!dbCategories.some((c: any) => c.name.toLowerCase() === "other") && (
+            <option value="other">Other</option>
+          )}
         </select>
         <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
       </div>
@@ -701,8 +797,8 @@ export default function ExplorePage() {
           className="w-full md:w-auto text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-xl pl-3 pr-8 py-1.5 outline-none cursor-pointer appearance-none hover:border-[#007699] focus:border-[#007699] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
         >
           <option value="all">All Breeds</option>
-          {availableBreeds.map((b) => (
-            <option key={b.id} value={b.id}>{b.name}</option>
+          {availableBreeds.map((b: any) => (
+            <option key={b.id} value={b.name.toLowerCase()}>{b.name}</option>
           ))}
         </select>
         <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
@@ -715,8 +811,8 @@ export default function ExplorePage() {
           onChange={(e) => setFilterAge(e.target.value)}
           className="w-full md:w-auto text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-xl pl-3 pr-8 py-1.5 outline-none cursor-pointer appearance-none hover:border-[#007699] focus:border-[#007699] transition-colors"
         >
-          <option value="all">All Ages</option>
-          {AGE_OPTIONS.map((opt) => (
+          <option value="all">Any Age</option>
+          {dynamicAgeOptions.map((opt) => (
             <option key={opt} value={opt}>{opt}</option>
           ))}
         </select>
@@ -885,34 +981,43 @@ export default function ExplorePage() {
                   /* ── Media Card ── */
                   <div
                     key={item.id}
-                  className="bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow overflow-hidden flex flex-col h-full cursor-pointer group"
+                  className="bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-lg transition-all duration-200 overflow-hidden flex flex-col cursor-pointer group"
                   onClick={() => setSelectedPost(item)}
                 >
+                  {/* Image */}
                   <div className="aspect-square bg-gray-100 relative overflow-hidden shrink-0">
                     {item.media_type === "video" ? (
                       <FeedVideo
                         src={item.media_url!}
-                        className="w-full h-full object-cover pointer-events-none"
+                        className="w-full h-full object-cover pointer-events-none group-hover:scale-105 transition-transform duration-300"
                         autoPlay
                         muted
                         loop
                         playsInline
                       />
                     ) : (
-                      <img src={item.media_url!} alt="Pet media" className="w-full h-full object-cover" loading="lazy" />
+                      <img src={item.media_url!} alt="Pet media" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" loading="lazy" />
                     )}
+                    {/* Intent badge */}
                     {item.intent_status && INTENT_BADGE_COLORS[item.intent_status] && (
-                      <div className="absolute top-1.5 left-1.5 pointer-events-none">
-                        <span className={cn("text-[9px] font-bold px-1.5 py-0.5 rounded-full border shadow-sm", INTENT_BADGE_COLORS[item.intent_status])}>
+                      <div className="absolute top-2 left-2 pointer-events-none">
+                        <span className={cn("text-[9px] font-bold px-2 py-0.5 rounded-full border shadow-sm backdrop-blur-sm", INTENT_BADGE_COLORS[item.intent_status])}>
                           {item.intent_status}
                         </span>
                       </div>
                     )}
+                    {/* Price overlay on image bottom */}
+                    {item.price !== null && item.price !== undefined && (
+                      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent px-2.5 pt-4 pb-2">
+                        <p className="text-white font-bold text-base leading-none">₹{item.price.toLocaleString('en-IN')}</p>
+                      </div>
+                    )}
+                    {/* Owner menu */}
                     {user?.id === item.user_id && (
-                      <div className="absolute top-1.5 right-1.5 z-10">
+                      <div className="absolute top-2 right-2 z-10">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <button 
+                            <button
                               className="p-1.5 bg-black/40 hover:bg-black/60 rounded-full text-white transition-colors outline-none"
                               onClick={(e) => e.stopPropagation()}
                             >
@@ -920,13 +1025,13 @@ export default function ExplorePage() {
                             </button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-40 bg-white border-gray-200 text-gray-800 z-50">
-                            <DropdownMenuItem 
+                            <DropdownMenuItem
                               className="cursor-pointer focus:bg-gray-100"
                               onClick={(e) => { e.stopPropagation(); setPostToEdit(item); setIsCreateModalOpen(true); }}
                             >
                               Edit
                             </DropdownMenuItem>
-                            <DropdownMenuItem 
+                            <DropdownMenuItem
                               className="cursor-pointer text-red-600 focus:bg-gray-100 focus:text-red-700"
                               onClick={(e) => { e.stopPropagation(); handleDeletePost(item.id, item.user_id!); }}
                             >
@@ -938,83 +1043,74 @@ export default function ExplorePage() {
                     )}
                   </div>
 
-                  <div className="flex-1 flex flex-col p-2.5 gap-2">
-                    <div className="mb-auto">
-                      <div className="flex items-center justify-between gap-1 mb-2">
-                        <div className="flex items-center gap-1 overflow-hidden">
-                          <p className="text-[12px] font-bold text-gray-800 truncate">
-                            {item.user_display_name}
-                          </p>
-                          <span className="text-[9px] text-gray-400 shrink-0">
-                            • {formatDistanceToNow(new Date(item.created_at), { addSuffix: true })}
-                          </span>
-                        </div>
-                      </div>
-                      
-                      {(item.breed || item.gender || item.location) && (
-                        <div className="flex flex-col gap-1.5 mt-0.5">
-                          {(item.breed || item.gender) && (
-                            <div className="flex items-center gap-1.5 text-xs text-gray-600">
-                              <PawPrint className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-                              <span className="truncate">
-                                {[
-                                  item.breed ? item.breed.charAt(0).toUpperCase() + item.breed.slice(1) : null,
-                                  item.gender ? item.gender.charAt(0).toUpperCase() + item.gender.slice(1) : null
-                                ].filter(Boolean).join(" • ")}
-                              </span>
-                            </div>
-                          )}
-                          {item.location && (
-                            <div className="flex items-center gap-1.5 text-xs text-gray-600">
-                              <MapPin className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-                              <span className="truncate">{formatLocation(item.location)}</span>
-                            </div>
-                          )}
-                        </div>
+                  {/* Info Section */}
+                  <div className="flex flex-col p-3 gap-2.5 flex-1">
+                    {/* Row 1: Breed + Gender pills */}
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {item.breed && (
+                        <span className="inline-flex items-center gap-1 bg-amber-50 text-amber-800 border border-amber-200 text-[10px] font-semibold px-2 py-0.5 rounded-full">
+                          <PawPrint className="w-2.5 h-2.5" />
+                          {item.breed.charAt(0).toUpperCase() + item.breed.slice(1)}
+                        </span>
+                      )}
+                      {item.gender && (
+                        <span className={cn(
+                          "inline-flex items-center text-[10px] font-semibold px-2 py-0.5 rounded-full border",
+                          item.gender.toLowerCase() === "male"
+                            ? "bg-blue-50 text-blue-700 border-blue-200"
+                            : "bg-pink-50 text-pink-700 border-pink-200"
+                        )}>
+                          {item.gender.toLowerCase() === "male" ? "♂" : "♀"} {item.gender.charAt(0).toUpperCase() + item.gender.slice(1)}
+                        </span>
                       )}
                     </div>
-                    
-                    <div className="mt-auto pt-4 border-t border-gray-100 flex flex-col gap-2 w-full">
-                      {item.price !== null && item.price !== undefined && (
-                        <p className="text-xl font-bold text-green-600">
-                          ₹{item.price}
-                        </p>
-                      )}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full">
-                      {item.user_phone && (
-                        <a
-                          href={`https://wa.me/${item.user_phone.replace(/\D/g, '')}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex-1 flex items-center justify-center gap-1.5 bg-green-500 hover:bg-green-600 text-white text-xs font-medium py-2 rounded-md transition-colors shadow-sm"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <Phone className="w-3.5 h-3.5" />
-                          WhatsApp
-                        </a>
-                      )}
-                      {user ? (
-                        <button
-                          className="flex-1 flex items-center justify-center gap-1.5 bg-[#007699] hover:bg-[#005a75] text-white text-xs font-medium py-2 rounded-md transition-colors shadow-sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (item.user_id) setLocation(`/chat?user=${item.user_id}`);
-                          }}
-                        >
-                          <MessageCircle className="w-3.5 h-3.5" />
-                          Message
-                        </button>
-                      ) : (
-                        <button
-                          className="flex-1 flex items-center justify-center gap-1.5 bg-gray-100 hover:bg-gray-200 text-gray-600 text-xs font-medium py-2 rounded-md transition-colors"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setLocation(`/login`);
-                          }}
-                        >
-                          Log in to Message
-                        </button>
-                      )}
+
+                    {/* Row 2: Pet name */}
+                    <p className="text-xs font-semibold text-gray-800 truncate leading-tight">{item.user_display_name}</p>
+
+                    {/* Row 3: Location */}
+                    {item.location && (
+                      <div className="flex items-center gap-1 text-[10px] text-gray-400">
+                        <MapPin className="w-3 h-3 shrink-0" />
+                        <span className="truncate">{formatLocation(item.location)}</span>
+                      </div>
+                    )}
+
+                    {/* Spacer */}
+                    <div className="mt-auto pt-2 border-t border-gray-100 flex flex-col gap-2">
+                      {/* Action Buttons */}
+                      <div className="grid grid-cols-2 gap-1.5 w-full">
+                        {item.user_phone && (
+                          <a
+                            href={`https://wa.me/${item.user_phone.replace(/\D/g, '')}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center justify-center gap-1 bg-green-500 hover:bg-green-600 text-white text-[10px] font-semibold py-1.5 rounded-lg transition-colors"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <Phone className="w-3 h-3" />
+                            WhatsApp
+                          </a>
+                        )}
+                        {user ? (
+                          <button
+                            className={cn("flex items-center justify-center gap-1 bg-[#007699] hover:bg-[#005a75] text-white text-[10px] font-semibold py-1.5 rounded-lg transition-colors", !item.user_phone && "col-span-2")}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (item.user_id) setLocation(`/chat?user=${item.user_id}`);
+                            }}
+                          >
+                            <MessageCircle className="w-3 h-3" />
+                            Message
+                          </button>
+                        ) : (
+                          <button
+                            className={cn("flex items-center justify-center gap-1 bg-gray-100 hover:bg-gray-200 text-gray-600 text-[10px] font-semibold py-1.5 rounded-lg transition-colors", !item.user_phone && "col-span-2")}
+                            onClick={(e) => { e.stopPropagation(); setLocation(`/login`); }}
+                          >
+                            Login
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -1023,38 +1119,49 @@ export default function ExplorePage() {
                 /* ── Chat Marketplace Card ── */
                 <div
                   key={item.id}
-                  className="bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow overflow-hidden flex flex-col h-full cursor-pointer"
+                  className="bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-lg transition-all duration-200 overflow-hidden flex flex-col cursor-pointer group"
                   onClick={() => setSelectedPost(item)}
                 >
-                  {/* Image / video — always square, badge overlaid top-right */}
+                  {/* Image / video */}
                   <div className="aspect-square bg-gray-100 relative overflow-hidden shrink-0">
                     {item.display_image ? (
                       item.media_type === "video" ? (
                         <FeedVideo
                           src={item.display_image}
-                          className="w-full h-full object-cover pointer-events-none"
+                          className="w-full h-full object-cover pointer-events-none group-hover:scale-105 transition-transform duration-300"
                           autoPlay muted loop playsInline
                         />
                       ) : (
-                        <img src={item.display_image} alt="Post attachment" className="w-full h-full object-cover" loading="lazy" />
+                        <img src={item.display_image} alt="Post attachment" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" loading="lazy" />
                       )
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-200">
-                        <span className="text-4xl opacity-20">🐾</span>
+                      <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-[#007699]/5 to-[#007699]/20 gap-2">
+                        <span className="text-5xl opacity-30">🐾</span>
+                        {item.display_text && (
+                          <p className="text-[10px] text-gray-500 text-center px-3 line-clamp-3 leading-relaxed">{item.display_text}</p>
+                        )}
                       </div>
                     )}
+                    {/* Intent badge */}
                     {item.intent_status && INTENT_BADGE_COLORS[item.intent_status] && (
                       <div className="absolute top-2 left-2 pointer-events-none">
-                        <span className={cn("text-[9px] font-bold px-1.5 py-0.5 rounded-full border shadow-sm", INTENT_BADGE_COLORS[item.intent_status])}>
+                        <span className={cn("text-[9px] font-bold px-2 py-0.5 rounded-full border shadow-sm backdrop-blur-sm", INTENT_BADGE_COLORS[item.intent_status])}>
                           {item.intent_status}
                         </span>
                       </div>
                     )}
+                    {/* Price overlay */}
+                    {item.price !== null && item.price !== undefined && (
+                      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent px-2.5 pt-4 pb-2">
+                        <p className="text-white font-bold text-base leading-none">₹{item.price.toLocaleString('en-IN')}</p>
+                      </div>
+                    )}
+                    {/* Owner menu */}
                     {user?.id === item.user_id && (
                       <div className="absolute top-2 right-2 z-10">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <button 
+                            <button
                               className="p-1.5 bg-black/40 hover:bg-black/60 rounded-full text-white transition-colors outline-none"
                               onClick={(e) => e.stopPropagation()}
                             >
@@ -1062,13 +1169,13 @@ export default function ExplorePage() {
                             </button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-40 bg-white border-gray-200 text-gray-800 z-50">
-                            <DropdownMenuItem 
+                            <DropdownMenuItem
                               className="cursor-pointer focus:bg-gray-100"
                               onClick={(e) => { e.stopPropagation(); setPostToEdit(item); setIsCreateModalOpen(true); }}
                             >
                               Edit
                             </DropdownMenuItem>
-                            <DropdownMenuItem 
+                            <DropdownMenuItem
                               className="cursor-pointer text-red-600 focus:bg-gray-100 focus:text-red-700"
                               onClick={(e) => { e.stopPropagation(); handleDeletePost(item.id, item.user_id!); }}
                             >
@@ -1080,108 +1187,90 @@ export default function ExplorePage() {
                     )}
                   </div>
 
-                  <div className="flex-1 flex flex-col">
-                    <div className="mb-auto">
-                      {/* Text content — full text, pre-wrap so line breaks show */}
-                      {item.display_text && (
-                        <div className="px-2.5 pt-2 pb-1">
-                          <p className="text-xs text-gray-700 whitespace-pre-wrap leading-relaxed line-clamp-3 break-words">
-                            {item.display_text}
-                          </p>
-                        </div>
-                      )}
-
-                      {/* Compact Info Grid */}
-                      <div className="px-2.5 pb-2">
-                        {(item.breed || item.gender || item.location) && (
-                          <div className="flex flex-col gap-1.5">
-                            {(item.breed || item.gender) && (
-                              <div className="flex items-center gap-1.5 text-xs text-gray-600">
-                                <PawPrint className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-                                <span className="truncate">
-                                  {[
-                                    item.breed ? item.breed.charAt(0).toUpperCase() + item.breed.slice(1) : null,
-                                    item.gender ? item.gender.charAt(0).toUpperCase() + item.gender.slice(1) : null
-                                  ].filter(Boolean).join(" • ")}
-                                </span>
-                              </div>
-                            )}
-                            {item.location && (
-                              <div className="flex items-center gap-1.5 text-xs text-gray-600">
-                                <MapPin className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-                                <span className="truncate">{formatLocation(item.location)}</span>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Footer User Info */}
-                      <div className="flex items-center gap-1.5 px-2.5 py-2 mt-2">
-                        <div className="h-5 w-5 rounded-full overflow-hidden bg-gray-100 shrink-0">
-                          <img
-                            src={item.user_avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${item.user_id ?? item.id}`}
-                            alt="avatar"
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-                        <p className="text-[10px] font-semibold text-gray-700 truncate">
-                          {item.user_display_name}
-                        </p>
-                        <span className="text-[9px] text-gray-400 ml-auto whitespace-nowrap">
-                          {formatDistanceToNow(new Date(item.created_at), { addSuffix: true })}
+                  {/* Info Section */}
+                  <div className="flex flex-col p-3 gap-2.5 flex-1">
+                    {/* Row 1: Breed + Gender pills */}
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {item.breed && (
+                        <span className="inline-flex items-center gap-1 bg-amber-50 text-amber-800 border border-amber-200 text-[10px] font-semibold px-2 py-0.5 rounded-full">
+                          <PawPrint className="w-2.5 h-2.5" />
+                          {item.breed.charAt(0).toUpperCase() + item.breed.slice(1)}
                         </span>
-                        {item.category && (
-                          <span className="text-[9px] font-semibold bg-[#007699]/10 text-[#007699] px-1.5 py-0.5 rounded-md capitalize shrink-0">
-                            {item.category}
-                          </span>
-                        )}
-                      </div>
+                      )}
+                      {item.gender && (
+                        <span className={cn(
+                          "inline-flex items-center text-[10px] font-semibold px-2 py-0.5 rounded-full border",
+                          item.gender.toLowerCase() === "male"
+                            ? "bg-blue-50 text-blue-700 border-blue-200"
+                            : "bg-pink-50 text-pink-700 border-pink-200"
+                        )}>
+                          {item.gender.toLowerCase() === "male" ? "♂" : "♀"} {item.gender.charAt(0).toUpperCase() + item.gender.slice(1)}
+                        </span>
+                      )}
+                      {item.age && (
+                        <span className="inline-flex items-center text-[10px] font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 border border-gray-200">
+                          {item.age}
+                        </span>
+                      )}
                     </div>
 
-                    <div className="mt-auto pt-4 border-t border-gray-100 flex flex-col gap-2 p-2.5">
-                      {item.price !== null && item.price !== undefined && (
-                        <p className="text-xl font-bold text-green-600 px-1">
-                          ₹{item.price}
-                        </p>
-                      )}
-                      
-                      {/* Action Buttons */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full">
-                      {item.user_phone && (
-                        <a
-                          href={`https://wa.me/${item.user_phone.replace(/\D/g, '')}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex-1 flex items-center justify-center gap-1.5 bg-green-500 hover:bg-green-600 text-white text-xs font-medium py-2 rounded-md transition-colors shadow-sm"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <Phone className="w-3.5 h-3.5" />
-                          WhatsApp
-                        </a>
-                      )}
-                      {user ? (
-                        <button
-                          className="flex-1 flex items-center justify-center gap-1.5 bg-[#007699] hover:bg-[#005a75] text-white text-xs font-medium py-2 rounded-md transition-colors shadow-sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (item.user_id) setLocation(`/chat?user=${item.user_id}`);
-                          }}
-                        >
-                          <MessageCircle className="w-3.5 h-3.5" />
-                          Message
-                        </button>
-                      ) : (
-                        <button
-                          className="flex-1 flex items-center justify-center gap-1.5 bg-gray-100 hover:bg-gray-200 text-gray-600 text-xs font-medium py-2 rounded-md transition-colors"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setLocation(`/login`);
-                          }}
-                        >
-                          Log in to Message
-                        </button>
-                      )}
+                    {/* Row 2: User */}
+                    <div className="flex items-center gap-1.5">
+                      <div className="h-4 w-4 rounded-full overflow-hidden bg-gray-100 shrink-0">
+                        <img
+                          src={item.user_avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${item.user_id ?? item.id}`}
+                          alt="avatar"
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                      <p className="text-[10px] font-semibold text-gray-700 truncate">{item.user_display_name}</p>
+                      <span className="text-[9px] text-gray-400 ml-auto whitespace-nowrap shrink-0">
+                        {formatDistanceToNow(parseUTCDate(item.created_at), { addSuffix: true })}
+                      </span>
+                    </div>
+
+                    {/* Row 3: Location */}
+                    {item.location && (
+                      <div className="flex items-center gap-1 text-[10px] text-gray-400">
+                        <MapPin className="w-3 h-3 shrink-0" />
+                        <span className="truncate">{formatLocation(item.location)}</span>
+                      </div>
+                    )}
+
+                    {/* Action Buttons */}
+                    <div className="mt-auto pt-2 border-t border-gray-100">
+                      <div className="grid grid-cols-2 gap-1.5 w-full">
+                        {item.user_phone && (
+                          <a
+                            href={`https://wa.me/${item.user_phone.replace(/\D/g, '')}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center justify-center gap-1 bg-green-500 hover:bg-green-600 text-white text-[10px] font-semibold py-1.5 rounded-lg transition-colors"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <Phone className="w-3 h-3" />
+                            WhatsApp
+                          </a>
+                        )}
+                        {user ? (
+                          <button
+                            className={cn("flex items-center justify-center gap-1 bg-[#007699] hover:bg-[#005a75] text-white text-[10px] font-semibold py-1.5 rounded-lg transition-colors", !item.user_phone && "col-span-2")}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (item.user_id) setLocation(`/chat?user=${item.user_id}`);
+                            }}
+                          >
+                            <MessageCircle className="w-3 h-3" />
+                            Message
+                          </button>
+                        ) : (
+                          <button
+                            className={cn("flex items-center justify-center gap-1 bg-gray-100 hover:bg-gray-200 text-gray-600 text-[10px] font-semibold py-1.5 rounded-lg transition-colors", !item.user_phone && "col-span-2")}
+                            onClick={(e) => { e.stopPropagation(); setLocation(`/login`); }}
+                          >
+                            Login
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -1293,7 +1382,7 @@ export default function ExplorePage() {
                       <div className="flex-1 min-w-0">
                         <p className="font-bold text-white truncate group-hover:underline">{item.user_display_name}</p>
                         <p className="text-xs text-zinc-400">
-                          {new Date(item.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
+                          {parseUTCDate(item.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
                         </p>
                       </div>
                       {item.intent_status && INTENT_BADGE_COLORS[item.intent_status] && (
@@ -1532,7 +1621,7 @@ export default function ExplorePage() {
                       <div key={c.id} className="flex gap-2.5">
                         <div className="h-8 w-8 rounded-full overflow-hidden bg-gray-100 shrink-0">
                           <img
-                            src={c.user_avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${c.user_id}`}
+                            src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${c.user_id}`}
                             alt="avatar"
                             className="w-full h-full object-cover"
                             loading="lazy"
@@ -1544,7 +1633,7 @@ export default function ExplorePage() {
                             <span className="text-gray-700">{c.content}</span>
                           </p>
                           <p className="text-[10px] text-gray-400 mt-0.5">
-                            {new Date(c.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                            {parseUTCDate(c.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
                           </p>
                         </div>
                       </div>

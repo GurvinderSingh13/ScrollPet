@@ -60,6 +60,7 @@ import {
 } from "lucide-react";
 import logoImage from "@assets/Scrollpet_logo_1766997907297.png";
 import { toast } from "@/hooks/use-toast";
+import { parseUTCDate } from "@/lib/utils";
 import { Country, State } from "country-state-city";
 import { getBreeds } from "@/data/petBreeds";
 import {
@@ -450,7 +451,7 @@ export default function AdminDashboard() {
         else typeCounts["text"]++;
 
         // Hour of day
-        const h = new Date(msg.created_at).getHours();
+        const h = parseUTCDate(msg.created_at).getHours();
         hourCounts[h]++;
 
         // Room activity
@@ -494,7 +495,7 @@ export default function AdminDashboard() {
         signupMap[label] = 0;
       }
       for (const u of recentSignupsRes.data || []) {
-        const d = new Date(u.created_at);
+        const d = parseUTCDate(u.created_at);
         const label = d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
         if (label in signupMap) signupMap[label]++;
       }

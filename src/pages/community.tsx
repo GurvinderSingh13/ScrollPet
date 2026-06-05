@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabase";
 import { formatDistanceToNow, format } from "date-fns";
 import { Search, MapPin, MessageCircle, Calendar } from "lucide-react";
 import { safeSessionStorage } from "@/lib/safe-storage";
+import { parseUTCDate } from "@/lib/utils";
 
 type CommunityUser = {
   id: string;
@@ -84,7 +85,7 @@ export default function CommunityDirectory() {
     // Online filter
     if (onlineOnly) {
       if (!u.last_seen) return false;
-      const minutesSinceLastSeen = (new Date().getTime() - new Date(u.last_seen).getTime()) / 60000;
+      const minutesSinceLastSeen = (new Date().getTime() - parseUTCDate(u.last_seen).getTime()) / 60000;
       if (minutesSinceLastSeen > 15) return false;
     }
 
@@ -163,12 +164,12 @@ export default function CommunityDirectory() {
             let isOnline = false;
             let statusText = "Never active";
             if (member.last_seen) {
-              const minutesSince = (new Date().getTime() - new Date(member.last_seen).getTime()) / 60000;
+              const minutesSince = (new Date().getTime() - parseUTCDate(member.last_seen).getTime()) / 60000;
               if (minutesSince <= 15) {
                 isOnline = true;
                 statusText = "Online Now";
               } else {
-                statusText = `Last seen ${formatDistanceToNow(new Date(member.last_seen))} ago`;
+                statusText = `Last seen ${formatDistanceToNow(parseUTCDate(member.last_seen))} ago`;
               }
             }
 
@@ -209,7 +210,7 @@ export default function CommunityDirectory() {
                   </div>
                   <div className="flex items-center gap-2 text-sm text-gray-600">
                     <Calendar className="w-4 h-4 text-gray-400 shrink-0" />
-                    <span>Joined {format(new Date(member.created_at), "MMM yyyy")}</span>
+                    <span>Joined {format(parseUTCDate(member.created_at), "MMM yyyy")}</span>
                   </div>
                 </div>
 

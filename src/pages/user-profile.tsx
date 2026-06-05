@@ -51,7 +51,7 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
-import { cn } from "@/lib/utils";
+import { cn, parseUTCDate } from "@/lib/utils";
 import { Country, State } from "country-state-city";
 import { Lock, Unlock } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
@@ -501,7 +501,7 @@ export default function UserProfile() {
             </div>
             <div className="w-px h-8 bg-gray-200" />
             <div className="text-center">
-              <p className="text-2xl font-extrabold text-gray-900">{dbUser?.created_at ? new Date(dbUser.created_at).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : "—"}</p>
+              <p className="text-2xl font-extrabold text-gray-900">{dbUser?.created_at ? parseUTCDate(dbUser.created_at).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : "—"}</p>
               <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mt-0.5">Joined</p>
             </div>
           </div>

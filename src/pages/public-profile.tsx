@@ -6,7 +6,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { toast } from "@/hooks/use-toast";
 import logoImage from "@assets/Scrollpet_logo_1766997907297.png";
 import { safeSessionStorage } from "@/lib/safe-storage";
-
+import { parseUTCDate } from "@/lib/utils";
 export default function PublicProfile() {
     const [match, params] = useRoute("/profile/:username");
     const username = params?.username ? decodeURIComponent(params.username) : "";
@@ -85,7 +85,7 @@ export default function PublicProfile() {
     };
 
     const joinedDate = user.created_at
-        ? new Date(user.created_at).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+        ? parseUTCDate(user.created_at).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
         : null;
 
     return (
