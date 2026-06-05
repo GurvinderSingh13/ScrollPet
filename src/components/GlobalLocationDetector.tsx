@@ -38,15 +38,15 @@ export default function GlobalLocationDetector() {
         try {
           console.log("GlobalLocationDetector: Missing location detected. Attempting auto-detection...");
           
-          const res = await fetch("https://ipapi.co/json/");
+          const res = await fetch("https://get.geojs.io/v1/ip/geo.json");
           if (!res.ok) throw new Error("Failed to fetch location from IP");
           
           const data = await res.json();
-          const detectedCountryName = data.country_name;
+          const detectedCountryName = data.country;
           const detectedRegion = data.region; // This is often the state name/label
 
           if (!detectedCountryName) {
-            console.warn("GlobalLocationDetector: IP API returned no country name.");
+            console.warn("GlobalLocationDetector: GeoJS API returned no country name.");
             return;
           }
 
