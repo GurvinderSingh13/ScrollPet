@@ -19,6 +19,7 @@ interface Message {
     id: string;
     username: string;
     displayName: string;
+    avatarUrl?: string | null;
   };
 }
 
@@ -51,11 +52,13 @@ function mapRowToMessage(row: any): Message {
           id: userData.id,
           username: userData.username || '',
           displayName: userData.display_name || userData.username || '',
+          avatarUrl: userData.profile_image_url || userData.avatar_url || null,
         }
       : {
           id: row.user_id,
           username: 'Unknown',
           displayName: 'Unknown',
+          avatarUrl: null,
         },
   };
 }
@@ -124,7 +127,7 @@ export function useWebSocket({ userId, petType, breed, location, onMessage }: Us
 
           const { data: userData } = await supabase
             .from('users')
-            .select('id, username, display_name')
+            .select('id, username, display_name, profile_image_url, avatar_url')
             .eq('id', newRow.user_id)
             .single();
 
@@ -150,7 +153,7 @@ export function useWebSocket({ userId, petType, breed, location, onMessage }: Us
 
             const { data: userData } = await supabase
               .from('users')
-              .select('id, username, display_name')
+              .select('id, username, display_name, profile_image_url, avatar_url')
               .eq('id', newRow.user_id)
               .single();
 
@@ -171,7 +174,7 @@ export function useWebSocket({ userId, petType, breed, location, onMessage }: Us
 
             const { data: userData } = await supabase
               .from('users')
-              .select('id, username, display_name')
+              .select('id, username, display_name, profile_image_url, avatar_url')
               .eq('id', newRow.user_id)
               .single();
 
