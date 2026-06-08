@@ -63,9 +63,11 @@ export default function Login() {
 
   const handleGoogleLogin = async () => {
     setIsGoogleLoading(true);
+    const searchParams = new URLSearchParams(window.location.search);
+    const redirectTo = searchParams.get('redirectTo') || '/explore';
     const { error: oauthError } = await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: `${window.location.origin}/chat-interface` },
+      options: { redirectTo: `${window.location.origin}${redirectTo}` },
     });
     if (oauthError) {
       setError(oauthError.message || "Google sign-in failed.");
@@ -90,7 +92,9 @@ export default function Login() {
         return;
       }
       
-      setLocation('/chat-interface');
+      const searchParams = new URLSearchParams(window.location.search);
+      const redirectTo = searchParams.get('redirectTo') || '/explore';
+      setLocation(redirectTo);
     } catch (err) {
       setError("Login failed. Please try again.");
       setIsLoading(false);

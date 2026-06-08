@@ -54,6 +54,7 @@ export default function Footer() {
             <h4 className="font-bold text-white mb-6 text-lg">Platform</h4>
             <ul className="space-y-3">
               <li><Link href="/" className="hover:text-primary transition-colors cursor-pointer">Home</Link></li>
+              <li><Link href="/landing" className="hover:text-primary transition-colors cursor-pointer">Landing Page</Link></li>
               <li><Link href="/explore" className="hover:text-primary transition-colors cursor-pointer">Explore</Link></li>
               <li><Link href="/community" className="hover:text-primary transition-colors cursor-pointer">Community</Link></li>
               <li><Link href="/chat" className="hover:text-primary transition-colors cursor-pointer">Chat Rooms</Link></li>

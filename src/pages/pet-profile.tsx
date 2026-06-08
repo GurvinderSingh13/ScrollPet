@@ -658,27 +658,34 @@ export default function PetProfilePage() {
         </div>
 
         {/* INFO GRID */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-          <div className="grid grid-cols-2 gap-4 text-sm">
-            {isEditingPet ? (
-              <>
-                <div>
-                  <span className="font-semibold text-muted-foreground block mb-1">
-                    Gender:
-                  </span>
-                  <input
-                    className="w-full bg-background border border-input rounded px-2 py-1"
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-4">
+          {isEditingPet ? (
+            <div className="space-y-5">
+              <h3 className="font-bold text-base text-gray-900 border-b border-gray-100 pb-2 mb-4">Basic Information</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5 text-sm">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wider block">
+                    Gender
+                  </label>
+                  <select
+                    className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2.5 outline-none focus:border-[#007699] focus:ring-1 focus:ring-[#007699] transition-all cursor-pointer appearance-none"
                     value={editForm.gender || ""}
                     onChange={(e) =>
                       setEditForm({ ...editForm, gender: e.target.value })
                     }
-                  />
+                  >
+                    <option value="" disabled>Select Gender</option>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    <option value="Pair">Pair</option>
+                    <option value="Lot">Lot</option>
+                  </select>
                 </div>
-                <div>
-                  <span className="font-semibold text-muted-foreground block mb-1">
-                    DOB:
-                  </span>
-                  <div className="flex gap-1 w-full">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wider block">
+                    Date of Birth
+                  </label>
+                  <div className="flex gap-2 w-full">
                     <select
                       className={selectClass}
                       value={editBirthDay}
@@ -723,44 +730,45 @@ export default function PetProfilePage() {
                     </select>
                   </div>
                 </div>
-                <div className="col-span-2">
-                  <span className="font-semibold text-muted-foreground block mb-1">
-                    Location:
-                  </span>
+                <div className="col-span-1 md:col-span-2 space-y-1.5">
+                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wider block">
+                    Location
+                  </label>
                   <input
-                    className="w-full bg-background border border-input rounded px-2 py-1"
+                    placeholder="E.g. Delhi, India"
+                    className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2.5 outline-none focus:border-[#007699] focus:ring-1 focus:ring-[#007699] transition-all"
                     value={editForm.location || ""}
                     onChange={(e) =>
                       setEditForm({ ...editForm, location: e.target.value })
                     }
                   />
                 </div>
-              </>
-            ) : (
-              <>
-                <div>
-                  <span className="font-semibold text-muted-foreground">
-                    Gender:{" "}
-                  </span>
-                  <span className="capitalize">
-                    {pet.gender || "Unknown"}
-                  </span>
-                </div>
-                <div>
-                  <span className="font-semibold text-muted-foreground">
-                    DOB:{" "}
-                  </span>
-                  <span>{pet.dob || "Unknown"}</span>
-                </div>
-                <div className="col-span-2">
-                  <span className="font-semibold text-muted-foreground">
-                    Location:{" "}
-                  </span>
-                  <span>{pet.location || "Unknown"}</span>
-                </div>
-              </>
-            )}
-          </div>
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-6 text-sm">
+              <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 flex flex-col gap-1">
+                <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">
+                  Gender
+                </span>
+                <span className="capitalize font-semibold text-gray-900 text-base">
+                  {pet.gender || "Unknown"}
+                </span>
+              </div>
+              <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 flex flex-col gap-1">
+                <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">
+                  Date of Birth
+                </span>
+                <span className="font-semibold text-gray-900 text-base">{pet.dob || "Unknown"}</span>
+              </div>
+              <div className="col-span-2 bg-gray-50 p-4 rounded-xl border border-gray-100 flex flex-col gap-1">
+                <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">
+                  Location
+                </span>
+                <span className="font-semibold text-gray-900 text-base">{pet.location || "Unknown"}</span>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* MEDIA GRID */}
@@ -825,34 +833,45 @@ export default function PetProfilePage() {
 
         {/* PET STATUS TOGGLES */}
         {isEditingPet && (
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-3">
-            <h3 className="font-bold text-sm text-gray-900">
-              Pet Status{" "}
-              <span className="text-muted-foreground font-normal">
-                (Optional)
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-5 mb-4">
+            <h3 className="font-bold text-base text-gray-900 border-b border-gray-100 pb-2 flex justify-between items-center">
+              Pet Status 
+              <span className="text-xs text-gray-400 font-normal uppercase tracking-wider bg-gray-100 px-2 py-0.5 rounded-full">
+                Optional
               </span>
             </h3>
-            <div className="grid grid-cols-1 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {(
                 [
                   { key: "status_mating", label: "Available for Mating" },
-                  { key: "status_pups_sell", label: "Pups for Sell" },
+                  { key: "status_pups_sell", label: "Pups for Sale" },
                   { key: "status_pups_adoption", label: "Pups for Adoption" },
-                  { key: "status_for_sell", label: "For Sell" },
+                  { key: "status_for_sell", label: "For Sale" },
                   { key: "status_for_adoption", label: "For Adoption" },
+                  { key: "status_exchange", label: "Open for Exchange" },
                   { key: "status_lost", label: "Lost" },
                   { key: "status_dead", label: "Dead" },
-                  { key: "status_exchange", label: "Open for Exchange" },
                 ] as { key: keyof typeof editForm; label: string }[]
               ).map(({ key, label }) => (
                 <label
                   key={key}
-                  className="flex items-center justify-between gap-3 px-3 py-2 rounded-md border border-input bg-background cursor-pointer hover:bg-muted/40 transition-colors"
+                  className={cn(
+                    "flex items-center justify-between gap-3 px-4 py-3 rounded-xl border cursor-pointer transition-all",
+                    (editForm as any)[key] 
+                      ? "border-[#007699] bg-[#007699]/5 shadow-sm" 
+                      : "border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50"
+                  )}
                 >
-                  <span className="text-sm">{label}</span>
+                  <span className={cn("text-sm font-semibold", (editForm as any)[key] ? "text-[#007699]" : "text-gray-700")}>{label}</span>
+                  <div className={cn(
+                    "w-5 h-5 rounded flex items-center justify-center border transition-colors",
+                    (editForm as any)[key] ? "bg-[#007699] border-[#007699] text-white" : "border-gray-300 bg-white"
+                  )}>
+                    {(editForm as any)[key] && <svg viewBox="0 0 14 14" fill="none" className="w-3.5 h-3.5"><path d="M3 7.5L5.5 10L11 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                  </div>
                   <input
                     type="checkbox"
-                    className="w-4 h-4 accent-[#007699] cursor-pointer"
+                    className="sr-only"
                     checked={!!(editForm as any)[key]}
                     onChange={(e) =>
                       setEditForm({ ...editForm, [key]: e.target.checked })
@@ -866,51 +885,61 @@ export default function PetProfilePage() {
 
         {/* MEDIA UPLOAD */}
         {isEditingPet && (
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-4">
-            <h3 className="font-bold text-sm text-gray-900 flex items-center gap-2">
-              <ImageIcon className="w-4 h-4 text-[#FF6600]" /> Update Pet Media
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-6 mb-6">
+            <h3 className="font-bold text-base text-gray-900 border-b border-gray-100 pb-2 flex items-center gap-2">
+              <ImageIcon className="w-5 h-5 text-[#FF6600]" /> Update Pet Media
             </h3>
-            <div className="space-y-2">
-              <label className="text-xs text-gray-500 font-semibold uppercase block mb-1">
+            
+            <div className="space-y-2.5">
+              <label className="text-xs text-gray-500 font-bold uppercase tracking-wider block">
                 Profile Avatar
               </label>
-              <input
-                type="file"
-                accept="image/*"
-                onChange={(e) =>
-                  setNewProfileImage(e.target.files?.[0] || null)
-                }
-                className="w-full bg-background border border-input rounded px-2 py-1 text-sm cursor-pointer"
-              />
+              <div className="relative">
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) =>
+                    setNewProfileImage(e.target.files?.[0] || null)
+                  }
+                  className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-[#007699]/10 file:text-[#007699] hover:file:bg-[#007699]/20 transition-all cursor-pointer bg-gray-50 rounded-xl p-2 border border-gray-200"
+                />
+              </div>
             </div>
-            <div className="space-y-2">
-              <label className="text-xs text-gray-500 font-semibold uppercase block mb-1">
-                Update Showcase Images (Max 3)
+
+            <div className="space-y-2.5">
+              <label className="text-xs text-gray-500 font-bold uppercase tracking-wider block">
+                Update Showcase Images <span className="normal-case font-normal text-gray-400">(Max 3)</span>
               </label>
-              <input
-                type="file"
-                accept="image/*"
-                multiple
-                onChange={(e) =>
-                  setNewShowcaseImages(Array.from(e.target.files || []))
-                }
-                className="w-full bg-background border border-input rounded px-2 py-1 text-sm cursor-pointer"
-              />
-              <p className="text-xs text-muted-foreground">
+              <div className="relative">
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={(e) =>
+                    setNewShowcaseImages(Array.from(e.target.files || []))
+                  }
+                  className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-[#FF6600]/10 file:text-[#FF6600] hover:file:bg-[#FF6600]/20 transition-all cursor-pointer bg-gray-50 rounded-xl p-2 border border-gray-200"
+                />
+              </div>
+              <p className="text-xs text-gray-400 flex items-center gap-1.5 mt-2">
+                <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
                 Selecting new files will replace all existing showcase images.
               </p>
             </div>
-            <div className="space-y-2">
-              <label className="text-xs text-gray-500 font-semibold uppercase block items-center gap-1 mb-1">
-                <VideoIcon className="w-3 h-3 inline mr-1" /> Profile Video
-                (Max 50MB)
+
+            <div className="space-y-2.5">
+              <label className="text-xs text-gray-500 font-bold uppercase tracking-wider flex items-center gap-1">
+                <VideoIcon className="w-4 h-4 text-purple-500 mr-1" /> Profile Video
+                <span className="normal-case font-normal text-gray-400 ml-1">(Max 50MB)</span>
               </label>
-              <input
-                type="file"
-                accept="video/*"
-                onChange={(e) => setNewVideoFile(e.target.files?.[0] || null)}
-                className="w-full bg-background border border-input rounded px-2 py-1 text-sm cursor-pointer"
-              />
+              <div className="relative">
+                <input
+                  type="file"
+                  accept="video/*"
+                  onChange={(e) => setNewVideoFile(e.target.files?.[0] || null)}
+                  className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-purple-100 file:text-purple-700 hover:file:bg-purple-200 transition-all cursor-pointer bg-gray-50 rounded-xl p-2 border border-gray-200"
+                />
+              </div>
             </div>
           </div>
         )}
@@ -920,19 +949,19 @@ export default function PetProfilePage() {
           <div className="flex flex-col gap-4 pb-8">
             <Button
               onClick={handleUpdatePet}
-              className="w-full cursor-pointer bg-[#007699] hover:bg-[#005a75] text-white"
+              className="w-full h-12 rounded-xl font-bold text-base cursor-pointer bg-[#007699] hover:bg-[#005a75] text-white shadow-lg shadow-[#007699]/20"
               disabled={isSavingPet}
             >
               {isSavingPet ? (
                 <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Uploading &
+                  <Loader2 className="w-5 h-5 mr-2 animate-spin" /> Uploading &
                   Saving...
                 </>
               ) : (
                 "Save Details & Media"
               )}
             </Button>
-            <div className="border-t border-red-100 pt-4">
+            <div className="border-t border-gray-200 mt-2 pt-6">
               <Button
                 variant="destructive"
                 onClick={() => {

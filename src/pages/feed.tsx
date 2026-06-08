@@ -183,7 +183,7 @@ const FeedVideo = ({ src, className, controls, autoPlay, muted, loop, playsInlin
 
 
 
-export default function ExplorePage() {
+export default function FeedPage() {
   const { user, isLoading, isAuthenticated } = useAuth();
 
   // Clear location state logic to remove createPost query param after reading
@@ -374,76 +374,22 @@ export default function ExplorePage() {
         const start = pageNum * PAGE_SIZE;
         const end = start + PAGE_SIZE - 1;        const sortColumn = "created_at"; // Database must always sort by created_at since views/likes are computed/merged client-side
 
-        let messagesQuery = supabase.from("messages")
-          .select("id, user_id, content, message_type, media_url, intent_status, created_at, pet_type, breed, location, crosspost_rooms, age, price, gender")
-          .is("receiver_id", null)
-          .not("intent_status", "is", null)
-          .neq("intent_status", "None")
-          .order(sortColumn, { ascending: false })
-          .range(start, end);
-
-        // Push category filter to DB (ilike = case-insensitive)
-        if (filterCategory !== "all") {
-          messagesQuery = (messagesQuery as any).ilike("pet_type", filterCategory);
-        }
-        // Push intent filter to DB
-        if (filterIntent !== "all") {
-          messagesQuery = (messagesQuery as any).ilike("intent_status", filterIntent);
-        }
-        // Push gender filter to DB
-        if (filterGender !== "all") {
-          messagesQuery = (messagesQuery as any).ilike("gender", filterGender);
-        }
-        // Push breed filter to DB — handle UUID, slug, full name, and partial name matches
-        if (filterBreed !== "all") {
-          const matchedBreed = (allBreeds as any[]).find(
-            (b) => b.name.toLowerCase() === filterBreed.toLowerCase()
-          );
-          if (matchedBreed) {
-            // Build OR condition: exact UUID match, full name, slug, and first-word-based ilike
-            // "Persian Cats" breed → also match stored values "Persian", "persian-cats", UUID
-            const breedName = matchedBreed.name; // e.g. "Persian Cats"
-            const breedId = matchedBreed.id;
-            const breedSlug = breedName.toLowerCase().replace(/\s+/g, "-");
-            // First word match: "Persian Cats" → "Persian%" catches "Persian"
-            const firstWord = breedName.split(" ")[0];
-            // Use Supabase or() to combine multiple conditions
-            const orFilter = [
-              `breed.eq.${breedId}`,
-              `breed.ilike.${breedName}`,
-              `breed.ilike.${breedSlug}`,
-              `breed.ilike.${firstWord}%`,
-            ].join(",");
-            messagesQuery = (messagesQuery as any).or(orFilter);
-          }
-        }
-
-
-        // Push age filter to DB (exact match, case-insensitive)
-        if (filterAge !== "all") {
-          messagesQuery = (messagesQuery as any).ilike("age", filterAge);
-        }
-
         // Step 1 — fetch both tables in parallel
-        const [chatResult] = await Promise.all([
-          messagesQuery,
+        const [mediaResult] = await Promise.all([
+          supabase.from("pet_media")
+            .select("*, pets(id, name, image_url, user_id, type, breed, gender)")
+            .order("created_at", { ascending: false })
+            .range(start, end)
         ]);
 
-        if (chatResult.error)  console.error("messages fetch error:",  chatResult.error);
-
-        // Step 2 — keep tagged chat posts and native explore posts
-        const taggedChats = (chatResult.data || []).filter(
-          (msg: any) =>
-            msg.location === "explore_feed" ||
-            (msg.intent_status && msg.intent_status !== "None") ||
-            (Array.isArray(msg.crosspost_rooms) && msg.crosspost_rooms.some((r: string) => r.includes("explore_feed")))
-        );
-        console.log("Tagged chats after DB filter:", taggedChats.length);
+        if (mediaResult.error) console.error("pet_media fetch error:", mediaResult.error);
 
         // Step 3 — fetch users for chats AND pet_media owners in one query
         let usersMap: Record<string, any> = {};
-        const chatUserIds = taggedChats.map((m: any) => m.user_id as string);
-        const allUserIds = Array.from(new Set([...chatUserIds]));
+        const mediaOwnerIds = (mediaResult.data || [])
+          .map((m: any) => m.pets?.user_id as string | undefined)
+          .filter(Boolean) as string[];
+        const allUserIds = Array.from(new Set([...mediaOwnerIds]));
         if (allUserIds.length > 0) {
           const { data: usersData, error: usersError } = await supabase
             .from("users")
@@ -458,48 +404,55 @@ export default function ExplorePage() {
           Country.getAllCountries().map((c) => [c.name, c.isoCode]),
         );
 
-        // Step 5 — normalize chats using the separate users lookup
-        const normalizedChats: FeedItem[] = taggedChats.map((item: any) => {
-          const u = usersMap[item.user_id] ?? null;
-          const locationStr = (item.location && item.location !== "explore_feed") 
-            ? item.location 
-            : ([u?.state, u?.country].filter(Boolean).join(", ") || item.location || null);
-          const mediaType =
-            item.message_type === "image" ? "image"
-            : item.message_type === "video" ? "video"
-            : null;
+        // Step 4 — normalize media (build synthetic crosspost_rooms from pet owner's profile)
+        const normalizedMedia: FeedItem[] = (mediaResult.data || []).map((item: any) => {
+          const owner = usersMap[item.pets?.user_id ?? ""] ?? null;
+          const syntheticRooms: string[] = [];
+          if (owner?.country) {
+            const cc = countryNameToCode[owner.country] ?? null;
+            if (cc) {
+              syntheticRooms.push(`country:${cc}::all::all`);
+              if (owner.state) {
+                const stateCode = State.getStatesOfCountry(cc)
+                  .find((s: any) => s.name === owner.state)?.isoCode ?? null;
+                if (stateCode) syntheticRooms.push(`state:${cc}:${stateCode}::all::all`);
+              }
+            }
+          }
           return {
             id: item.id,
-            source_type: item.location === "explore_feed" ? "media" : "chat",
+            source_type: "media" as const,
             display_image: item.media_url ?? null,
-            display_text: item.content ?? null,
+            display_text: null,
             media_url: item.media_url ?? null,
-            media_type: mediaType,
-            text_content: item.content ?? null,
-            user_display_name: u?.display_name || u?.username || "Pet Lover",
-            user_id: item.user_id ?? null,
-            category: normalizePetType(item.pet_type ?? null),
-            breed: resolveBreed(item.breed ?? null)?.toLowerCase() ?? null,
-            location: locationStr,
-            crosspost_rooms: Array.isArray(item.crosspost_rooms) ? item.crosspost_rooms : [],
-            raw_location: item.location ?? null,
+            media_type: item.media_type ?? null,
+            text_content: null,
+            user_display_name: item.pets?.name ?? "Unknown Pet",
+            user_id: item.pets?.user_id ?? null,
+            category: normalizePetType(item.pets?.type ?? null),
+            breed: resolveBreed(item.pets?.breed ?? null)?.toLowerCase() ?? null,
+            location: syntheticRooms[0] ?? null,
+            crosspost_rooms: syntheticRooms,
+            raw_location: syntheticRooms[0] ?? null,
             intent_status: item.intent_status ?? null,
             created_at: item.created_at,
-            raw_media: null,
-            age: item.age ?? null,
-            price: item.price ?? null,
-            user_phone: u?.phone ?? null,
-            gender: item.gender ?? null,
-            user_avatar_url: u?.profile_image_url || u?.avatar_url || null,
+            raw_media: item as MediaItem,
+            age: null,
+            price: null,
+            user_phone: owner?.phone ?? null,
+            gender: item.pets?.gender ?? null,
+            user_avatar_url: owner?.profile_image_url || owner?.avatar_url || null,
             views: item.views || 0,
             likes: item.likes || item.likes_count || 0,
           };
         });
 
-        console.log("Normalized chats:", normalizedChats.length, normalizedChats);
-
         // Step 6 — merge and apply dropdown filters in JavaScript
-        let merged = [...normalizedChats];
+        let merged = [...normalizedMedia];
+
+        if (filterSource !== "all") {
+          merged = merged.filter((item) => item.source_type === filterSource);
+        }
         if (filterIntent !== "all") {
           merged = merged.filter((item) => item.intent_status?.toLowerCase() === filterIntent.toLowerCase());
         }
@@ -581,9 +534,9 @@ export default function ExplorePage() {
           return parseUTCDate(b.created_at).getTime() - parseUTCDate(a.created_at).getTime();
         });
 
-        console.log("Final feed:", merged.length, "chat items:", merged.filter((i) => i.source_type === "chat").length);
+        console.log("Final feed:", merged.length);
         
-        const isDataExhausted = (chatResult.data?.length || 0) < PAGE_SIZE;
+        const isDataExhausted = (mediaResult.data?.length || 0) < PAGE_SIZE;
         setHasMore(!isDataExhausted);
 
         if (isLoadMore) {
@@ -705,7 +658,7 @@ export default function ExplorePage() {
 
   const renderFilters = () => (
     <>
-      {/* Sort By */}
+      {/* Source — segmented control removed */}      {/* Sort By */}
       <div className="relative w-full md:w-auto">
         <select
           value={sortBy}
@@ -865,19 +818,7 @@ export default function ExplorePage() {
         <div className="bg-white border-b border-gray-100 shadow-sm">
           <div className="max-w-5xl mx-auto px-4 h-14 flex items-center gap-2">
             <Compass className="w-5 h-5 text-[#007699]" />
-            <h1 className="text-base font-bold text-gray-900">Explore</h1>
-            <span className="text-sm text-gray-400 font-normal hidden sm:inline">— marketplace</span>
-            <div className="ml-auto hidden md:block">
-              <button 
-                onClick={() => {
-                  if (!isAuthenticated) setLocation("/login?redirectTo=/explore?createPost=true");
-                  else setIsCreateModalOpen(true);
-                }}
-                className="flex items-center gap-2 bg-[#007699] text-white px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-[#005a75] transition-colors"
-              >
-                <Plus className="w-4 h-4" /> Create Post
-              </button>
-            </div>
+            <h1 className="text-base font-bold text-gray-900">Feed</h1>
           </div>
         </div>
 
@@ -908,7 +849,6 @@ export default function ExplorePage() {
             <div className="hidden md:flex flex-wrap items-center gap-3">
               {renderFilters()}
             </div>
-
             {/* Result count */}
             <div className="ml-auto flex items-center gap-3">
               <span className="text-xs text-gray-400">
@@ -945,11 +885,9 @@ export default function ExplorePage() {
                   /* ── Media Card ── */
                   <div
                     key={item.id}
-                  className="bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-lg transition-all duration-200 overflow-hidden flex flex-col cursor-pointer group"
-                  onClick={() => setSelectedPost(item)}
-                >
-                  {/* Image */}
-                  <div className="aspect-square bg-gray-100 relative overflow-hidden shrink-0">
+                    className="bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden cursor-pointer group aspect-square relative"
+                    onClick={() => setSelectedMedia(item.raw_media)}
+                  >
                     {item.media_type === "video" ? (
                       <FeedVideo
                         src={item.media_url!}
@@ -962,123 +900,21 @@ export default function ExplorePage() {
                     ) : (
                       <img src={item.media_url!} alt="Pet media" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" loading="lazy" />
                     )}
-                    {/* Intent badge */}
-                    {item.intent_status && INTENT_BADGE_COLORS[item.intent_status] && (
-                      <div className="absolute top-2 left-2 pointer-events-none">
-                        <span className={cn("text-[9px] font-bold px-2 py-0.5 rounded-full border shadow-sm backdrop-blur-sm", INTENT_BADGE_COLORS[item.intent_status])}>
-                          {item.intent_status}
-                        </span>
-                      </div>
-                    )}
-                    {/* Price overlay on image bottom */}
-                    {item.price !== null && item.price !== undefined && (
-                      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent px-2.5 pt-4 pb-2">
-                        <p className="text-white font-bold text-base leading-none">₹{item.price.toLocaleString('en-IN')}</p>
-                      </div>
-                    )}
-                    {/* Owner menu */}
-                    {user?.id === item.user_id && (
-                      <div className="absolute top-2 right-2 z-10">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <button
-                              className="p-1.5 bg-black/40 hover:bg-black/60 rounded-full text-white transition-colors outline-none"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              <MoreHorizontal className="w-4 h-4" />
-                            </button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-40 bg-white border-gray-200 text-gray-800 z-50">
-                            <DropdownMenuItem
-                              className="cursor-pointer focus:bg-gray-100"
-                              onClick={(e) => { e.stopPropagation(); setPostToEdit(item); setIsCreateModalOpen(true); }}
-                            >
-                              Edit
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              className="cursor-pointer text-red-600 focus:bg-gray-100 focus:text-red-700"
-                              onClick={(e) => { e.stopPropagation(); handleDeletePost(item.id, item.user_id!); }}
-                            >
-                              Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Info Section */}
-                  <div className="flex flex-col p-3 gap-2.5 flex-1">
-                    {/* Row 1: Breed + Gender pills */}
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      {item.breed && (
-                        <span className="inline-flex items-center gap-1 bg-amber-50 text-amber-800 border border-amber-200 text-[10px] font-semibold px-2 py-0.5 rounded-full">
-                          <PawPrint className="w-2.5 h-2.5" />
-                          {item.breed.charAt(0).toUpperCase() + item.breed.slice(1)}
-                        </span>
-                      )}
-                      {item.gender && (
-                        <span className={cn(
-                          "inline-flex items-center text-[10px] font-semibold px-2 py-0.5 rounded-full border",
-                          item.gender.toLowerCase() === "male"
-                            ? "bg-blue-50 text-blue-700 border-blue-200"
-                            : "bg-pink-50 text-pink-700 border-pink-200"
-                        )}>
-                          {item.gender.toLowerCase() === "male" ? "♂" : "♀"} {item.gender.charAt(0).toUpperCase() + item.gender.slice(1)}
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Row 2: Pet name */}
-                    <p className="text-xs font-semibold text-gray-800 truncate leading-tight">{item.user_display_name}</p>
-
-                    {/* Row 3: Location */}
-                    {item.location && (
-                      <div className="flex items-center gap-1 text-[10px] text-gray-400">
-                        <MapPin className="w-3 h-3 shrink-0" />
-                        <span className="truncate">{formatLocation(item.location)}</span>
-                      </div>
-                    )}
-
-                    {/* Spacer */}
-                    <div className="mt-auto pt-2 border-t border-gray-100 flex flex-col gap-2">
-                      {/* Action Buttons */}
-                      <div className="grid grid-cols-2 gap-1.5 w-full">
-                        {item.user_phone && (
-                          <a
-                            href={`https://wa.me/${item.user_phone.replace(/\D/g, '')}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center justify-center gap-1 bg-green-500 hover:bg-green-600 text-white text-[10px] font-semibold py-1.5 rounded-lg transition-colors"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <Phone className="w-3 h-3" />
-                            WhatsApp
-                          </a>
-                        )}
-                        {user ? (
-                          <button
-                            className={cn("flex items-center justify-center gap-1 bg-[#007699] hover:bg-[#005a75] text-white text-[10px] font-semibold py-1.5 rounded-lg transition-colors", !item.user_phone && "col-span-2")}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (item.user_id) setLocation(`/chat?user=${item.user_id}`);
-                            }}
-                          >
-                            <MessageCircle className="w-3 h-3" />
-                            Message
-                          </button>
-                        ) : (
-                          <button
-                            className={cn("flex items-center justify-center gap-1 bg-gray-100 hover:bg-gray-200 text-gray-600 text-[10px] font-semibold py-1.5 rounded-lg transition-colors", !item.user_phone && "col-span-2")}
-                            onClick={(e) => { e.stopPropagation(); setLocation(`/login`); }}
-                          >
-                            Login
-                          </button>
-                        )}
+                    
+                    {/* Hover overlay with minimal stats (optional Instagram-like behavior) */}
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-300 flex items-center justify-center opacity-0 group-hover:opacity-100">
+                      <div className="flex gap-4 text-white font-bold text-sm">
+                        <div className="flex items-center gap-1.5 shadow-sm">
+                          <Heart className="w-5 h-5 fill-white" />
+                          <span>{item.likes || 0}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5 shadow-sm">
+                          <MessageCircle className="w-5 h-5 fill-white" />
+                          <span>0</span>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
               ) : (
                 /* ── Chat Marketplace Card ── */
                 <div

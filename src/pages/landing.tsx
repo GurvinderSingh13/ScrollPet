@@ -71,7 +71,7 @@ function AnimatedCounter({ end, duration = 2000, suffix = "" }: { end: number; d
   return <span ref={ref}>{count.toLocaleString()}{suffix}</span>;
 }
 
-export default function Home() {
+export default function LandingPage() {
   const { user, isLoading, isAuthenticated } = useAuth();
   const [activePetIndex, setActivePetIndex] = useState(0);
   const [, setLocation] = useLocation();
@@ -137,7 +137,7 @@ export default function Home() {
 
   const fadeUp = {
     hidden: { y: 30, opacity: 0 },
-    visible: { y: 0, opacity: 1, transition: { duration: 0.6, ease: "easeOut" } },
+    visible: { y: 0, opacity: 1, transition: { duration: 0.6 } },
   };
 
   return (

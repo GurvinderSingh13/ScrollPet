@@ -286,7 +286,7 @@ export default function AdminDashboard() {
         toast({ description: `Category "${trimmed}" added!` });
       }
       resetCatForm();
-      queryClient.invalidateQueries({ queryKey: ["admin-categories"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-categories"] }); queryClient.invalidateQueries({ queryKey: ["categories"] });
     } catch (err: any) {
       console.error(err);
       toast({ 
@@ -313,7 +313,8 @@ export default function AdminDashboard() {
       if (error) throw error;
       toast({ description: `Category "${name}" deleted.` });
       if (editingCatId === id) resetCatForm();
-      queryClient.invalidateQueries({ queryKey: ["admin-categories"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-categories"] }); queryClient.invalidateQueries({ queryKey: ["categories"] });
+      queryClient.invalidateQueries({ queryKey: ["categories"] });
       queryClient.invalidateQueries({ queryKey: ["admin-breeds"] });
     } catch (err: any) {
       toast({ description: err.message || "Failed to delete.", variant: "destructive" });

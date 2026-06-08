@@ -5,7 +5,8 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
-import Home from "@/pages/home";
+import LandingPage from "@/pages/landing";
+import HomeFeed from "@/pages/HomeFeed";
 import ChatRooms from "@/pages/chat-rooms";
 import Login from "@/pages/login";
 import Signup from "@/pages/signup";
@@ -24,6 +25,7 @@ import ContactUs from "@/pages/contact";
 import UpdatePassword from "@/pages/update-password";
 import PetProfilePage from "@/pages/pet-profile";
 import ExplorePage from "@/pages/explore";
+import FeedPage from "@/pages/feed";
 import CommunityDirectory from "@/pages/community";
 import GlobalLocationDetector from "@/components/GlobalLocationDetector";
 import Navbar from "@/components/Navbar";
@@ -41,7 +43,8 @@ function PresenceTracker() {
 function Router() {
   return (
     <Switch>
-      <Route path="/" component={Home} />
+      <Route path="/" component={HomeFeed} />
+      <Route path="/landing" component={LandingPage} />
       <Route path="/chat" component={ChatRooms} />
       <Route path="/chat-rooms" component={ChatRooms} />
       <Route path="/chat-interface" component={ChatInterface} />
@@ -63,6 +66,7 @@ function Router() {
       <Route path="/pet/:petId" component={PetProfilePage} />
       <Route path="/explore" component={ExplorePage} />
       <Route path="/community" component={CommunityDirectory} />
+      <Route path="/feed" component={FeedPage} />
       <Route path="/inbox" component={ChatInterface} />
       <Route component={NotFound} />
     </Switch>

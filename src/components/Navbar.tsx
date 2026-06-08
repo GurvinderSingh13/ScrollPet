@@ -22,7 +22,7 @@ import { safeSessionStorage } from "@/lib/safe-storage";
 
 const navLinks = [
   { href: "/", label: "Home" },
-  { href: "/chat", label: "Chat Rooms" },
+  { href: "/feed", label: "Feed" },
   { href: "/explore", label: "Explore" },
   { href: "/faq", label: "FAQ" },
   { href: "/contact", label: "Contact Us" },

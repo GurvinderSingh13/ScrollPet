@@ -51,6 +51,11 @@ interface Message {
   location: string;
   createdAt: string;
   intentStatus?: string | null;
+  petType?: string | null;
+  breed?: string | null;
+  gender?: string | null;
+  age?: string | null;
+  price?: number | null;
   user: {
     id: string;
     username?: string;
@@ -402,6 +407,37 @@ export function MessageBubble({
             )}
           >
             {renderContent()}
+
+            {(message.breed || message.gender || message.age || message.price) && (
+              <div className="flex flex-wrap items-center gap-1.5 mt-2.5">
+                {message.breed && (
+                  <span className="text-[10px] font-medium bg-purple-50 text-purple-700 px-2 py-0.5 rounded-full capitalize border border-purple-100 max-w-[80%] truncate">
+                    {message.breed}
+                  </span>
+                )}
+                {message.gender && (
+                  <span className={cn(
+                    "text-[10px] font-medium px-2 py-0.5 rounded-full capitalize border flex items-center gap-1 shrink-0",
+                    message.gender.toLowerCase() === 'male' 
+                      ? "bg-blue-50 text-blue-700 border-blue-100" 
+                      : "bg-pink-50 text-pink-700 border-pink-100"
+                  )}>
+                    {message.gender}
+                  </span>
+                )}
+                {message.age && (
+                  <span className="text-[10px] font-medium bg-gray-50 text-gray-700 px-2 py-0.5 rounded-full capitalize border border-gray-200 shrink-0">
+                    {message.age}
+                  </span>
+                )}
+                {message.price !== null && message.price !== undefined && (
+                  <span className="text-[10px] font-bold bg-green-50 text-green-700 px-2 py-0.5 rounded-full border border-green-200 shrink-0">
+                    ${message.price.toLocaleString()}
+                  </span>
+                )}
+              </div>
+            )}
+
             {localIntentStatus && INTENT_BADGE_COLORS[localIntentStatus] && (
               <div className="mt-2 flex justify-end">
                 <span

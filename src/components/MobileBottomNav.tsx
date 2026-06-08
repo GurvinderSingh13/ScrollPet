@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/use-auth";
 
 const NAV_ITEMS = [
   { href: "/",       icon: Home,          label: "Home" },
-  { href: "/chat",   icon: PawPrint,      label: "Chat" },
+  { href: "/feed",   icon: PawPrint,      label: "Feed" },
   { href: "/explore",icon: Compass,       label: "Explore" },
 ];
 

@@ -655,25 +655,29 @@ export default function ChatInterface() {
           createdAt: row.created_at,
           receiverId: row.receiver_id,
           intentStatus: row.intent_status || null,
+          breed: row.breed || null,
+          gender: row.gender || null,
+          age: row.age || null,
+          price: row.price || null,
           user: userData
             ? {
-              id: userData.id,
-              username: userData.username || "",
-              displayName: userData.display_name || userData.username || "",
-              state: userData.state || "",
-              country: userData.country || "",
-              role: userData.role || "user",
-              avatarUrl: userData.profile_image_url || userData.avatar_url || null,
-            }
+                id: userData.id,
+                username: userData.username || "",
+                displayName: userData.display_name || userData.username || "",
+                state: userData.state || "",
+                country: userData.country || "",
+                role: userData.role || "user",
+                avatarUrl: userData.profile_image_url || userData.avatar_url || null,
+              }
             : {
-              id: row.user_id,
-              username: "Unknown",
-              displayName: "Unknown",
-              state: "",
-              country: "",
-              role: "user",
-              avatarUrl: null,
-            },
+                id: row.user_id,
+                username: "Unknown",
+                displayName: "Unknown",
+                state: "",
+                country: "",
+                role: "user",
+                avatarUrl: null,
+              },
         };
       });
       setMessages(mapped.reverse());

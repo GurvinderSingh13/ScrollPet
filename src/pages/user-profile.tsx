@@ -474,7 +474,7 @@ export default function UserProfile() {
                 <Edit3 className="w-4 h-4" /> Edit
               </button>
               <button
-                onClick={logout}
+                onClick={() => logout()}
                 className="flex items-center gap-2 px-4 py-2 rounded-xl bg-red-50 border border-red-200 text-sm font-semibold text-red-600 hover:bg-red-100 hover:shadow-md transition-all cursor-pointer"
               >
                 <LogOut className="w-4 h-4" /> Logout

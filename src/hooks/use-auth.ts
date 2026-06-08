@@ -8,6 +8,8 @@ export interface AuthUser {
   displayName: string | null;
   avatarUrl?: string;
   country?: string | null;
+  state?: string | null;
+  role?: string;
 }
 
 async function fetchUser(): Promise<AuthUser | null> {
@@ -23,7 +25,7 @@ async function fetchUser(): Promise<AuthUser | null> {
   // Fetch the latest user profile directly to get the current avatar URL and country
   const { data: dbUser, error } = await supabase
     .from("users")
-    .select("profile_image_url, country")
+    .select("*")
     .eq("id", user.id)
     .single();
 
@@ -38,6 +40,8 @@ async function fetchUser(): Promise<AuthUser | null> {
     displayName: meta.display_name || meta.username || null,
     avatarUrl: dbUser?.profile_image_url || dbUser?.avatar_url || meta.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.id}`,
     country: dbUser?.country || null,
+    state: dbUser?.state || null,
+    role: dbUser?.role || "user",
   };
 }
 

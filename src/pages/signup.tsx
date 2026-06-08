@@ -34,7 +34,7 @@ export default function Signup() {
     setIsGoogleLoading(true);
     const { error: oauthError } = await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: `${window.location.origin}/chat-interface` },
+      options: { redirectTo: `${window.location.origin}/explore` },
     });
     if (oauthError) {
       setError(oauthError.message || "Google sign-in failed.");
@@ -95,7 +95,7 @@ export default function Signup() {
         return;
       }
       
-      setLocation('/chat-interface');
+      setLocation('/explore');
     } catch (err) {
       setError("Registration failed. Please try again.");
       setIsLoading(false);
