@@ -54,7 +54,7 @@ function Router() {
       <Route path="/faq" component={FAQ} />
       <Route path="/profile" component={Profile} />
       <Route path="/user-profile" component={UserProfile} />
-      <Route path="/profile/:username" component={PublicProfile} />
+      <Route path="/profile/:userId" component={PublicProfile} />
       <Route path="/admin" component={AdminDashboard} />
       <Route path="/privacy" component={PrivacyPolicy} />
       <Route path="/terms" component={TermsOfService} />

@@ -1958,7 +1958,7 @@ export default function ChatInterface() {
                   </div>
                   {activeDmUser ? (
                     <div className="flex items-center gap-2.5 min-w-0">
-                      <Link href={`/profile/${activeDmUser.name}`}>
+                      <Link href={`/profile/${activeDmUser.id}`}>
                         <div className="h-9 w-9 shrink-0 rounded-full overflow-hidden border-2 border-white/40 bg-white/20 cursor-pointer hover:opacity-80 transition-opacity">
                           <img
                             src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${activeDmUser.id}`}

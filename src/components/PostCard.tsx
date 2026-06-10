@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { formatDistanceToNow } from 'date-fns';
+import { Link } from 'wouter';
 import { Heart, MessageSquare, Share2, MapPin, MoreHorizontal, Pencil, Trash2, Send } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -132,13 +133,17 @@ export default function PostCard({
     <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
       <div className="p-4">
         <div className="flex items-center gap-3 mb-3">
-          <img 
-            src={post.users?.profile_image_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${post.user_id}`} 
-            alt="Avatar" 
-            className="w-10 h-10 rounded-full border border-gray-200 object-cover"
-          />
+          <Link href={`/profile/${post.user_id}`} className="cursor-pointer shrink-0">
+            <img 
+              src={post.users?.profile_image_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${post.user_id}`} 
+              alt="Avatar" 
+              className="w-10 h-10 rounded-full border border-gray-200 object-cover hover:opacity-80 transition-opacity"
+            />
+          </Link>
           <div className="flex-1">
-            <h4 className="font-semibold text-gray-900 text-sm">{post.users?.display_name || post.users?.username || 'User'}</h4>
+            <Link href={`/profile/${post.user_id}`} className="cursor-pointer hover:underline decoration-[#007699]">
+              <h4 className="font-semibold text-gray-900 text-sm">{post.users?.display_name || post.users?.username || 'User'}</h4>
+            </Link>
             <div className="flex items-center gap-2 text-xs text-gray-500">
               <span>{formatDistanceToNow(new Date(post.created_at), { addSuffix: true })}</span>
               <span>•</span>
@@ -215,11 +220,13 @@ export default function PostCard({
 
                 return (
                   <div key={comment.id} className="flex gap-3">
-                    <img 
-                      src={comment.users?.profile_image_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${comment.user_id}`} 
-                      alt="Avatar" 
-                      className="w-8 h-8 rounded-full border border-gray-200 object-cover"
-                    />
+                    <Link href={`/profile/${comment.user_id}`} className="cursor-pointer shrink-0">
+                      <img 
+                        src={comment.users?.profile_image_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${comment.user_id}`} 
+                        alt="Avatar" 
+                        className="w-8 h-8 rounded-full border border-gray-200 object-cover hover:opacity-80 transition-opacity"
+                      />
+                    </Link>
                     <div className="flex-1">
                       {editingCommentId === comment.id ? (
                         <div className="bg-white border border-gray-200 rounded-2xl p-3 shadow-sm">
@@ -237,7 +244,9 @@ export default function PostCard({
                       ) : (
                         <div className="bg-white border border-gray-100 rounded-2xl rounded-tl-none p-3 shadow-sm relative group">
                           <div className="flex items-center justify-between mb-1 pr-6">
-                            <span className="font-semibold text-xs text-gray-900">{comment.users?.display_name || comment.users?.username || 'User'}</span>
+                            <Link href={`/profile/${comment.user_id}`} className="cursor-pointer hover:underline decoration-[#007699]">
+                              <span className="font-semibold text-xs text-gray-900">{comment.users?.display_name || comment.users?.username || 'User'}</span>
+                            </Link>
                             <span className="text-[10px] text-gray-400">{formatDistanceToNow(new Date(comment.created_at), { addSuffix: true })}</span>
                           </div>
                           <p className="text-sm text-gray-700 whitespace-pre-wrap pr-6">{comment.content}</p>

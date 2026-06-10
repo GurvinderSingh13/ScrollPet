@@ -175,8 +175,8 @@ export default function CommunityDirectory() {
 
             return (
               <div key={member.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 flex flex-col hover:shadow-md transition-shadow">
-                <div className="flex items-start gap-4 mb-4">
-                  <Link href={`/profile/${member.username}`} className="shrink-0 cursor-pointer group">
+                <div className="flex items-center p-3 sm:p-4 gap-3 sm:gap-4 relative z-10 group-hover:bg-white/50 transition-colors">
+                  <Link href={`/profile/${member.id}`} className="shrink-0 cursor-pointer group">
                     {member.profile_image_url ? (
                       <img
                         src={member.profile_image_url}
@@ -190,8 +190,8 @@ export default function CommunityDirectory() {
                       </div>
                     )}
                   </Link>
-                  <div className="flex-1 min-w-0">
-                    <Link href={`/profile/${member.username}`} className="block truncate font-bold text-gray-900 hover:text-primary transition-colors cursor-pointer">
+                  <div className="flex-1 min-w-0 pr-12">
+                    <Link href={`/profile/${member.id}`} className="block truncate font-bold text-gray-900 hover:text-primary transition-colors cursor-pointer">
                       {member.display_name || member.username}
                     </Link>
                     <div className="text-xs text-gray-500 mb-1 truncate">@{member.username}</div>

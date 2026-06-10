@@ -465,7 +465,7 @@ export default function UserProfile() {
             </div>
             {/* Actions */}
             <div className="flex flex-wrap items-center gap-2 pb-2 md:pb-1">
-              <Link href={`/profile/${user?.username}`}>
+              <Link href={`/profile/${user?.id}`}>
                 <button className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white border border-gray-200 text-sm font-semibold text-gray-700 hover:border-[#007699] hover:text-[#007699] hover:shadow-md transition-all cursor-pointer">
                   <User className="w-4 h-4" /> View Profile
                 </button>

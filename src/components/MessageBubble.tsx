@@ -323,7 +323,7 @@ export function MessageBubble({
 
           {/* Clickable avatar for received messages */}
           {!isOwnMessage && (
-            <Link href={`/profile/${message.user.username || message.user.displayName}`}>
+            <Link href={`/profile/${message.user.id}`}>
               <div className="h-8 w-8 shrink-0 rounded-full overflow-hidden bg-gray-100 border border-gray-200 cursor-pointer hover:opacity-80 transition-opacity mt-0.5 flex items-center justify-center">
                 {message.user.avatarUrl ? (
                   <img
