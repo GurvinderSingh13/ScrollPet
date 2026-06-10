@@ -65,6 +65,7 @@ function Router() {
       <Route path="/update-password" component={UpdatePassword} />
       <Route path="/pet/:petId" component={PetProfilePage} />
       <Route path="/explore" component={ExplorePage} />
+      <Route path="/create-post" component={ExplorePage} />
       <Route path="/community" component={CommunityDirectory} />
       <Route path="/feed" component={FeedPage} />
       <Route path="/inbox" component={ChatInterface} />

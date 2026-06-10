@@ -40,6 +40,7 @@ import { toast } from "@/hooks/use-toast";
 import { INDIA_LOCATIONS } from "@/data/indiaLocations";
 import { Country, State } from "country-state-city";
 import Footer from "@/components/Footer";
+import ReactPlayer from 'react-player';
 
 const formatLocation = (loc: string | null) => {
   if (!loc) return "";
@@ -139,43 +140,44 @@ const INTENT_BADGE_COLORS: Record<string, string> = {
 import { PET_CATEGORIES } from "@/constants/config";
 
 const FeedVideo = ({ src, className, controls, autoPlay, muted, loop, playsInline }: any) => {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const [isLoaded, setIsLoaded] = useState(false);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const [isVideoLoaded, setIsVideoLoaded] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(autoPlay);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
       ([entry]) => {
-        if (!entry.isIntersecting && videoRef.current) {
-          videoRef.current.pause();
-        } else if (entry.isIntersecting && videoRef.current && autoPlay) {
-          videoRef.current.play().catch((err) => console.log("Autoplay blocked:", err));
+        if (!entry.isIntersecting) {
+          setIsPlaying(false);
+        } else if (entry.isIntersecting && autoPlay) {
+          setIsPlaying(true);
         }
       },
       { threshold: 0.1 } // Play when at least 10% is visible
     );
 
-    if (videoRef.current) observer.observe(videoRef.current);
+    if (wrapperRef.current) observer.observe(wrapperRef.current);
     return () => observer.disconnect();
   }, [autoPlay]);
 
   return (
-    <div className={`relative ${className}`}>
-      {!isLoaded && (
-        <div className="absolute inset-0 flex items-center justify-center bg-gray-200 animate-pulse">
+    <div ref={wrapperRef} className={`relative ${className}`}>
+      {!isVideoLoaded && (
+        <div className="absolute inset-0 w-full h-full flex items-center justify-center bg-gray-200 animate-pulse z-10">
           <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
         </div>
       )}
-      <video
-        ref={videoRef}
+      <ReactPlayer
         src={src}
-        className={`w-full h-full object-cover ${!isLoaded ? 'opacity-0' : 'opacity-100'} transition-opacity duration-300`}
+        playing={isPlaying}
         controls={controls}
-        autoPlay={autoPlay}
         muted={muted}
         loop={loop}
         playsInline={playsInline}
-        preload="metadata"
-        onLoadedMetadata={() => setIsLoaded(true)}
+        width="100%"
+        height="100%"
+        className={`absolute inset-0 [&_video]:object-cover ${!isVideoLoaded ? 'opacity-0' : 'opacity-100'} transition-opacity duration-300`}
+        onReady={() => setIsVideoLoaded(true)}
       />
     </div>
   );
@@ -185,18 +187,9 @@ const FeedVideo = ({ src, className, controls, autoPlay, muted, loop, playsInlin
 
 export default function ExplorePage() {
   const { user, isLoading, isAuthenticated } = useAuth();
+  const [location, setLocation] = useLocation();
 
-  // Clear location state logic to remove createPost query param after reading
-  useEffect(() => {
-    if (isAuthenticated) {
-      const searchParams = new URLSearchParams(window.location.search);
-      if (searchParams.get('createPost') === 'true') {
-        setIsCreateModalOpen(true);
-        // Replace URL to prevent modal from reopening on refresh
-        window.history.replaceState(null, '', window.location.pathname);
-      }
-    }
-  }, [isAuthenticated]);
+
 
   // ── Handlers ──state ──
   const [filterSource, setFilterSource] = useState<"all" | "media" | "chat">("all");
@@ -295,6 +288,20 @@ export default function ExplorePage() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [postToEdit, setPostToEdit] = useState<FeedItem | null>(null);
 
+  useEffect(() => {
+    if (isAuthenticated) {
+      if (sessionStorage.getItem('intent') === 'create-post') {
+        sessionStorage.removeItem('intent');
+        setIsCreateModalOpen(true);
+      }
+      if (location === '/create-post') {
+        setIsCreateModalOpen(true);
+        // Replace URL to /explore without adding to history so a refresh doesn't reopen it
+        setLocation('/explore', { replace: true });
+      }
+    }
+  }, [isAuthenticated, location, setLocation]);
+
   const dynamicAgeOptions = useMemo(() => {
     const ages = new Set<string>();
     AGE_OPTIONS.forEach(a => ages.add(a));
@@ -325,7 +332,6 @@ export default function ExplorePage() {
   // ── Reels / snap-scroll refs ──
   const reelsScrollRef = useRef<HTMLDivElement>(null);
   const itemRefsMap = useRef<Record<string, HTMLDivElement | null>>({});
-  const [, setLocation] = useLocation();
 
   // When the reels feed opens, scroll to the clicked post immediately
   useEffect(() => {
@@ -870,7 +876,7 @@ export default function ExplorePage() {
             <div className="ml-auto hidden md:block">
               <button 
                 onClick={() => {
-                  if (!isAuthenticated) setLocation("/login?redirectTo=/explore?createPost=true");
+                  if (!isAuthenticated) setLocation("/login?redirectTo=/explore&intent=create-post");
                   else setIsCreateModalOpen(true);
                 }}
                 className="flex items-center gap-2 bg-[#007699] text-white px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-[#005a75] transition-colors"
@@ -1674,7 +1680,7 @@ export default function ExplorePage() {
       {/* Mobile FAB */}
       <button
         onClick={() => {
-          if (!isAuthenticated) setLocation("/login?redirectTo=/explore?createPost=true");
+          if (!isAuthenticated) setLocation("/login?redirectTo=/explore&intent=create-post");
           else setIsCreateModalOpen(true);
         }}
         className="md:hidden fixed bottom-20 right-4 z-50 flex items-center justify-center w-14 h-14 bg-[#007699] text-white rounded-full shadow-lg hover:bg-[#005a75] hover:scale-105 active:scale-95 transition-all"

@@ -21,6 +21,8 @@ export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [isUnverified, setIsUnverified] = useState(false);
+  const [isResending, setIsResending] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   
   const [resetEmail, setResetEmail] = useState("");
@@ -65,13 +67,51 @@ export default function Login() {
     setIsGoogleLoading(true);
     const searchParams = new URLSearchParams(window.location.search);
     const redirectTo = searchParams.get('redirectTo') || '/explore';
+    const intent = searchParams.get('intent');
+
+    if (intent === 'create-post' || redirectTo === '/create-post') {
+      sessionStorage.setItem('intent', 'create-post');
+    }
+    const finalRedirect = redirectTo === '/create-post' ? '/explore' : redirectTo;
+
     const { error: oauthError } = await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: `${window.location.origin}${redirectTo}` },
+      options: { redirectTo: `${window.location.origin}${finalRedirect}` },
     });
     if (oauthError) {
       setError(oauthError.message || "Google sign-in failed.");
       setIsGoogleLoading(false);
+    }
+  };
+
+  const handleResendVerification = async () => {
+    setIsResending(true);
+    try {
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email,
+      });
+      if (error) {
+        toast({
+          title: "Failed to resend",
+          description: error.message,
+          variant: "destructive"
+        });
+      } else {
+        toast({
+          title: "Verification Email Sent",
+          description: "Please check your inbox and spam folder.",
+        });
+        setIsUnverified(false);
+      }
+    } catch (err) {
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsResending(false);
     }
   };
 
@@ -87,14 +127,28 @@ export default function Login() {
       });
       
       if (authError) {
-        setError(authError.message || "Login failed");
+        if (authError.message === "Email not confirmed") {
+          setIsUnverified(true);
+          setError("Your email address has not been verified yet.");
+        } else {
+          setError(authError.message || "Login failed");
+        }
         setIsLoading(false);
         return;
       }
       
+      setIsUnverified(false);
+      
       const searchParams = new URLSearchParams(window.location.search);
       const redirectTo = searchParams.get('redirectTo') || '/explore';
-      setLocation(redirectTo);
+      const intent = searchParams.get('intent');
+
+      if (intent === 'create-post' || redirectTo === '/create-post') {
+        sessionStorage.setItem('intent', 'create-post');
+        setLocation(redirectTo === '/create-post' ? '/explore' : redirectTo);
+      } else {
+        setLocation(redirectTo);
+      }
     } catch (err) {
       setError("Login failed. Please try again.");
       setIsLoading(false);
@@ -144,8 +198,22 @@ export default function Login() {
             </div>
 
             {error && (
-              <div className="text-red-500 text-sm text-center font-medium" data-testid="text-error">
-                {error}
+              <div className="flex flex-col items-center gap-3">
+                <div className="text-red-500 text-sm text-center font-medium" data-testid="text-error">
+                  {error}
+                </div>
+                {isUnverified && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleResendVerification}
+                    disabled={isResending}
+                    className="border-[#FF6600] text-[#FF6600] hover:bg-[#FF6600]/10 rounded-full"
+                  >
+                    {isResending ? "Sending..." : "Resend Verification Link"}
+                  </Button>
+                )}
               </div>
             )}
 
