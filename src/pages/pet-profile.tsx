@@ -1,104 +1,41 @@
 import { useState, useRef, useEffect } from "react";
-import { useParams, useLocation, Link } from "wouter";
+import { useParams, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
-  User,
-  Edit3,
-  Dog,
-  Cat,
-  Bird,
-  Activity,
-  Trash2,
-  Image as ImageIcon,
-  Video as VideoIcon,
-  Loader2,
-  AlertTriangle,
-  PlusSquare,
-  Grid3X3,
-  LogOut,
-  ArrowLeft,
-  Heart,
-  Send,
-  UserPlus,
-  UserCheck,
-  Tag,
-  X,
-} from "lucide-react";
-import logoImage from "@assets/Scrollpet_logo_1766997907297.png";
-import { cn, parseUTCDate } from "@/lib/utils";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { toast } from "@/hooks/use-toast";
 import { Pet } from "@shared/schema";
+import { 
+  Loader2, 
+  ArrowLeft, 
+  Grid3X3, 
+  FileText,
+  PlusCircle,
+  Image as ImageIcon,
+  Video as VideoIcon
+} from "lucide-react";
 
-const daysArray = Array.from({ length: 31 }, (_, i) =>
-  String(i + 1).padStart(2, "0"),
-);
-const monthsArray = [
-  { value: "01", label: "Jan" },
-  { value: "02", label: "Feb" },
-  { value: "03", label: "Mar" },
-  { value: "04", label: "Apr" },
-  { value: "05", label: "May" },
-  { value: "06", label: "Jun" },
-  { value: "07", label: "Jul" },
-  { value: "08", label: "Aug" },
-  { value: "09", label: "Sep" },
-  { value: "10", label: "Oct" },
-  { value: "11", label: "Nov" },
-  { value: "12", label: "Dec" },
-];
-const currentYearValue = new Date().getFullYear();
-const yearsArray = Array.from(
-  { length: currentYearValue - 1989 },
-  (_, i) => String(currentYearValue - i),
-);
-
-const selectClass =
-  "flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50";
+import ProfileHeader from "@/components/profile/ProfileHeader";
+import { PetMediaUploader } from "@/components/profile/PetMediaUploader";
+import EditPetModal from "@/components/profile/EditPetModal";
 
 export default function PetProfilePage() {
   const { petId } = useParams<{ petId: string }>();
-  const [, navigate] = useLocation();
-  const { user, isLoading, isAuthenticated, logout } = useAuth();
+  const [, setLocation] = useLocation();
+  const { user, isAuthenticated } = useAuth();
 
-  const [isEditingPet, setIsEditingPet] = useState(false);
-  const [isSavingPet, setIsSavingPet] = useState(false);
-  const [editForm, setEditForm] = useState<Partial<Pet>>({});
-  const [newProfileImage, setNewProfileImage] = useState<File | null>(null);
-  const [newShowcaseImages, setNewShowcaseImages] = useState<File[]>([]);
-  const [newVideoFile, setNewVideoFile] = useState<File | null>(null);
-  const [isUploadingPost, setIsUploadingPost] = useState(false);
-  const postFileInputRef = useRef<HTMLInputElement>(null);
+  const [isUploaderOpen, setIsUploaderOpen] = useState(false);
+  const [isEditPetOpen, setIsEditPetOpen] = useState(false);
+  
+  // Media Viewer state
   const [selectedMedia, setSelectedMedia] = useState<{
     id: string;
     media_url: string;
     media_type: string;
-    intent_status?: string | null;
-    user_id?: string | null;
+    caption?: string | null;
   } | null>(null);
-  const [localIntentStatus, setLocalIntentStatus] = useState<string>("");
-  const [commentText, setCommentText] = useState("");
-  const [isPostingComment, setIsPostingComment] = useState(false);
-  const [localComments, setLocalComments] = useState<{ id: string; media_id: string; user_id: string; content: string; created_at: string }[]>([]);
-  const [editBirthDay, setEditBirthDay] = useState("");
-  const [editBirthMonth, setEditBirthMonth] = useState("");
-  const [editBirthYear, setEditBirthYear] = useState("");
-
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [deleteConfirmationText, setDeleteConfirmationText] = useState("");
-  const [passwordConfirm, setPasswordConfirm] = useState("");
-  const [isVerifyingDelete, setIsVerifyingDelete] = useState(false);
-
-  const queryClient = useQueryClient();
 
   const { data: pet, isLoading: isPetLoading } = useQuery({
     queryKey: ["pet", petId],
@@ -110,12 +47,27 @@ export default function PetProfilePage() {
         .eq("id", petId)
         .single();
       if (error) throw error;
-      return data as Pet;
+      return data;
     },
     enabled: !!petId,
   });
 
-  const { data: petMedia, isLoading: isPetMediaLoading } = useQuery({
+  const { data: owner } = useQuery({
+    queryKey: ["user", pet?.user_id],
+    queryFn: async () => {
+      if (!pet?.user_id) return null;
+      const { data, error } = await supabase
+        .from("users")
+        .select("id, display_name, username")
+        .eq("id", pet.user_id)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!pet?.user_id,
+  });
+
+  const { data: petMedia, isLoading: isPetMediaLoading, refetch: refetchGallery } = useQuery({
     queryKey: ["pet_media", petId],
     queryFn: async () => {
       if (!petId) return [];
@@ -125,25 +77,11 @@ export default function PetProfilePage() {
         .eq("pet_id", petId)
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return data as { id: string; media_url: string; media_type: string; intent_status?: string | null; user_id?: string | null }[];
+      return data;
     },
     enabled: !!petId,
   });
 
-  const { data: dbUser } = useQuery({
-    queryKey: ["db-user", user?.id],
-    queryFn: async () => {
-      if (!user?.id) return null;
-      const { data, error } = await supabase
-        .from("users")
-        .select("*")
-        .eq("id", user.id)
-        .single();
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!user?.id,
-  });
 
   const { data: followerCount, refetch: refetchFollowerCount } = useQuery({
     queryKey: ["pet_followers_count", petId],
@@ -168,333 +106,65 @@ export default function PetProfilePage() {
         .eq("pet_id", petId)
         .eq("user_id", user.id)
         .maybeSingle();
-      if (error) throw error;
+      if (error && error.code !== 'PGRST116') throw error;
       return !!data;
     },
     enabled: !!user?.id && !!petId,
   });
 
-  const [isTogglingFollow, setIsTogglingFollow] = useState(false);
+  const queryClient = useQueryClient();
 
-  const handleToggleFollow = async () => {
-    if (!user?.id || !petId) return;
-    setIsTogglingFollow(true);
-    try {
-      if (isFollowing) {
+  const followMutation = useMutation({
+    mutationFn: async (currentlyFollowing: boolean) => {
+      if (!isAuthenticated) throw new Error("Please log in to follow.");
+      
+      if (currentlyFollowing) {
         await supabase
           .from("pet_followers")
           .delete()
           .eq("pet_id", petId)
-          .eq("user_id", user.id);
+          .eq("user_id", user?.id);
       } else {
         await supabase
           .from("pet_followers")
-          .insert({ pet_id: petId, user_id: user.id });
+          .insert({ pet_id: petId, user_id: user?.id });
       }
-      await Promise.all([refetchIsFollowing(), refetchFollowerCount()]);
-    } catch (err: any) {
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["pet_following", petId, user?.id] });
+      queryClient.invalidateQueries({ queryKey: ["pet_followers_count", petId] });
+      refetchIsFollowing();
+      refetchFollowerCount();
+    },
+    onError: (err: any) => {
       toast({ description: err.message || "Failed to update follow", variant: "destructive" });
-    } finally {
-      setIsTogglingFollow(false);
     }
-  };
-
-  const { data: mediaLikes, refetch: refetchLikes } = useQuery({
-    queryKey: ["media_likes", selectedMedia?.id],
-    queryFn: async () => {
-      if (!selectedMedia?.id) return [];
-      const { data, error } = await supabase
-        .from("media_likes")
-        .select("*")
-        .eq("media_id", selectedMedia.id);
-      if (error) throw error;
-      return data as { id: string; media_id: string; user_id: string }[];
-    },
-    enabled: !!selectedMedia?.id,
   });
 
-  const { data: mediaComments, refetch: refetchComments } = useQuery({
-    queryKey: ["media_comments", selectedMedia?.id],
-    queryFn: async () => {
-      if (!selectedMedia?.id) return [];
-      const { data, error } = await supabase
-        .from("media_comments")
-        .select("*")
-        .eq("media_id", selectedMedia.id)
-        .order("created_at", { ascending: true });
-      if (error) throw error;
-      return data as { id: string; media_id: string; user_id: string; content: string; created_at: string }[];
-    },
-    enabled: !!selectedMedia?.id,
-  });
-
-  const userHasLiked = !!user?.id && (mediaLikes ?? []).some((l) => l.user_id === user.id);
-  const likeCount = (mediaLikes ?? []).length;
-
-  const INTENT_OPTIONS = [
-    "For Adoption", "For Sale", "His/Her pups for Adoption",
-    "His/Her pups for Sale", "Available for Mating", "Open for Exchange",
-    "Lost", "Dead",
-  ];
-  const INTENT_BADGE_COLORS: Record<string, string> = {
-    "For Adoption": "bg-green-100 text-green-700 border-green-200",
-    "For Sale": "bg-blue-100 text-blue-700 border-blue-200",
-    "His/Her pups for Adoption": "bg-emerald-100 text-emerald-700 border-emerald-200",
-    "His/Her pups for Sale": "bg-sky-100 text-sky-700 border-sky-200",
-    "Available for Mating": "bg-pink-100 text-pink-700 border-pink-200",
-    "Open for Exchange": "bg-orange-100 text-orange-700 border-orange-200",
-    "Lost": "bg-amber-100 text-amber-700 border-amber-200",
-    "Dead": "bg-gray-100 text-gray-600 border-gray-200",
-  };
-
-  const isMediaOwner = !!(user?.id && pet?.user_id && user.id === pet.user_id);
-
-  const handleUpdateIntentStatus = async (status: string) => {
-    if (!selectedMedia?.id) return;
-    const newStatus = status === "" ? null : status;
-    const { error } = await supabase
-      .from("pet_media")
-      .update({ intent_status: newStatus })
-      .eq("id", selectedMedia.id);
-    if (error) {
-      toast({ description: "Failed to update status.", variant: "destructive" });
+  const handleToggleFollow = () => {
+    if (!isAuthenticated) {
+      toast({ description: "Please log in to follow." });
       return;
     }
-    setLocalIntentStatus(status);
-    setSelectedMedia((prev) => prev ? { ...prev, intent_status: newStatus } : prev);
-    queryClient.invalidateQueries({ queryKey: ["pet_media", petId] });
+    followMutation.mutate(!!isFollowing);
   };
 
-  const handleToggleLike = async () => {
-    if (!user?.id || !selectedMedia?.id) return;
-    if (userHasLiked) {
-      await supabase
-        .from("media_likes")
-        .delete()
-        .eq("media_id", selectedMedia.id)
-        .eq("user_id", user.id);
-    } else {
-      await supabase
-        .from("media_likes")
-        .insert({ media_id: selectedMedia.id, user_id: user.id });
+  const handleMessageOwner = () => {
+    if (!isAuthenticated) {
+      toast({ description: "Please log in to message." });
+      return;
     }
-    refetchLikes();
-  };
-
-  const handlePostComment = async () => {
-    if (!user?.id || !selectedMedia?.id || !commentText.trim()) return;
-    const trimmed = commentText.trim();
-    setCommentText("");
-    setIsPostingComment(true);
-    const optimistic = {
-      id: `temp-${Date.now()}`,
-      media_id: selectedMedia.id,
-      user_id: user.id,
-      content: trimmed,
-      created_at: new Date().toISOString(),
-    };
-    setLocalComments((prev) => [...prev, optimistic]);
-    try {
-      const { error } = await supabase
-        .from("media_comments")
-        .insert({ media_id: selectedMedia.id, user_id: user.id, content: trimmed });
-      if (error) throw error;
-      refetchComments();
-    } catch (err: any) {
-      setLocalComments((prev) => prev.filter((c) => c.id !== optimistic.id));
-      setCommentText(trimmed);
-      toast({ description: err.message || "Failed to post comment", variant: "destructive" });
-    } finally {
-      setIsPostingComment(false);
+    if (owner?.id) {
+      sessionStorage.setItem("teleport_dm_user_id", owner.id);
+      sessionStorage.setItem("teleport_dm_user_name", owner.display_name || owner.username || "User");
+      setLocation(`/chat/${owner.id}`);
     }
   };
-
-  useEffect(() => {
-    setLocalComments([]);
-    setLocalIntentStatus(selectedMedia?.intent_status || "");
-  }, [selectedMedia?.id]);
-
-  useEffect(() => {
-    if (pet) {
-      setEditForm({
-        name: pet.name,
-        gender: pet.gender,
-        dob: pet.dob,
-        location: pet.location,
-        status_mating: (pet as any).status_mating ?? false,
-        status_pups_sell: (pet as any).status_pups_sell ?? false,
-        status_pups_adoption: (pet as any).status_pups_adoption ?? false,
-        status_for_sell: (pet as any).status_for_sell ?? false,
-        status_for_adoption: (pet as any).status_for_adoption ?? false,
-        status_lost: (pet as any).status_lost ?? false,
-        status_dead: (pet as any).status_dead ?? false,
-        status_exchange: (pet as any).status_exchange ?? false,
-      });
-      if (pet.dob) {
-        const parts = pet.dob.split("-");
-        setEditBirthYear(parts[0] || "");
-        setEditBirthMonth(parts[1] || "");
-        setEditBirthDay(parts[2] || "");
-      } else {
-        setEditBirthYear("");
-        setEditBirthMonth("");
-        setEditBirthDay("");
-      }
-    }
-  }, [pet]);
-
-  const handleAuthClick = () => {
-    if (isAuthenticated) {
-      logout();
-      window.location.href = "/";
-    } else {
-      window.location.href = "/login";
-    }
-  };
-
-  const uploadFile = async (
-    file: File,
-    folder: string,
-    bucket: string = "chat-uploads",
-  ) => {
-    const isVideo = file.type.includes("video");
-    const maxSize = isVideo ? 50 * 1024 * 1024 : 5 * 1024 * 1024;
-    if (file.size > maxSize)
-      throw new Error(
-        `File ${file.name} is too large. Max size is ${isVideo ? "50MB" : "5MB"}.`,
-      );
-    const fileExt = file.name.split(".").pop();
-    const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
-    const filePath = `${folder}/${fileName}`;
-    const { error: uploadError } = await supabase.storage
-      .from(bucket)
-      .upload(filePath, file);
-    if (uploadError) throw uploadError;
-    const { data } = supabase.storage.from(bucket).getPublicUrl(filePath);
-    return `${data.publicUrl}?t=${Date.now()}`;
-  };
-
-  const handleNewPost = async (file: File) => {
-    if (!pet || !user) return;
-    setIsUploadingPost(true);
-    try {
-      const mediaUrl = await uploadFile(file, "pets/posts", "pet_media");
-      const mediaType = file.type.startsWith("video") ? "video" : "image";
-      const { error } = await supabase
-        .from("pet_media")
-        .insert({ pet_id: pet.id, media_url: mediaUrl, media_type: mediaType });
-      if (error) throw error;
-      queryClient.invalidateQueries({ queryKey: ["pet_media", petId] });
-      toast({ description: "Post uploaded successfully!" });
-    } catch (err: any) {
-      toast({
-        description: err.message || "Failed to upload post",
-        variant: "destructive",
-      });
-    } finally {
-      setIsUploadingPost(false);
-      if (postFileInputRef.current) postFileInputRef.current.value = "";
-    }
-  };
-
-  const handleUpdatePet = async () => {
-    if (!pet || !user) return;
-    setIsSavingPet(true);
-    try {
-      const updatePayload: any = { ...editForm };
-      if (editBirthYear && editBirthMonth && editBirthDay) {
-        updatePayload.dob = `${editBirthYear}-${editBirthMonth}-${editBirthDay}`;
-      } else if (editBirthYear || editBirthMonth || editBirthDay) {
-        toast({
-          description: "Please complete all parts of the Date of Birth.",
-          variant: "destructive",
-        });
-        setIsSavingPet(false);
-        return;
-      } else {
-        updatePayload.dob = null;
-      }
-      if (newProfileImage)
-        updatePayload.image_url = await uploadFile(
-          newProfileImage,
-          "pets/profiles",
-        );
-      if (newShowcaseImages[0])
-        updatePayload.showcase_image_1 = await uploadFile(
-          newShowcaseImages[0],
-          "pets/showcase",
-        );
-      if (newShowcaseImages[1])
-        updatePayload.showcase_image_2 = await uploadFile(
-          newShowcaseImages[1],
-          "pets/showcase",
-        );
-      if (newShowcaseImages[2])
-        updatePayload.showcase_image_3 = await uploadFile(
-          newShowcaseImages[2],
-          "pets/showcase",
-        );
-      if (newVideoFile)
-        updatePayload.video_url = await uploadFile(newVideoFile, "pets/videos");
-
-      const { error } = await supabase
-        .from("pets")
-        .update(updatePayload)
-        .eq("id", pet.id);
-      if (error) throw error;
-
-      toast({ description: "Pet details and media updated successfully!" });
-      setIsEditingPet(false);
-      setNewProfileImage(null);
-      setNewShowcaseImages([]);
-      setNewVideoFile(null);
-      queryClient.invalidateQueries({ queryKey: ["pet", petId] });
-      queryClient.invalidateQueries({ queryKey: ["pets", user?.id] });
-    } catch (error: any) {
-      toast({
-        description: error.message || "Failed to update pet",
-        variant: "destructive",
-      });
-    } finally {
-      setIsSavingPet(false);
-    }
-  };
-
-  const handleDeletePet = async () => {
-    if (!pet || !user?.email) return;
-    setIsVerifyingDelete(true);
-    try {
-      const { error: authError } = await supabase.auth.signInWithPassword({
-        email: user.email,
-        password: passwordConfirm,
-      });
-      if (authError) throw new Error("Incorrect password. Deletion canceled.");
-
-      const { error: deleteError } = await supabase
-        .from("pets")
-        .delete()
-        .eq("id", pet.id);
-      if (deleteError) throw deleteError;
-
-      toast({ description: "Pet profile deleted successfully!" });
-      queryClient.invalidateQueries({ queryKey: ["pets", user?.id] });
-      navigate("/user-profile");
-    } catch (error: any) {
-      toast({
-        description: error.message || "Failed to delete pet",
-        variant: "destructive",
-      });
-    } finally {
-      setIsVerifyingDelete(false);
-    }
-  };
-
-  const isOwner = !!user?.id && user.id === (pet as any)?.user_id;
 
   if (isPetLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#f0f4f8]">
-        <Loader2 className="h-8 w-8 animate-spin text-[#007699]" />
+        <div className="animate-spin h-10 w-10 border-4 border-[#007699] border-t-transparent rounded-full" />
       </div>
     );
   }
@@ -503,734 +173,142 @@ export default function PetProfilePage() {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-[#f0f4f8] gap-4">
         <p className="text-gray-600 font-medium">Pet not found.</p>
-        <Button onClick={() => navigate("/user-profile")}>
-          ← Back to Dashboard
-        </Button>
+        <Button onClick={() => setLocation("/")}>← Back to Home</Button>
       </div>
     );
   }
 
+  const isOwner = user?.id === pet.user_id;
+
   return (
-    <div
-      className="min-h-screen bg-[#f0f4f8]"
-      style={{
-        fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif",
-      }}
-    >
+    <div className="min-h-screen bg-[#f0f4f8] pb-20 pt-0 md:pt-20 font-sans">
+      <ProfileHeader 
+        user={pet}
+        ownerInfo={owner || undefined}
+        stats={{
+          followers: followerCount || 0,
+        }}
+        isOwnProfile={isOwner}
+        isFollowing={isFollowing}
+        onFollowToggle={handleToggleFollow}
+        onMessage={handleMessageOwner}
+        onEditClick={() => setIsEditPetOpen(true)}
+        onPostMedia={() => setIsUploaderOpen(true)}
+      />
 
-      {/* ── BACK BAR ── */}
-      <div className="pt-16">
-        <div className="bg-white border-b border-gray-100 shadow-sm">
-          <div className="max-w-2xl mx-auto px-4 h-12 flex items-center">
-            <button
-              onClick={() => navigate("/user-profile")}
-              className="flex items-center gap-1.5 text-sm font-semibold text-[#007699] hover:text-[#005a75] transition-colors cursor-pointer"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              Back to Dashboard
-            </button>
+      <div className="container mx-auto max-w-3xl px-4 mt-6 space-y-6">
+        
+        {/* Simple Bio Card for Pet */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 sm:p-6 text-sm">
+          <h3 className="font-semibold text-gray-900 mb-3 text-base">About {pet.name}</h3>
+          <div className="grid grid-cols-2 gap-4">
+            {pet.breed && (
+              <div><span className="text-gray-500">Breed:</span> <span className="font-medium text-gray-900">{pet.breed}</span></div>
+            )}
+            {pet.type && (
+              <div><span className="text-gray-500">Type:</span> <span className="font-medium text-gray-900 capitalize">{pet.type}</span></div>
+            )}
+            {pet.gender && (
+              <div><span className="text-gray-500">Gender:</span> <span className="font-medium text-gray-900 capitalize">{pet.gender}</span></div>
+            )}
+            {pet.location && (
+              <div><span className="text-gray-500">Location:</span> <span className="font-medium text-gray-900">{pet.location}</span></div>
+            )}
           </div>
-        </div>
-      </div>
-
-      {/* ── MAIN CONTENT ── */}
-      <div className="max-w-lg mx-auto px-4 py-6 space-y-4">
-
-        {/* HEADER CARD: avatar + name + stats + buttons */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-          <div className="flex flex-row items-start gap-6">
-            <div className="h-24 w-24 shrink-0 bg-primary/10 rounded-full flex items-center justify-center overflow-hidden border-2 border-gray-100">
-              {pet.image_url ? (
-                <img
-                  src={pet.image_url}
-                  alt={pet.name}
-                  className="w-full h-full object-cover"
-                />
-              ) : pet.type === "dog" ? (
-                <Dog className="h-10 w-10 text-primary" />
-              ) : pet.type === "cat" ? (
-                <Cat className="h-10 w-10 text-primary" />
-              ) : pet.type === "bird" ? (
-                <Bird className="h-10 w-10 text-primary" />
-              ) : (
-                <Activity className="h-10 w-10 text-primary" />
-              )}
-            </div>
-
-            <div className="flex-1 min-w-0 pt-1">
-              {isEditingPet ? (
-                <input
-                  className="text-xl font-bold bg-background border border-input rounded px-2 py-1 mb-1 w-full"
-                  value={editForm.name || ""}
-                  onChange={(e) =>
-                    setEditForm({ ...editForm, name: e.target.value })
-                  }
-                />
-              ) : (
-                <h2 className="text-xl font-bold capitalize leading-tight">
-                  {pet.name}
-                </h2>
-              )}
-              <p className="text-sm text-muted-foreground mt-0.5">
-                @{(pet.name || "pet").toLowerCase().replace(/\s+/g, "_")}
-              </p>
-
-              <div className="flex gap-6 mt-2 text-sm">
-                <span>
-                  <strong className="font-semibold">
-                    {petMedia?.length ?? 0}
-                  </strong>{" "}
-                  <span className="text-muted-foreground">Posts</span>
-                </span>
-                <span>
-                  <strong className="font-semibold">{followerCount ?? 0}</strong>{" "}
-                  <span className="text-muted-foreground">Followers</span>
-                </span>
-              </div>
-
-              {!isOwner && user?.id && (
-                <div className="flex flex-wrap gap-2 mt-3">
-                  <Button
-                    size="sm"
-                    variant={isFollowing ? "outline" : "default"}
-                    onClick={handleToggleFollow}
-                    disabled={isTogglingFollow}
-                    className="text-xs px-5 cursor-pointer"
-                  >
-                    {isTogglingFollow ? (
-                      <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />
-                    ) : isFollowing ? (
-                      <UserCheck className="h-3 w-3 mr-1.5" />
-                    ) : (
-                      <UserPlus className="h-3 w-3 mr-1.5" />
-                    )}
-                    {isFollowing ? "Following" : "Follow"}
-                  </Button>
-                </div>
-              )}
-
-              {isOwner && (
-                <div className="flex flex-wrap gap-2 mt-3">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setIsEditingPet(!isEditingPet)}
-                    className={cn(
-                      "text-xs px-4 cursor-pointer",
-                      isEditingPet && "bg-muted",
-                    )}
-                  >
-                    <Edit3 className="h-3 w-3 mr-1.5" />
-                    {isEditingPet ? "Cancel Edit" : "Edit Profile"}
-                  </Button>
-                  {!isEditingPet && (
-                    <>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => postFileInputRef.current?.click()}
-                        disabled={isUploadingPost}
-                        className="text-xs px-4 cursor-pointer"
-                      >
-                        {isUploadingPost ? (
-                          <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />
-                        ) : (
-                          <PlusSquare className="h-3 w-3 mr-1.5" />
-                        )}
-                        {isUploadingPost ? "Uploading…" : "New Post"}
-                      </Button>
-                      <input
-                        ref={postFileInputRef}
-                        type="file"
-                        accept="image/*,video/*"
-                        className="hidden"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) handleNewPost(file);
-                        }}
-                      />
-                    </>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* INFO GRID */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-4">
-          {isEditingPet ? (
-            <div className="space-y-5">
-              <h3 className="font-bold text-base text-gray-900 border-b border-gray-100 pb-2 mb-4">Basic Information</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5 text-sm">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wider block">
-                    Gender
-                  </label>
-                  <select
-                    className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2.5 outline-none focus:border-[#007699] focus:ring-1 focus:ring-[#007699] transition-all cursor-pointer appearance-none"
-                    value={editForm.gender || ""}
-                    onChange={(e) =>
-                      setEditForm({ ...editForm, gender: e.target.value })
-                    }
-                  >
-                    <option value="" disabled>Select Gender</option>
-                    <option value="Male">Male</option>
-                    <option value="Female">Female</option>
-                    <option value="Pair">Pair</option>
-                    <option value="Lot">Lot</option>
-                  </select>
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wider block">
-                    Date of Birth
-                  </label>
-                  <div className="flex gap-2 w-full">
-                    <select
-                      className={selectClass}
-                      value={editBirthDay}
-                      onChange={(e) => setEditBirthDay(e.target.value)}
-                    >
-                      <option value="" disabled>
-                        Day
-                      </option>
-                      {daysArray.map((d) => (
-                        <option key={d} value={d}>
-                          {d}
-                        </option>
-                      ))}
-                    </select>
-                    <select
-                      className={selectClass}
-                      value={editBirthMonth}
-                      onChange={(e) => setEditBirthMonth(e.target.value)}
-                    >
-                      <option value="" disabled>
-                        Mon
-                      </option>
-                      {monthsArray.map((m) => (
-                        <option key={m.value} value={m.value}>
-                          {m.label}
-                        </option>
-                      ))}
-                    </select>
-                    <select
-                      className={selectClass}
-                      value={editBirthYear}
-                      onChange={(e) => setEditBirthYear(e.target.value)}
-                    >
-                      <option value="" disabled>
-                        Year
-                      </option>
-                      {yearsArray.map((y) => (
-                        <option key={y} value={y}>
-                          {y}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-                <div className="col-span-1 md:col-span-2 space-y-1.5">
-                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wider block">
-                    Location
-                  </label>
-                  <input
-                    placeholder="E.g. Delhi, India"
-                    className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2.5 outline-none focus:border-[#007699] focus:ring-1 focus:ring-[#007699] transition-all"
-                    value={editForm.location || ""}
-                    onChange={(e) =>
-                      setEditForm({ ...editForm, location: e.target.value })
-                    }
-                  />
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 gap-6 text-sm">
-              <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 flex flex-col gap-1">
-                <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">
-                  Gender
-                </span>
-                <span className="capitalize font-semibold text-gray-900 text-base">
-                  {pet.gender || "Unknown"}
-                </span>
-              </div>
-              <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 flex flex-col gap-1">
-                <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">
-                  Date of Birth
-                </span>
-                <span className="font-semibold text-gray-900 text-base">{pet.dob || "Unknown"}</span>
-              </div>
-              <div className="col-span-2 bg-gray-50 p-4 rounded-xl border border-gray-100 flex flex-col gap-1">
-                <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">
-                  Location
-                </span>
-                <span className="font-semibold text-gray-900 text-base">{pet.location || "Unknown"}</span>
+          
+          {/* Render Pet Statuses if any are true */}
+          {(pet.status_mating || pet.status_pups_sell || pet.status_pups_adoption || pet.status_for_sell || pet.status_for_adoption || pet.status_lost || pet.status_dead) && (
+            <div className="mt-4 pt-4 border-t border-gray-100">
+              <span className="text-gray-500 block mb-2 font-medium">Pet Status:</span>
+              <div className="flex flex-wrap gap-2">
+                {pet.status_mating && <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-pink-100 text-pink-700 border border-pink-200">Available for Mating</span>}
+                {pet.status_pups_sell && <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700 border border-blue-200">Pups for Sale</span>}
+                {pet.status_pups_adoption && <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700 border border-green-200">Pups for Adoption</span>}
+                {pet.status_for_sell && <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-purple-100 text-purple-700 border border-purple-200">For Sale</span>}
+                {pet.status_for_adoption && <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-teal-100 text-teal-700 border border-teal-200">For Adoption</span>}
+                {pet.status_lost && <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700 border border-red-200">Lost</span>}
+                {pet.status_dead && <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-700 border border-gray-200">Dead</span>}
               </div>
             </div>
           )}
         </div>
-
-        {/* MEDIA GRID */}
-        {!isEditingPet && (
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-2">
-            {isPetMediaLoading ? (
-              <div className="grid grid-cols-3 gap-1">
-                {Array.from({ length: 6 }).map((_, i) => (
-                  <div
-                    key={i}
-                    className="aspect-square bg-gray-100 rounded-sm animate-pulse"
-                  />
-                ))}
-              </div>
-            ) : petMedia && petMedia.length > 0 ? (
-              <div className="grid grid-cols-3 gap-1">
-                {petMedia.map((item) => (
-                  <div
-                    key={item.id}
-                    className="aspect-square overflow-hidden rounded-sm bg-gray-100 cursor-pointer relative group"
-                    onClick={() => setSelectedMedia(item)}
-                  >
-                    {item.intent_status && INTENT_BADGE_COLORS[item.intent_status] && (
-                      <div className="absolute top-1.5 left-1.5 z-10 pointer-events-none">
-                        <span className={cn("text-[9px] font-bold px-1.5 py-0.5 rounded-full border shadow-sm", INTENT_BADGE_COLORS[item.intent_status])}>
-                          {item.intent_status}
-                        </span>
-                      </div>
-                    )}
-                    {item.media_type === "video" ? (
-                      <video
-                        src={item.media_url}
-                        className="w-full h-full object-cover pointer-events-none"
-                        autoPlay
-                        muted
-                        loop
-                        playsInline
-                      />
-                    ) : (
-                      <img
-                        src={item.media_url}
-                        alt="Pet post"
-                        className="w-full h-full object-cover"
-                      />
-                    )}
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center py-10 text-center text-muted-foreground gap-2">
-                <Grid3X3 className="h-8 w-8 opacity-30" />
-                <p className="text-sm font-medium">No posts yet</p>
-                {isOwner && (
-                  <p className="text-xs">
-                    Tap <strong>New Post</strong> to share your first photo.
-                  </p>
-                )}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* PET STATUS TOGGLES */}
-        {isEditingPet && (
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-5 mb-4">
-            <h3 className="font-bold text-base text-gray-900 border-b border-gray-100 pb-2 flex justify-between items-center">
-              Pet Status 
-              <span className="text-xs text-gray-400 font-normal uppercase tracking-wider bg-gray-100 px-2 py-0.5 rounded-full">
-                Optional
-              </span>
-            </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {(
-                [
-                  { key: "status_mating", label: "Available for Mating" },
-                  { key: "status_pups_sell", label: "Pups for Sale" },
-                  { key: "status_pups_adoption", label: "Pups for Adoption" },
-                  { key: "status_for_sell", label: "For Sale" },
-                  { key: "status_for_adoption", label: "For Adoption" },
-                  { key: "status_exchange", label: "Open for Exchange" },
-                  { key: "status_lost", label: "Lost" },
-                  { key: "status_dead", label: "Dead" },
-                ] as { key: keyof typeof editForm; label: string }[]
-              ).map(({ key, label }) => (
-                <label
-                  key={key}
-                  className={cn(
-                    "flex items-center justify-between gap-3 px-4 py-3 rounded-xl border cursor-pointer transition-all",
-                    (editForm as any)[key] 
-                      ? "border-[#007699] bg-[#007699]/5 shadow-sm" 
-                      : "border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50"
-                  )}
+        
+        
+        <div className="pt-2">
+          {isPetMediaLoading ? (
+            <div className="flex justify-center py-6">
+              <div className="animate-spin h-6 w-6 border-4 border-[#007699] border-t-transparent rounded-full" />
+            </div>
+          ) : !petMedia || petMedia.length === 0 ? (
+            <div className="bg-white rounded-2xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center py-10 text-center px-4">
+              <Grid3X3 className="w-10 h-10 text-gray-300 mb-3" />
+              <p className="text-sm font-semibold text-gray-600 mb-4">Gallery is empty.</p>
+              {isOwner && (
+                <button 
+                  onClick={() => setIsUploaderOpen(true)} 
+                  className="rounded-xl px-5 py-2 text-sm bg-[#007699] text-white hover:bg-[#005a75] shadow-md transition-all cursor-pointer font-semibold"
                 >
-                  <span className={cn("text-sm font-semibold", (editForm as any)[key] ? "text-[#007699]" : "text-gray-700")}>{label}</span>
-                  <div className={cn(
-                    "w-5 h-5 rounded flex items-center justify-center border transition-colors",
-                    (editForm as any)[key] ? "bg-[#007699] border-[#007699] text-white" : "border-gray-300 bg-white"
-                  )}>
-                    {(editForm as any)[key] && <svg viewBox="0 0 14 14" fill="none" className="w-3.5 h-3.5"><path d="M3 7.5L5.5 10L11 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
-                  </div>
-                  <input
-                    type="checkbox"
-                    className="sr-only"
-                    checked={!!(editForm as any)[key]}
-                    onChange={(e) =>
-                      setEditForm({ ...editForm, [key]: e.target.checked })
-                    }
-                  />
-                </label>
+                  Post New Media
+                </button>
+              )}
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-1 md:gap-2">
+              {petMedia.map((media: any) => (
+                <div 
+                  key={media.id} 
+                  className="relative aspect-square cursor-pointer group bg-gray-100"
+                  onClick={() => setSelectedMedia(media)}
+                >
+                  {media.media_type === "video" ? (
+                    <>
+                      <video src={media.media_url} className="w-full h-full object-cover" />
+                      <div className="absolute top-2 right-2 bg-black/50 p-1.5 rounded-full text-white backdrop-blur-sm">
+                        <VideoIcon className="w-4 h-4" />
+                      </div>
+                    </>
+                  ) : (
+                    <img src={media.media_url} className="w-full h-full object-cover" alt="Gallery item" />
+                  )}
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
+                </div>
               ))}
             </div>
-          </div>
-        )}
-
-        {/* MEDIA UPLOAD */}
-        {isEditingPet && (
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-6 mb-6">
-            <h3 className="font-bold text-base text-gray-900 border-b border-gray-100 pb-2 flex items-center gap-2">
-              <ImageIcon className="w-5 h-5 text-[#FF6600]" /> Update Pet Media
-            </h3>
-            
-            <div className="space-y-2.5">
-              <label className="text-xs text-gray-500 font-bold uppercase tracking-wider block">
-                Profile Avatar
-              </label>
-              <div className="relative">
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) =>
-                    setNewProfileImage(e.target.files?.[0] || null)
-                  }
-                  className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-[#007699]/10 file:text-[#007699] hover:file:bg-[#007699]/20 transition-all cursor-pointer bg-gray-50 rounded-xl p-2 border border-gray-200"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2.5">
-              <label className="text-xs text-gray-500 font-bold uppercase tracking-wider block">
-                Update Showcase Images <span className="normal-case font-normal text-gray-400">(Max 3)</span>
-              </label>
-              <div className="relative">
-                <input
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  onChange={(e) =>
-                    setNewShowcaseImages(Array.from(e.target.files || []))
-                  }
-                  className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-[#FF6600]/10 file:text-[#FF6600] hover:file:bg-[#FF6600]/20 transition-all cursor-pointer bg-gray-50 rounded-xl p-2 border border-gray-200"
-                />
-              </div>
-              <p className="text-xs text-gray-400 flex items-center gap-1.5 mt-2">
-                <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
-                Selecting new files will replace all existing showcase images.
-              </p>
-            </div>
-
-            <div className="space-y-2.5">
-              <label className="text-xs text-gray-500 font-bold uppercase tracking-wider flex items-center gap-1">
-                <VideoIcon className="w-4 h-4 text-purple-500 mr-1" /> Profile Video
-                <span className="normal-case font-normal text-gray-400 ml-1">(Max 50MB)</span>
-              </label>
-              <div className="relative">
-                <input
-                  type="file"
-                  accept="video/*"
-                  onChange={(e) => setNewVideoFile(e.target.files?.[0] || null)}
-                  className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-purple-100 file:text-purple-700 hover:file:bg-purple-200 transition-all cursor-pointer bg-gray-50 rounded-xl p-2 border border-gray-200"
-                />
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* SAVE / DELETE BUTTONS */}
-        {isEditingPet && (
-          <div className="flex flex-col gap-4 pb-8">
-            <Button
-              onClick={handleUpdatePet}
-              className="w-full h-12 rounded-xl font-bold text-base cursor-pointer bg-[#007699] hover:bg-[#005a75] text-white shadow-lg shadow-[#007699]/20"
-              disabled={isSavingPet}
-            >
-              {isSavingPet ? (
-                <>
-                  <Loader2 className="w-5 h-5 mr-2 animate-spin" /> Uploading &
-                  Saving...
-                </>
-              ) : (
-                "Save Details & Media"
-              )}
-            </Button>
-            <div className="border-t border-gray-200 mt-2 pt-6">
-              <Button
-                variant="destructive"
-                onClick={() => {
-                  setDeleteConfirmationText("");
-                  setPasswordConfirm("");
-                  setIsDeleteDialogOpen(true);
-                }}
-                className="w-full sm:w-auto text-xs py-1 h-8 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 shadow-none cursor-pointer"
-              >
-                <Trash2 className="w-3 h-3 mr-2" /> Delete Pet Profile
-              </Button>
-            </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
-      {/* ── LIGHTBOX ── */}
-      {selectedMedia && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4"
-          onClick={() => setSelectedMedia(null)}
-        >
-          {/* Close button */}
-          <button
-            className="fixed top-4 right-4 text-white hover:text-white/70 bg-black/50 rounded-full p-2 cursor-pointer z-10"
-            onClick={() => setSelectedMedia(null)}
-            aria-label="Close"
-          >
-            <X className="w-6 h-6" />
-          </button>
+      <EditPetModal
+        isOpen={isEditPetOpen}
+        onClose={() => setIsEditPetOpen(false)}
+        pet={pet}
+      />
 
-          {/* 2-column container */}
-          <div
-            className="flex flex-col md:flex-row w-full max-w-5xl max-h-[90vh] rounded-xl overflow-hidden shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* LEFT: media */}
-            <div className="bg-black flex items-center justify-center md:w-[63%] min-h-[40vh] md:min-h-0">
-              {selectedMedia.media_type === "video" ? (
-                <video
-                  src={selectedMedia.media_url}
-                  controls
-                  autoPlay
-                  className="w-full h-full max-h-[55vh] md:max-h-[90vh] object-contain"
-                />
-              ) : (
-                <img
-                  src={selectedMedia.media_url}
-                  alt="Full size post"
-                  className="w-full h-full max-h-[55vh] md:max-h-[90vh] object-contain"
-                />
-              )}
-            </div>
+      <PetMediaUploader 
+        isOpen={isUploaderOpen} 
+        onClose={() => setIsUploaderOpen(false)} 
+        petId={petId} 
+        onSuccess={refetchGallery}
+      />
 
-            {/* RIGHT: sidebar */}
-            <div className="bg-white flex flex-col md:w-[37%] md:max-h-[90vh]">
-              {/* Pet header */}
-              <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100 shrink-0">
-                <div className="h-9 w-9 rounded-full overflow-hidden bg-gray-100 shrink-0">
-                  {pet.image_url ? (
-                    <img src={pet.image_url} alt={pet.name} className="w-full h-full object-cover" />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs font-bold">
-                      {pet.name?.[0]?.toUpperCase()}
-                    </div>
-                  )}
-                </div>
-                <span className="font-semibold text-sm text-gray-900 truncate">{pet.name}</span>
-              </div>
-
-              {/* Status row — badge for all, edit dropdown for owner */}
-              {(localIntentStatus || isMediaOwner) && (
-                <div className="flex items-center gap-2 px-4 py-2 border-b border-gray-50 shrink-0">
-                  {localIntentStatus && INTENT_BADGE_COLORS[localIntentStatus] && (
-                    <span className={cn("text-[11px] font-semibold px-2.5 py-0.5 rounded-full border", INTENT_BADGE_COLORS[localIntentStatus])}>
-                      {localIntentStatus}
-                    </span>
-                  )}
-                  {isMediaOwner && (
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <button className="ml-auto flex items-center gap-1 text-xs text-gray-400 hover:text-[#007699] transition-colors">
-                          <Tag className="w-3.5 h-3.5" />
-                          {localIntentStatus ? "Change" : "Add Status"}
-                        </button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-48">
-                        <DropdownMenuItem
-                          className="text-xs text-gray-500 cursor-pointer"
-                          onClick={() => handleUpdateIntentStatus("")}
-                        >
-                          None
-                        </DropdownMenuItem>
-                        {INTENT_OPTIONS.map((opt) => (
-                          <DropdownMenuItem
-                            key={opt}
-                            className="text-xs cursor-pointer"
-                            onClick={() => handleUpdateIntentStatus(opt)}
-                          >
-                            {opt}
-                          </DropdownMenuItem>
-                        ))}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  )}
-                </div>
-              )}
-
-              {/* Comments list */}
-              <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 min-h-0">
-                {(() => {
-                  const fetched = mediaComments ?? [];
-                  const fetchedIds = new Set(fetched.map((c) => c.id));
-                  const merged = [...fetched, ...localComments.filter((c) => !fetchedIds.has(c.id))];
-                  return merged.length === 0 ? (
-                  <p className="text-xs text-gray-400 text-center py-6">No comments yet. Be the first!</p>
-                ) : (
-                  merged.map((c) => (
-                    <div key={c.id} className="flex gap-2.5">
-                      <div className="h-8 w-8 rounded-full overflow-hidden bg-gray-100 shrink-0">
-                        <img
-                          src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${c.user_id}`}
-                          alt="avatar"
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs leading-snug">
-                          <span className="font-semibold text-gray-900 mr-1">
-                            Pet Lover
-                          </span>
-                          <span className="text-gray-700">{c.content}</span>
-                        </p>
-                        <p className="text-[10px] text-gray-400 mt-0.5">
-                          {parseUTCDate(c.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
-                        </p>
-                      </div>
-                    </div>
-                  ))
-                );
-              })()}
-              </div>
-
-              {/* Like row */}
-              <div className="px-4 py-2 border-t border-gray-100 shrink-0">
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={handleToggleLike}
-                    disabled={!isAuthenticated}
-                    className={cn(
-                      "cursor-pointer transition-transform active:scale-90",
-                      !isAuthenticated && "opacity-40 cursor-default",
-                    )}
-                    aria-label="Like"
-                  >
-                    <Heart
-                      className={cn(
-                        "w-6 h-6 transition-colors",
-                        userHasLiked ? "fill-red-500 text-red-500" : "text-gray-500 hover:text-red-400",
-                      )}
-                    />
-                  </button>
-                  <span className="text-sm font-semibold text-gray-800">
-                    {likeCount} {likeCount === 1 ? "like" : "likes"}
-                  </span>
-                </div>
-              </div>
-
-              {/* Comment input */}
-              {isAuthenticated ? (
-                <div className="flex items-center gap-2 px-4 py-3 border-t border-gray-100 shrink-0">
-                  <input
-                    type="text"
-                    placeholder="Add a comment…"
-                    className="flex-1 text-sm border-0 outline-none bg-transparent placeholder:text-gray-400"
-                    value={commentText}
-                    onChange={(e) => setCommentText(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === "Enter") handlePostComment(); }}
-                    maxLength={500}
-                  />
-                  <button
-                    onClick={handlePostComment}
-                    disabled={!commentText.trim() || isPostingComment}
-                    className="text-[#007699] font-semibold text-sm disabled:opacity-40 cursor-pointer disabled:cursor-default"
-                  >
-                    {isPostingComment ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                  </button>
-                </div>
-              ) : (
-                <div className="px-4 py-3 border-t border-gray-100 shrink-0 text-xs text-gray-400 text-center">
-                  <span
-                    className="text-[#007699] cursor-pointer font-semibold hover:underline"
-                    onClick={() => (window.location.href = "/login")}
-                  >
-                    Log in
-                  </span>{" "}
-                  to like &amp; comment.
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── DELETE CONFIRMATION DIALOG ── */}
-      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <DialogContent className="sm:max-w-[400px]">
-          <div>
-            <h2 className="text-xl font-bold text-red-600 mb-1 flex items-center gap-2">
-              <AlertTriangle className="w-5 h-5" /> Secure Deletion
-            </h2>
-            <p className="text-sm text-gray-700 mb-4">
-              This action will permanently delete{" "}
-              <strong>{pet?.name}</strong>'s profile and media.
-            </p>
-          </div>
-
-          <div className="space-y-4 py-2">
-            <div className="flex flex-col space-y-2">
-              <label className="text-sm font-bold text-gray-700">
-                1. Type{" "}
-                <strong className="select-none">{pet?.name}</strong> to confirm:
-              </label>
-              <input
-                type="text"
-                placeholder={`Type ${pet?.name} here...`}
-                className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500"
-                value={deleteConfirmationText}
-                onChange={(e) => setDeleteConfirmationText(e.target.value)}
+      {/* Media Viewer Modal */}
+      <Dialog open={!!selectedMedia} onOpenChange={(open) => !open && setSelectedMedia(null)}>
+        <DialogContent className="max-w-4xl p-0 bg-black/95 border-none shadow-2xl h-[90vh] flex flex-col">
+          <div className="flex-1 flex items-center justify-center p-4 relative overflow-hidden">
+            {selectedMedia?.media_type === "video" ? (
+              <video
+                src={selectedMedia.media_url}
+                className="max-h-full max-w-full object-contain"
+                controls
+                autoPlay
               />
-            </div>
-            <div className="flex flex-col space-y-2">
-              <label className="text-sm font-bold text-gray-700">
-                2. Enter your account password:
-              </label>
-              <input
-                type="password"
-                placeholder="Enter password..."
-                className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500"
-                value={passwordConfirm}
-                onChange={(e) => setPasswordConfirm(e.target.value)}
+            ) : selectedMedia?.media_url ? (
+              <img
+                src={selectedMedia.media_url}
+                className="max-h-full max-w-full object-contain"
+                alt="Selected media"
               />
-            </div>
-          </div>
-
-          <div className="flex justify-end gap-2 mt-4 pt-4 border-t border-gray-100">
-            <Button
-              variant="outline"
-              className="cursor-pointer"
-              onClick={() => setIsDeleteDialogOpen(false)}
-              disabled={isVerifyingDelete}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={handleDeletePet}
-              disabled={
-                deleteConfirmationText !== pet?.name ||
-                !passwordConfirm ||
-                isVerifyingDelete
-              }
-              className="cursor-pointer"
-            >
-              {isVerifyingDelete ? (
-                <Loader2 className="w-4 h-4 animate-spin mr-2" />
-              ) : null}
-              {isVerifyingDelete ? "Verifying..." : "Delete Permanently"}
-            </Button>
+            ) : null}
           </div>
         </DialogContent>
       </Dialog>

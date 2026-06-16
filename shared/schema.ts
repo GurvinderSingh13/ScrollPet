@@ -81,6 +81,15 @@ export const pets = pgTable("pets", {
   gender: text("gender"),
   dob: varchar("dob"),
   location: text("location"),
+  handle: text("handle").unique(),
+  handle_updated: boolean("handle_updated").default(false),
+  status_mating: boolean("status_mating").default(false),
+  status_pups_sell: boolean("status_pups_sell").default(false),
+  status_pups_adoption: boolean("status_pups_adoption").default(false),
+  status_for_sell: boolean("status_for_sell").default(false),
+  status_for_adoption: boolean("status_for_adoption").default(false),
+  status_lost: boolean("status_lost").default(false),
+  status_dead: boolean("status_dead").default(false),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

@@ -132,35 +132,23 @@ export default function MobileHelpFAB() {
         </div>
       </div>
 
-      {/* ── Floating Action Button ── */}
+      {/* ── Inline Banner Button ── */}
       {!isOpen && !isDismissed && (
-        <div className="fixed bottom-[5.5rem] left-3 z-[198] md:hidden flex items-center gap-1.5 animate-fab-glow rounded-full">
-          <button
-            onClick={() => setIsOpen(true)}
-            className="flex items-center gap-2 pl-3.5 pr-3 py-3 rounded-full bg-gradient-to-r from-[#007699] to-[#00a5d4] text-white shadow-xl active:scale-95 transition-transform cursor-pointer"
-            aria-label="Need help finding a pet?"
-          >
-            <Search className="w-4 h-4 shrink-0" />
-            <span className="text-sm font-bold whitespace-nowrap">Need Help?</span>
-          </button>
-          <button
-            onClick={() => setIsDismissed(true)}
-            className="flex items-center justify-center w-7 h-7 -ml-3 rounded-full bg-gray-800/70 text-white hover:bg-gray-800 transition-colors cursor-pointer"
-            aria-label="Dismiss"
-          >
-            <X className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      )}
-
-      {/* ── Collapsed icon after dismiss ── */}
-      {!isOpen && isDismissed && (
         <button
           onClick={() => setIsOpen(true)}
-          className="fixed bottom-[5.5rem] left-3 z-[198] md:hidden w-12 h-12 rounded-full bg-gradient-to-br from-[#007699] to-[#00a5d4] text-white shadow-lg shadow-[#007699]/30 flex items-center justify-center active:scale-90 transition-transform cursor-pointer animate-fab-glow"
+          className="w-full flex items-center justify-between px-4 py-3 bg-gradient-to-r from-[#007699] to-[#00a5d4] text-white rounded-xl shadow-sm active:scale-[0.98] transition-transform md:hidden"
           aria-label="Need help finding a pet?"
         >
-          <Search className="w-5 h-5" />
+          <div className="flex items-center gap-3">
+            <div className="bg-white/20 p-2 rounded-full">
+              <Search className="w-5 h-5" />
+            </div>
+            <div className="flex flex-col items-start">
+              <span className="font-bold text-sm">Need Help?</span>
+              <span className="text-xs text-white/80">Find a pet with our Pet Concierge</span>
+            </div>
+          </div>
+          <ChevronRight className="w-5 h-5 opacity-80" />
         </button>
       )}
     </>

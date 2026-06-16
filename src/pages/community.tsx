@@ -67,7 +67,7 @@ export default function CommunityDirectory() {
     setLocation("/inbox");
   };
 
-  const formatLocation = (country: string | null, state: string | null) => {
+  const formatLocation = (country?: string | null, state?: string | null) => {
     if (country && state) return `${state}, ${country}`;
     if (country) return country;
     if (state) return state;

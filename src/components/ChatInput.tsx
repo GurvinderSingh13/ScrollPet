@@ -305,7 +305,7 @@ export function ChatInput({
       const success = await onSendMessage(
         message.trim(),
         "audio",
-        audioPreview.blob,
+        audioPreview.blob as File,
         audioPreview.duration,
         intentStatus || undefined,
       );

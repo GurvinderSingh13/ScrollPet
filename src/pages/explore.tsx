@@ -41,6 +41,7 @@ import { INDIA_LOCATIONS } from "@/data/indiaLocations";
 import { Country, State } from "country-state-city";
 import Footer from "@/components/Footer";
 import ReactPlayer from 'react-player';
+import MobileHelpFAB from "@/components/MobileHelpFAB";
 
 const formatLocation = (loc: string | null) => {
   if (!loc) return "";
@@ -926,6 +927,11 @@ export default function ExplorePage() {
               </span>
             </div>
           </div>
+        </div>
+
+        {/* ── MOBILE HELP BANNER ── */}
+        <div className="md:hidden border-b border-gray-100 bg-white">
+          <MobileHelpFAB />
         </div>
       </div>
 

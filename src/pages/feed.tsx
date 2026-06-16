@@ -905,7 +905,7 @@ export default function FeedPage() {
                       <div className="flex gap-4 text-white font-bold text-sm">
                         <div className="flex items-center gap-1.5 shadow-sm">
                           <Heart className="w-5 h-5 fill-white" />
-                          <span>{item.likes || 0}</span>
+                          <span>{(item as any).likes || 0}</span>
                         </div>
                         <div className="flex items-center gap-1.5 shadow-sm">
                           <MessageCircle className="w-5 h-5 fill-white" />

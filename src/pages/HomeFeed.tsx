@@ -4,7 +4,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import CreatePost from '@/components/CreatePost';
 import PostCard from '@/components/PostCard';
-import { Globe, Loader2, Filter, PawPrint } from 'lucide-react';
+import { Globe, Loader2, Filter, PawPrint, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
@@ -58,6 +58,17 @@ export default function HomeFeed() {
   const [filterStateCode, setFilterStateCode] = useState<string>('');
   const [filterCityName, setFilterCityName] = useState<string>('');
 
+  // Global Search State from URL
+  const [searchQuery, setSearchQuery] = useState(() => new URLSearchParams(window.location.search).get('q') || '');
+
+  useEffect(() => {
+    const handlePopState = () => {
+      setSearchQuery(new URLSearchParams(window.location.search).get('q') || '');
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
   const currentUser = userProfile || user;
   const viewedCountry = viewedCountryCode ? Country.getCountryByCode(viewedCountryCode)?.name : '';
 
@@ -103,7 +114,7 @@ export default function HomeFeed() {
 
   // Fetch Posts based on filters
   const { data: posts = [], isLoading: loadingPosts, error: fetchError } = useQuery({
-    queryKey: ['feed-posts', selectedCategoryId, selectedBreedId, viewedScope, viewedCountryCode, filterStateCode, filterCityName],
+    queryKey: ['feed-posts', selectedCategoryId, selectedBreedId, viewedScope, viewedCountryCode, filterStateCode, filterCityName, searchQuery],
     queryFn: async () => {
       let query = supabase
         .from('posts')
@@ -160,6 +171,12 @@ export default function HomeFeed() {
 
       if (conditions.length > 0) {
         query = query.or(conditions.join(','));
+      }
+
+      // Apply Text Search Filter (Additive)
+      if (searchQuery.trim()) {
+        const sq = `%${searchQuery.trim()}%`;
+        query = query.or(`title.ilike.${sq},content.ilike.${sq}`);
       }
 
       const { data: fetchedPosts, error } = await query;
@@ -251,6 +268,25 @@ export default function HomeFeed() {
 
   const renderFilters = () => (
     <div className="space-y-6">
+      {/* Search Bar */}
+      <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <Input 
+            placeholder="Search posts..." 
+            className="w-full pl-9 bg-gray-50 border-gray-200 focus-visible:ring-1 focus-visible:ring-[#007699]"
+            value={searchQuery}
+            onChange={(e) => {
+              const val = e.target.value;
+              setSearchQuery(val);
+              const newUrl = val ? `/?q=${encodeURIComponent(val)}` : '/';
+              window.history.replaceState(null, '', newUrl);
+              window.dispatchEvent(new Event('popstate'));
+            }}
+          />
+        </div>
+      </div>
+
       {/* Location Toggle */}
       <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
         <h3 className="font-bold text-gray-800 mb-3 flex items-center gap-2">
@@ -332,49 +368,51 @@ export default function HomeFeed() {
           <div className="flex justify-center p-4"><Loader2 className="w-5 h-5 animate-spin text-gray-400" /></div>
         ) : (
           <div className="space-y-1">
-            <button
-              onClick={() => { setSelectedCategoryId('all'); setSelectedBreedId('all'); }}
-              className={`w-full flex items-center gap-3 p-2 rounded-lg transition-colors ${!selectedCategoryId || selectedCategoryId === 'all' ? 'bg-[#007699]/10 text-[#007699] font-semibold' : 'hover:bg-gray-50 text-gray-700'}`}
-            >
-              <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center border border-gray-200">
-                <Globe className="w-4 h-4" />
-              </div>
-              <span>All Posts</span>
-            </button>
-            {categories.map((cat: any) => (
+            <div>
               <button
-                key={cat.id}
-                onClick={() => { setSelectedCategoryId(cat.id); setSelectedBreedId('all'); }}
-                className={`w-full flex items-center gap-3 p-2 rounded-lg transition-colors ${selectedCategoryId === cat.id ? 'bg-[#007699]/10 text-[#007699] font-semibold' : 'hover:bg-gray-50 text-gray-700'}`}
+                onClick={() => { setSelectedCategoryId('all'); setSelectedBreedId('all'); }}
+                className={`w-full flex items-center gap-3 p-2 rounded-lg transition-colors ${!selectedCategoryId || selectedCategoryId === 'all' ? 'bg-[#007699]/10 text-[#007699] font-semibold' : 'hover:bg-gray-50 text-gray-700'}`}
               >
-                <img 
-                  src={getCategoryImageUrl(cat)} 
-                  alt={cat.name} 
-                  className="w-8 h-8 rounded-full object-cover border border-gray-200 flex-shrink-0 bg-gray-100" 
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/initials/svg?seed=${cat.name}`;
-                  }}
-                />
-                <span className="truncate">{cat.name}</span>
+                <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center border border-gray-200">
+                  <Globe className="w-4 h-4" />
+                </div>
+                <span>All Posts</span>
               </button>
+            </div>
+            {categories.map((cat: any) => (
+              <div key={cat.id}>
+                <button
+                  onClick={() => { setSelectedCategoryId(cat.id); setSelectedBreedId('all'); }}
+                  className={`w-full flex items-center gap-3 p-2 rounded-lg transition-colors ${selectedCategoryId === cat.id ? 'bg-[#007699]/10 text-[#007699] font-semibold' : 'hover:bg-gray-50 text-gray-700'}`}
+                >
+                  <img 
+                    src={getCategoryImageUrl(cat)} 
+                    alt={cat.name} 
+                    className="w-8 h-8 rounded-full object-cover border border-gray-200 flex-shrink-0 bg-gray-100" 
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/initials/svg?seed=${cat.name}`;
+                    }}
+                  />
+                  <span className="truncate">{cat.name}</span>
+                </button>
+                {/* Dynamic Breed Filter under Active Category */}
+                {selectedCategoryId === cat.id && (
+                  <div className="mt-2 ml-10 mb-2 animate-in fade-in slide-in-from-top-1">
+                    <Select value={selectedBreedId || 'all'} onValueChange={setSelectedBreedId}>
+                      <SelectTrigger className="h-8 text-sm bg-gray-50 border-gray-200">
+                        <SelectValue placeholder="All Breeds" />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-60">
+                        <SelectItem value="all">All Breeds</SelectItem>
+                        {breeds.map((b: any) => (
+                          <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+              </div>
             ))}
-          </div>
-        )}
-
-        {selectedCategoryId && selectedCategoryId !== 'all' && (
-          <div className="mt-4 pt-4 border-t border-gray-100 animate-in fade-in">
-            <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Filter by Breed</h4>
-            <Select value={selectedBreedId || 'all'} onValueChange={setSelectedBreedId}>
-              <SelectTrigger className="h-9">
-                <SelectValue placeholder="All Breeds" />
-              </SelectTrigger>
-              <SelectContent className="max-h-60">
-                <SelectItem value="all">All Breeds</SelectItem>
-                {breeds.map((b: any) => (
-                  <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
           </div>
         )}
       </div>

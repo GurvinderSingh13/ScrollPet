@@ -35,6 +35,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Check, ChevronsUpDown } from "lucide-react";
+import { Country, State, City } from "country-state-city";
+
 import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/lib/supabase";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -78,7 +83,10 @@ export default function Profile({ onClose }: any) {
   const [birthDay, setBirthDay] = useState("");
   const [birthMonth, setBirthMonth] = useState("");
   const [birthYear, setBirthYear] = useState("");
-  const [location, setLocation] = useState("");
+  const [selectedStateCode, setSelectedStateCode] = useState("");
+  const [selectedCityName, setSelectedCityName] = useState("");
+  const [openCategory, setOpenCategory] = useState(false);
+  const [openBreed, setOpenBreed] = useState(false);
 
   // Media States
   const [profileImage, setProfileImage] = useState<File | null>(null);
@@ -92,6 +100,14 @@ export default function Profile({ onClose }: any) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
+  const ownerCountryName = (user as any)?.country;
+  const ownerCountryCode = ownerCountryName 
+    ? Country.getAllCountries().find(x => x.name.toLowerCase() === ownerCountryName.toLowerCase())?.isoCode 
+    : undefined;
+
+  const availableStates = ownerCountryCode ? State.getStatesOfCountry(ownerCountryCode) : [];
+  const availableCities = selectedStateCode && ownerCountryCode ? City.getCitiesOfState(ownerCountryCode, selectedStateCode) : [];
+
   // Dynamic categories from Supabase
   const { data: dbCategories = [] } = useQuery({
     queryKey: ["pet-categories"],
@@ -101,17 +117,16 @@ export default function Profile({ onClose }: any) {
         .select("*")
         .order("name", { ascending: true });
       if (error) throw error;
-      return (data || []) as DbCategory[];
+      return data || [];
     },
   });
 
-  // Find the selected category object to get its proper ID
   const selectedCategoryObj = dbCategories.find(
-    (c) => c.name.toLowerCase().replace(/\s+/g, "-") === category
+    (c: any) => c.name.toLowerCase() === category.toLowerCase()
   );
 
-  // Dynamic breeds from Supabase based on selected category
-  const { data: dbBreeds = [], isLoading: isLoadingBreeds } = useQuery({
+  // Dynamic breeds from Supabase
+  const { data: dbBreeds = [] } = useQuery({
     queryKey: ["pet-breeds", selectedCategoryObj?.id],
     queryFn: async () => {
       if (!selectedCategoryObj?.id) return [];
@@ -121,10 +136,13 @@ export default function Profile({ onClose }: any) {
         .eq("category_id", selectedCategoryObj.id)
         .order("name", { ascending: true });
       if (error) throw error;
-      return (data || []) as DbBreed[];
+      return data || [];
     },
     enabled: !!selectedCategoryObj?.id,
   });
+
+  const categoriesList = [...dbCategories.map((c: any) => c.name), "Others"];
+  const availableBreeds = dbBreeds.map((b: any) => ({ id: b.name, name: b.name }));
 
   const handleShowcaseChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -198,6 +216,31 @@ export default function Profile({ onClose }: any) {
         showcase3 = await uploadFile(showcaseImages[2], "pets/showcase");
       if (videoFile) vidUrl = await uploadFile(videoFile, "pets/videos");
 
+      // Auto-generate a unique handle from pet name
+      let baseHandle = petName.toLowerCase().replace(/[^a-z0-9_]/g, "");
+      if (!baseHandle) baseHandle = "pet";
+      let uniqueHandle = baseHandle;
+      let counter = 1;
+      let isUnique = false;
+
+      while (!isUnique) {
+        const { data: existing } = await supabase
+          .from("pets")
+          .select("id")
+          .eq("handle", uniqueHandle)
+          .maybeSingle();
+
+        if (existing) {
+          uniqueHandle = `${baseHandle}${counter}`;
+          counter++;
+        } else {
+          isUnique = true;
+        }
+      }
+
+      const finalStateName = selectedStateCode && ownerCountryCode ? State.getStateByCodeAndCountry(selectedStateCode, ownerCountryCode)?.name : "";
+      const locationString = selectedCityName && finalStateName ? `${selectedCityName}, ${finalStateName}` : finalStateName || "";
+
       const insertData = {
         user_id: user.id,
         name: petName,
@@ -205,12 +248,14 @@ export default function Profile({ onClose }: any) {
         breed: breed,
         gender: gender,
         dob: `${birthYear}-${birthMonth}-${birthDay}`,
-        location: location,
+        location: locationString,
         image_url: profileUrl,
         showcase_image_1: showcase1,
         showcase_image_2: showcase2,
         showcase_image_3: showcase3,
         video_url: vidUrl,
+        handle: uniqueHandle,
+        handle_updated: false,
       };
 
       const { error: insertError } = await supabase
@@ -281,7 +326,6 @@ export default function Profile({ onClose }: any) {
           </div>
         )}
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Identity Section */}
           <motion.div
             variants={fadeUp}
             initial="hidden"
@@ -318,42 +362,50 @@ export default function Profile({ onClose }: any) {
                   )}{" "}
                   Category
                 </Label>
-                <Select
-                  value={category}
-                  onValueChange={(val: string) => {
-                    setCategory(val);
-                    setBreed("");
-                  }}
-                >
-                  <SelectTrigger id="category" className="h-11 bg-slate-50/50 border-indigo-100 rounded-xl">
-                    <SelectValue placeholder="Select…" />
-                  </SelectTrigger>
-                  <SelectContent className="max-h-[300px]">
-                    {dbCategories.length > 0 ? (
-                      dbCategories.map((cat) => (
-                        <SelectItem
-                          key={cat.id}
-                          value={cat.name.toLowerCase().replace(/\s+/g, "-")}
-                        >
-                          {cat.name}
-                        </SelectItem>
-                      ))
-                    ) : (
-                      <>
-                        <SelectItem value="dog">🐕 Dog</SelectItem>
-                        <SelectItem value="cat">🐈 Cat</SelectItem>
-                        <SelectItem value="bird">🐦 Bird</SelectItem>
-                        <SelectItem value="fish">🐟 Fish</SelectItem>
-                        <SelectItem value="rabbit">🐰 Rabbit</SelectItem>
-                        <SelectItem value="hamster">🐹 Hamster</SelectItem>
-                        <SelectItem value="turtle">🐢 Turtle</SelectItem>
-                        <SelectItem value="guinea-pig">🐹 Guinea Pig</SelectItem>
-                        <SelectItem value="horse">🐎 Horse</SelectItem>
-                        <SelectItem value="other">🐾 Other</SelectItem>
-                      </>
-                    )}
-                  </SelectContent>
-                </Select>
+                <Popover open={openCategory} onOpenChange={setOpenCategory} modal={true}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={openCategory}
+                      className="w-full justify-between h-11 bg-slate-50/50 border-indigo-100 rounded-xl font-normal"
+                    >
+                      {category
+                        ? categoriesList.find((c) => c.toLowerCase() === category.toLowerCase()) || category
+                        : "Select Category"}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="p-0" style={{ width: 'var(--radix-popover-trigger-width)' }}>
+                    <Command>
+                      <CommandInput placeholder="Search category..." />
+                      <CommandList className="max-h-[250px] overflow-y-auto touch-auto overscroll-contain pointer-events-auto">
+                        <CommandEmpty>No category found.</CommandEmpty>
+                        <CommandGroup>
+                          {categoriesList.map((c) => (
+                            <CommandItem
+                              key={c}
+                              value={c}
+                              onSelect={() => {
+                                setCategory(c);
+                                setBreed("");
+                                setOpenCategory(false);
+                              }}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  category.toLowerCase() === c.toLowerCase() ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              {c.charAt(0).toUpperCase() + c.slice(1)}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               </motion.div>
 
               <motion.div
@@ -373,36 +425,50 @@ export default function Profile({ onClose }: any) {
                     className="h-11 bg-slate-50/50 border-indigo-100 rounded-xl"
                   />
                 ) : (
-                  <Select
-                    value={breed}
-                    onValueChange={setBreed}
-                    disabled={!category || isLoadingBreeds}
-                  >
-                    <SelectTrigger id="breed" className="h-11 bg-slate-50/50 border-indigo-100 rounded-xl">
-                      <SelectValue
-                        placeholder={
-                          isLoadingBreeds
-                            ? "Loading..."
-                            : category
-                            ? "Select Breed"
-                            : "Category First"
-                        }
-                      />
-                    </SelectTrigger>
-                    <SelectContent className="max-h-[300px]">
-                      {dbBreeds.length > 0 ? (
-                        dbBreeds.map((b) => (
-                          <SelectItem key={b.id} value={b.name}>
-                            {b.name}
-                          </SelectItem>
-                        ))
-                      ) : (
-                        <div className="px-2 py-1.5 text-xs text-muted-foreground italic">
-                          No breeds found
-                        </div>
-                      )}
-                    </SelectContent>
-                  </Select>
+                  <Popover open={openBreed} onOpenChange={setOpenBreed} modal={true}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={openBreed}
+                        disabled={!category}
+                        className="w-full justify-between h-11 bg-slate-50/50 border-indigo-100 rounded-xl font-normal"
+                      >
+                        {breed
+                          ? availableBreeds.find((b) => b.name === breed)?.name || breed
+                          : category ? "Select Breed" : "Category First"}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="p-0" style={{ width: 'var(--radix-popover-trigger-width)' }}>
+                      <Command>
+                        <CommandInput placeholder="Search breed..." />
+                        <CommandList className="max-h-[250px] overflow-y-auto touch-auto overscroll-contain pointer-events-auto">
+                          <CommandEmpty>No breeds found.</CommandEmpty>
+                          <CommandGroup>
+                            {availableBreeds.map((b) => (
+                              <CommandItem
+                                key={b.id}
+                                value={b.name}
+                                onSelect={() => {
+                                  setBreed(b.name);
+                                  setOpenBreed(false);
+                                }}
+                              >
+                                <Check
+                                  className={cn(
+                                    "mr-2 h-4 w-4",
+                                    breed === b.name ? "opacity-100" : "opacity-0"
+                                  )}
+                                />
+                                {b.name}
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
                 )}
               </motion.div>
             </div>
@@ -487,16 +553,36 @@ export default function Profile({ onClose }: any) {
               custom={5}
               className="space-y-2 pt-2 border-t border-indigo-50"
             >
-              <Label htmlFor="location" className="flex items-center gap-1.5 font-semibold text-slate-700">
-                <MapPin className="h-4 w-4 text-emerald-500" /> Home Location
-              </Label>
-              <Input
-                id="location"
-                placeholder="City, State or Country"
-                value={location}
-                onChange={(e) => setLocation(e.target.value)}
-                className="h-11 bg-slate-50/50 border-indigo-100 rounded-xl focus-visible:ring-indigo-500"
-              />
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-1.5 font-semibold text-slate-700">
+                    <MapPin className="h-4 w-4 text-emerald-500" /> State
+                  </Label>
+                  <Select value={selectedStateCode} onValueChange={setSelectedStateCode}>
+                    <SelectTrigger className="h-11 bg-slate-50/50 border-indigo-100 rounded-xl font-normal">
+                      <SelectValue placeholder={ownerCountryCode ? "Select State" : "Set country in profile"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableStates.map(st => (
+                        <SelectItem key={st.isoCode} value={st.isoCode}>{st.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label className="font-semibold text-slate-700">District / City</Label>
+                  <Select value={selectedCityName} onValueChange={setSelectedCityName} disabled={!selectedStateCode}>
+                    <SelectTrigger className="h-11 bg-slate-50/50 border-indigo-100 rounded-xl font-normal">
+                      <SelectValue placeholder="Select District" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableCities.map(city => (
+                        <SelectItem key={city.name} value={city.name}>{city.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
             </motion.div>
           </div>
 
