@@ -60,6 +60,7 @@ export const messages = pgTable("messages", {
   mediaDuration: integer("media_duration"),
   crosspostRooms: text("crosspost_rooms").array(),
   isRead: boolean("is_read").default(false),
+  isExpiring: boolean("is_expiring").default(false),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

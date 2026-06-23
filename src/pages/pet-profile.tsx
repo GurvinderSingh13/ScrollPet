@@ -14,7 +14,8 @@ import {
   FileText,
   PlusCircle,
   Image as ImageIcon,
-  Video as VideoIcon
+  Video as VideoIcon,
+  PawPrint
 } from "lucide-react";
 
 import ProfileHeader from "@/components/profile/ProfileHeader";
@@ -190,6 +191,7 @@ export default function PetProfilePage() {
         }}
         isOwnProfile={isOwner}
         isFollowing={isFollowing}
+        showBackButtonAlways={true}
         onFollowToggle={handleToggleFollow}
         onMessage={handleMessageOwner}
         onEditClick={() => setIsEditPetOpen(true)}
@@ -198,37 +200,50 @@ export default function PetProfilePage() {
 
       <div className="container mx-auto max-w-3xl px-4 mt-6 space-y-6">
         
-        {/* Simple Bio Card for Pet */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 sm:p-6 text-sm">
-          <h3 className="font-semibold text-gray-900 mb-3 text-base">About {pet.name}</h3>
-          <div className="grid grid-cols-2 gap-4">
-            {pet.breed && (
-              <div><span className="text-gray-500">Breed:</span> <span className="font-medium text-gray-900">{pet.breed}</span></div>
-            )}
-            {pet.type && (
-              <div><span className="text-gray-500">Type:</span> <span className="font-medium text-gray-900 capitalize">{pet.type}</span></div>
-            )}
+        {/* Redesigned About Card */}
+        <div className="bg-white rounded-[24px] border-2 border-dashed border-gray-200 p-5 sm:p-6 shadow-sm">
+          {/* Header Row */}
+          <div className="flex justify-between items-center pb-3 border-b-2 border-dashed border-gray-100 mb-4">
+            <h3 className="font-bold text-gray-400 text-xs tracking-wider uppercase">
+              ABOUT, <span className="text-gray-700">{pet.name}</span>
+            </h3>
+            <PawPrint className="w-4 h-4 text-gray-300" />
+          </div>
+
+          {/* Inner Content Block */}
+          <div className="bg-[#f0f8fa] rounded-2xl p-4 flex justify-between items-start">
+            <div className="flex gap-3">
+              <div className="w-1 rounded-full bg-[#007699] shrink-0 my-0.5"></div>
+              <div>
+                <p className="text-[#007699] font-medium text-base">
+                  {pet.type ? <span className="capitalize">{pet.type}</span> : "Pet"}
+                  {pet.breed && <span> & {pet.breed}</span>}
+                </p>
+                {pet.location && (
+                  <p className="text-[#007699]/80 text-sm mt-1">
+                    {pet.location}
+                  </p>
+                )}
+              </div>
+            </div>
+            
             {pet.gender && (
-              <div><span className="text-gray-500">Gender:</span> <span className="font-medium text-gray-900 capitalize">{pet.gender}</span></div>
-            )}
-            {pet.location && (
-              <div><span className="text-gray-500">Location:</span> <span className="font-medium text-gray-900">{pet.location}</span></div>
+              <div className="bg-[#e1f1f5] text-[#005a75] px-2.5 py-1 rounded-lg text-xs font-semibold capitalize shrink-0 ml-2">
+                {pet.gender}
+              </div>
             )}
           </div>
           
           {/* Render Pet Statuses if any are true */}
           {(pet.status_mating || pet.status_pups_sell || pet.status_pups_adoption || pet.status_for_sell || pet.status_for_adoption || pet.status_lost || pet.status_dead) && (
-            <div className="mt-4 pt-4 border-t border-gray-100">
-              <span className="text-gray-500 block mb-2 font-medium">Pet Status:</span>
-              <div className="flex flex-wrap gap-2">
-                {pet.status_mating && <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-pink-100 text-pink-700 border border-pink-200">Available for Mating</span>}
-                {pet.status_pups_sell && <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700 border border-blue-200">Pups for Sale</span>}
-                {pet.status_pups_adoption && <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700 border border-green-200">Pups for Adoption</span>}
-                {pet.status_for_sell && <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-purple-100 text-purple-700 border border-purple-200">For Sale</span>}
-                {pet.status_for_adoption && <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-teal-100 text-teal-700 border border-teal-200">For Adoption</span>}
-                {pet.status_lost && <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700 border border-red-200">Lost</span>}
-                {pet.status_dead && <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-700 border border-gray-200">Dead</span>}
-              </div>
+            <div className="mt-4 pt-1 flex flex-wrap gap-2">
+              {pet.status_mating && <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-pink-100 text-pink-700 border border-pink-200">Available for Mating</span>}
+              {pet.status_pups_sell && <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700 border border-blue-200">Pups for Sale</span>}
+              {pet.status_pups_adoption && <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700 border border-green-200">Pups for Adoption</span>}
+              {pet.status_for_sell && <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-purple-100 text-purple-700 border border-purple-200">For Sale</span>}
+              {pet.status_for_adoption && <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-teal-100 text-teal-700 border border-teal-200">For Adoption</span>}
+              {pet.status_lost && <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700 border border-red-200">Lost</span>}
+              {pet.status_dead && <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-700 border border-gray-200">Dead</span>}
             </div>
           )}
         </div>

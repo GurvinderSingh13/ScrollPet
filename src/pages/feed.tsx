@@ -594,7 +594,23 @@ export default function FeedPage() {
         .eq("media_id", selectedMedia.id)
         .order("created_at", { ascending: true });
       if (error) throw error;
-      return data as { id: string; media_id: string; user_id: string; content: string; created_at: string }[];
+      
+      if (data && data.length > 0) {
+        const userIds = Array.from(new Set(data.map((c: any) => c.user_id)));
+        const { data: usersData } = await supabase
+          .from("users")
+          .select("id, display_name, username, profile_image_url")
+          .in("id", userIds);
+          
+        const usersMap: Record<string, any> = {};
+        (usersData || []).forEach(u => { usersMap[u.id] = u; });
+        
+        return data.map(c => ({
+          ...c,
+          users: usersMap[c.user_id]
+        }));
+      }
+      return data as any[];
     },
     enabled: !!selectedMedia?.id,
   });
@@ -641,10 +657,23 @@ export default function FeedPage() {
     };
     setLocalComments((prev) => [...prev, optimistic]);
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from("media_comments")
-        .insert({ media_id: selectedMedia.id, user_id: user.id, content: trimmed });
+        .insert({ media_id: selectedMedia.id, user_id: user.id, content: trimmed })
+        .select("*")
+        .single();
       if (error) throw error;
+      
+      // Fetch the single user to append it
+      const { data: userData } = await supabase
+        .from("users")
+        .select("id, display_name, username, profile_image_url")
+        .eq("id", user.id)
+        .single();
+        
+      const realComment = { ...data, users: userData };
+      
+      setLocalComments((prev) => prev.map(c => c.id === optimistic.id ? realComment : c));
       refetchComments();
     } catch (err: any) {
       setLocalComments((prev) => prev.filter((c) => c.id !== optimistic.id));
@@ -813,7 +842,7 @@ export default function FeedPage() {
     <div className="min-h-screen bg-gray-50">
 
       {/* ── PAGE TITLE ── */}
-      <div className="pt-20">
+      <div className="pt-4 md:pt-20">
         <div className="bg-white border-b border-gray-100 shadow-sm">
           <div className="max-w-5xl mx-auto px-4 h-14 flex items-center gap-2">
             <Compass className="w-5 h-5 text-[#007699]" />
@@ -1432,7 +1461,9 @@ export default function FeedPage() {
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-xs leading-snug">
-                            <span className="font-semibold text-gray-900 mr-1">Pet Lover</span>
+                            <Link href={`/profile/${c.user_id}`} className="font-semibold text-gray-900 mr-1 hover:underline cursor-pointer">
+                              {c.users?.display_name || c.users?.username || "Pet Lover"}
+                            </Link>
                             <span className="text-gray-700">{c.content}</span>
                           </p>
                           <p className="text-[10px] text-gray-400 mt-0.5">

@@ -15,6 +15,7 @@ interface ProfileHeaderProps {
   };
   isOwnProfile: boolean;
   isFollowing?: boolean;
+  showBackButtonAlways?: boolean;
   onFollowToggle?: () => void;
   onEditClick?: () => void;
   onLogout?: () => void;
@@ -28,6 +29,7 @@ export default function ProfileHeader({
   stats,
   isOwnProfile,
   isFollowing = false,
+  showBackButtonAlways = false,
   onFollowToggle,
   onEditClick,
   onMessage,
@@ -58,21 +60,22 @@ export default function ProfileHeader({
 
   return (
     <div className="bg-white border-b border-gray-200">
-      <div className="container mx-auto px-4 max-w-3xl pt-6 pb-6 relative">
-        {/* Top Left Action: Back Button (only for other users) */}
-        {!isOwnProfile && (
-          <div className="absolute top-4 left-4 md:hidden">
+      {/* ── DEDICATED HEADER ROW ── */}
+      <div className="w-full px-4 py-3 flex justify-between items-center border-b border-gray-100">
+        <div>
+          {(!isOwnProfile || showBackButtonAlways) ? (
             <button 
               onClick={() => window.history.length > 1 ? window.history.back() : setLocation("/")}
-              className="p-2 text-gray-700 hover:bg-gray-100 rounded-full transition-colors cursor-pointer"
+              className="p-2 -ml-2 text-gray-700 hover:bg-gray-100 rounded-full transition-colors cursor-pointer"
             >
               <ArrowLeft className="w-6 h-6" />
             </button>
-          </div>
-        )}
+          ) : (
+            <div className="w-10 h-10" />
+          )}
+        </div>
 
-        {/* Top Right Action: Burger Menu */}
-        <div className="absolute top-4 right-4">
+        <div>
           <Popover>
             <PopoverTrigger asChild>
               <button className="p-2 text-gray-700 hover:bg-gray-100 rounded-full transition-colors cursor-pointer">
@@ -169,9 +172,12 @@ export default function ProfileHeader({
             </PopoverContent>
           </Popover>
         </div>
+      </div>
 
+      {/* ── PROFILE DETAILS SECTION ── */}
+      <div className="container mx-auto px-4 max-w-3xl pt-6 pb-6">
         {/* The Top Section Grid */}
-        <div className={`grid grid-cols-[80px_1fr] sm:grid-cols-[100px_1fr] md:grid-cols-[120px_1fr] gap-4 sm:gap-6 md:gap-8 pr-14 ${!isOwnProfile ? 'mt-6 md:mt-0' : ''}`}>
+        <div className="grid grid-cols-[80px_1fr] sm:grid-cols-[100px_1fr] md:grid-cols-[120px_1fr] gap-4 sm:gap-6 md:gap-8">
           {/* Left Column: Avatar */}
           <div className="flex flex-col items-center gap-3">
             <div className="h-20 w-20 sm:h-24 sm:w-24 md:h-28 md:w-28 rounded-full border border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden shrink-0">
@@ -254,9 +260,11 @@ export default function ProfileHeader({
             <div className="flex flex-wrap items-center gap-2 mt-1">
               {isOwnProfile ? (
                 <>
-                  <button onClick={onEditClick} className="flex-1 sm:flex-none px-4 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-900 text-sm font-semibold rounded-lg transition-colors cursor-pointer">
-                    {ownerInfo ? "Edit Pet" : "Edit Profile"}
-                  </button>
+                  {!ownerInfo && (
+                    <button onClick={onEditClick} className="flex-1 sm:flex-none px-4 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-900 text-sm font-semibold rounded-lg transition-colors cursor-pointer">
+                      Edit Profile
+                    </button>
+                  )}
                   <button onClick={handleShareProfile} className="flex-1 sm:flex-none px-4 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-900 text-sm font-semibold rounded-lg transition-colors cursor-pointer">
                     Share
                   </button>

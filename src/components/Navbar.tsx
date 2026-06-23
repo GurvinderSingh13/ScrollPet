@@ -60,7 +60,7 @@ export default function Navbar() {
   const isProfilePage = currentPath === "/user-profile" || currentPath.startsWith("/profile/");
 
   return (
-    <header className={`${isProfilePage ? 'hidden md:flex' : 'flex'} fixed w-full top-0 z-[100] bg-background/80 backdrop-blur-md border-b border-border/40 shadow-sm`}>
+    <header className="hidden md:flex fixed w-full top-0 z-[100] bg-background/80 backdrop-blur-md border-b border-border/40 shadow-sm">
       <div className="container mx-auto px-6 h-20 flex items-center justify-between w-full">
         <Link href="/" className="hidden md:block cursor-pointer">
           <img
@@ -70,21 +70,7 @@ export default function Navbar() {
           />
         </Link>
 
-        {/* Mobile Search Bar */}
-        <div className="md:hidden flex-1 px-2 relative mr-2">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input 
-            placeholder="Search posts..." 
-            className="w-full pl-10 bg-muted/50 border-none rounded-full h-10 focus-visible:ring-1 focus-visible:ring-primary"
-            value={new URLSearchParams(window.location.search).get('q') || ''}
-            onChange={(e) => {
-              const val = e.target.value;
-              const newUrl = val ? `/?q=${encodeURIComponent(val)}` : '/';
-              window.history.replaceState(null, '', newUrl);
-              window.dispatchEvent(new Event('popstate'));
-            }}
-          />
-        </div>
+        {/* Mobile Search Bar removed as per request */}
 
         <nav className="hidden md:flex items-center gap-8 bg-muted/50 px-6 py-2 rounded-full border border-border/50">
           {navLinks.map((link) => (

@@ -1031,6 +1031,8 @@ export default function ChatInterface() {
         reply_to_user_id: replyToUser ? replyToUser.id : null,
         crosspost_rooms: [currentRoomId],
         intent_status: intentStatus || null,
+        is_expiring: !!intentStatus,
+        created_at: new Date().toISOString()
       };
 
       if (activeBreed && !activeDmUser && chatRoomLocation !== "staff_lounge")

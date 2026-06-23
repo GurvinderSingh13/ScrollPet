@@ -259,7 +259,9 @@ export function CreatePostModal({ isOpen, onClose, onSuccess, postToEdit }: Crea
         age: finalAge,
         price: price ? parseInt(price, 10) : null,
         location: locationString || "explore_feed",
-        crosspost_rooms: [`${locPrefix}::explore_feed::explore_feed`]
+        crosspost_rooms: [`${locPrefix}::explore_feed::explore_feed`],
+        is_expiring: true,
+        created_at: new Date().toISOString()
       };
 
       if (postToEdit) {

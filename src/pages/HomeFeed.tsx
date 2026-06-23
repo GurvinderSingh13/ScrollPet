@@ -421,14 +421,14 @@ export default function HomeFeed() {
 
   if (isProfileLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 pt-20 flex justify-center p-12">
+      <div className="min-h-screen bg-gray-50 pt-4 md:pt-20 flex justify-center p-12">
         <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pt-20">
+    <div className="min-h-screen bg-gray-50 pt-4 md:pt-20">
       <div className="max-w-6xl mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-12 gap-8">
         
         {/* LEFT SIDEBAR: FILTERS */}
@@ -438,6 +438,25 @@ export default function HomeFeed() {
 
         {/* MAIN FEED COLUMN */}
         <div className="lg:col-span-6 space-y-6">
+          {/* Mobile Search Bar */}
+          <div className="md:hidden">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <Input 
+                placeholder="Search posts..." 
+                className="w-full pl-9 bg-white border border-gray-200 focus-visible:ring-1 focus-visible:ring-[#007699] shadow-sm rounded-xl h-10"
+                value={searchQuery}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setSearchQuery(val);
+                  const newUrl = val ? `/?q=${encodeURIComponent(val)}` : '/';
+                  window.history.replaceState(null, '', newUrl);
+                  window.dispatchEvent(new Event('popstate'));
+                }}
+              />
+            </div>
+          </div>
+
           <div className="md:hidden flex justify-between items-center bg-white p-3 rounded-xl shadow-sm border border-gray-200">
             <span className="font-bold text-gray-800">Community Feed</span>
             <Sheet>
