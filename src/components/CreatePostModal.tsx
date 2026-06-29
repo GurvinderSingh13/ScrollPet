@@ -249,30 +249,26 @@ export function CreatePostModal({ isOpen, onClose, onSuccess, postToEdit }: Crea
 
       const postData: any = {
         user_id: user.id,
+        title: intent ? `${intent} - ${category}` : "New Post",
         content: description || "",
-        message_type: mediaType,
         media_url: mediaUrl,
-        intent_status: intent,
-        pet_type: category,
+        category: category,
         breed: breedSlug,
-        gender: gender || null,
-        age: finalAge,
-        price: price ? parseInt(price, 10) : null,
-        location: locationString || "explore_feed",
-        crosspost_rooms: [`${locPrefix}::explore_feed::explore_feed`],
-        is_expiring: true,
+        visibility_level: 'global',
+        country: country !== 'all' ? country : null,
+        state: state !== 'all' ? state : null,
+        city: district !== 'all' ? district : null,
         created_at: new Date().toISOString()
       };
 
       if (postToEdit) {
         if (!mediaUrl && !file) {
           delete postData.media_url;
-          delete postData.message_type;
         }
         
-        postData.created_at = new Date().toISOString();
+        postData.updated_at = new Date().toISOString();
         const { error: dbError } = await supabase
-          .from("messages")
+          .from("posts")
           .update(postData)
           .eq('id', postToEdit.id)
           .eq('user_id', user.id);
@@ -280,7 +276,7 @@ export function CreatePostModal({ isOpen, onClose, onSuccess, postToEdit }: Crea
         if (dbError) throw dbError;
         toast({ description: "Post updated successfully!" });
       } else {
-        const { error: dbError } = await supabase.from("messages").insert(postData);
+        const { error: dbError } = await supabase.from("posts").insert(postData);
         if (dbError) throw dbError;
         toast({ description: "Post created successfully!" });
       }

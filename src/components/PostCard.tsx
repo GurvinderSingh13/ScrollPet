@@ -175,13 +175,17 @@ export default function PostCard({
             </DropdownMenu>
           )}
         </div>
-        <h3 className="font-bold text-lg text-gray-800 mb-2">{post.title}</h3>
-        <p className="text-gray-600 text-sm mb-4 whitespace-pre-wrap">{post.content}</p>
-        {post.media_url && (
-          <div className="mb-4 rounded-lg overflow-hidden border border-gray-100">
-            <img src={post.media_url} alt="Post media" className="w-full h-auto object-cover max-h-96" />
+        <Link href={`/post/${post.id}`} className="block cursor-pointer group">
+          <div>
+            <h3 className="font-bold text-lg text-gray-800 mb-2 group-hover:text-[#007699] transition-colors">{post.title}</h3>
+            <p className="text-gray-600 text-sm mb-4 whitespace-pre-wrap">{post.content}</p>
+            {post.media_url && (
+              <div className="mb-4 rounded-lg overflow-hidden border border-gray-100">
+                <img src={post.media_url} alt="Post media" className="w-full h-auto object-cover max-h-96" />
+              </div>
+            )}
           </div>
-        )}
+        </Link>
       </div>
       
       <div className="bg-gray-50/50 border-t border-gray-100 p-2 flex items-center gap-1">
@@ -201,7 +205,16 @@ export default function PostCard({
         >
           <MessageSquare className="w-4 h-4 mr-2" /> Comment {commentsData.length > 0 && `(${commentsData.length})`}
         </Button>
-        <Button variant="ghost" size="sm" className="flex-1 text-gray-600 hover:text-[#007699] hover:bg-[#007699]/10">
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          onClick={(e) => {
+            e.stopPropagation();
+            navigator.clipboard.writeText(window.location.origin + '/post/' + post.id);
+            alert("Link copied to clipboard!");
+          }}
+          className="flex-1 text-gray-600 hover:text-[#007699] hover:bg-[#007699]/10"
+        >
           <Share2 className="w-4 h-4 mr-2" /> Share
         </Button>
       </div>

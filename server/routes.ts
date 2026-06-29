@@ -7,6 +7,12 @@ import { insertMessageSchema } from "@shared/schema";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
+import { createClient } from "@supabase/supabase-js";
+
+const supabase = createClient(
+  "https://xmapispmhbvqowgcbguf.supabase.co",
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhtYXBpc3BtaGJ2cW93Z2NiZ3VmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMyNjA1NzYsImV4cCI6MjA4ODgzNjU3Nn0.TbN1bg0gITJXieXQq3Z_nWY8nu1S2uX1klj4a7u57ac"
+);
 
 // Configure multer for file uploads
 const uploadDir = path.join(process.cwd(), 'uploads');
@@ -275,7 +281,6 @@ export async function registerRoutes(
     }
   });
 
-  // Get user info
   app.get("/api/users/:id", async (req, res) => {
     try {
       const user = await storage.getUser(req.params.id);
@@ -291,6 +296,94 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error fetching user:", error);
       res.status(500).json({ error: "Failed to fetch user" });
+    }
+  });
+
+  // SEO: Dynamic Meta Tags for Post Details Page
+  app.get("/post/:postId", async (req, res, next) => {
+    console.log("Current NODE_ENV:", process.env.NODE_ENV);
+    // Skip SEO injection in development to preserve Vite HMR preamble
+    if (process.env.NODE_ENV !== "production") {
+      return next();
+    }
+
+    try {
+      const { postId } = req.params;
+      console.log("DEBUG: Post details route hit for ID:", postId);
+
+      const { data: postsData, error } = await supabase.from('posts').select('*').eq('id', postId);
+      console.log("DEBUG: Raw database result:", postsData);
+      if (error) console.log("DEBUG: Supabase query error:", error);
+      
+      const post = postsData && postsData.length > 0 ? postsData[0] : null;
+      console.log("DEBUG: Post found:", post);
+
+      if (!post) {
+        console.log("DEBUG: Post not found in database for ID:", postId);
+        return next(); // Fallback to normal serving if not found
+      }
+
+      // Determine HTML file path based on environment
+      let htmlPath = path.resolve(process.cwd(), "index.html"); // dev
+      if (process.env.NODE_ENV === "production") {
+        htmlPath = path.resolve(process.cwd(), "dist/index.html");
+      }
+
+      if (!fs.existsSync(htmlPath)) {
+         return next();
+      }
+
+      let html = fs.readFileSync(htmlPath, "utf-8");
+
+      // Truncate content for description
+      const description = post.content ? (post.content.substring(0, 150) + (post.content.length > 150 ? '...' : '')) : "View this post on ScrollPet";
+      const title = post.title || "ScrollPet Post";
+      const image = post.image_url || "https://scrollpet.com/opengraph.png";
+
+      // Inject Meta Tags
+      html = html.replace(
+        /<\/head>/,
+        `  <title>${title} | ScrollPet</title>\n  <meta property="og:title" content="${title}" />\n  <meta property="og:description" content="${description}" />\n  <meta property="og:image" content="${image}" />\n  <meta name="twitter:card" content="summary_large_image" />\n  <meta name="twitter:title" content="${title}" />\n  <meta name="twitter:description" content="${description}" />\n  <meta name="twitter:image" content="${image}" />\n</head>`
+      );
+
+      res.send(html);
+    } catch (error) {
+      console.error("Error serving post with meta tags:", error);
+      next(); // fallback to normal vite/static handler
+    }
+  });
+
+  // SEO: Dynamic Sitemap
+  app.get("/sitemap.xml", async (req, res) => {
+    try {
+      const { data: posts } = await supabase.from('posts').select('id, created_at');
+
+      const baseUrl = "https://scrollpet.com";
+      const staticRoutes = [
+        "/", "/landing", "/explore", "/community", "/faq", 
+        "/about", "/contact", "/privacy", "/terms", "/cookies", 
+        "/community-guidelines", "/login", "/signup"
+      ];
+
+      let xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n`;
+
+      staticRoutes.forEach(route => {
+        xml += `  <url>\n    <loc>${baseUrl}${route}</loc>\n    <changefreq>weekly</changefreq>\n    <priority>${route === '/' ? '1.0' : '0.8'}</priority>\n  </url>\n`;
+      });
+
+      if (posts) {
+        posts.forEach((post: any) => {
+          xml += `  <url>\n    <loc>${baseUrl}/post/${post.id}</loc>\n    <lastmod>${new Date(post.created_at).toISOString()}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>0.7</priority>\n  </url>\n`;
+        });
+      }
+
+      xml += `</urlset>`;
+
+      res.header('Content-Type', 'application/xml');
+      res.send(xml);
+    } catch (error) {
+      console.error("Error generating sitemap:", error);
+      res.status(500).send("Error generating sitemap");
     }
   });
 

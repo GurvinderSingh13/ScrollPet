@@ -45,6 +45,11 @@ export default defineConfig({
   server: {
     host: "0.0.0.0",
     allowedHosts: true,
+    proxy: {
+      '/api': 'http://localhost:5000',
+      '/sitemap.xml': 'http://localhost:5000',
+      '/post': 'http://localhost:5000'
+    },
     fs: {
       strict: true,
       deny: ["**/.*"],
